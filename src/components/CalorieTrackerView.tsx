@@ -121,20 +121,20 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
           {/* Énergie */}
           <div
             className={`p-4 rounded-2xl border ${
-              isDark ? 'bg-black/30 border-white/5' : 'bg-white/80 border-stone-200'
+              isDark ? 'bg-black/30 border-white/5' : 'bg-white border-stone-300 shadow-xs'
             }`}
           >
             <div className="flex justify-between items-center mb-2 font-mono text-xs">
-              <span className="text-stone-400 flex items-center gap-1.5 uppercase tracking-wider">
-                <Flame className="w-3.5 h-3.5 text-amber-500" /> Calories
+              <span className="text-stone-700 dark:text-stone-300 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
+                <Flame className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Calories
               </span>
-              <span className="tabular-nums font-semibold text-stone-900 dark:text-white">
+              <span className="tabular-nums font-semibold text-stone-950 dark:text-white">
                 {consumedCalories} / {targetCalories} kcal ({calPercent}%)
               </span>
             </div>
             <div className="h-2.5 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
               <div
-                className="bg-amber-500 h-full transition-all duration-300 rounded-full"
+                className="bg-amber-600 dark:bg-amber-400 h-full transition-all duration-300 rounded-full"
                 style={{ width: `${calPercent}%` }}
               />
             </div>
@@ -143,20 +143,20 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
           {/* Protéines */}
           <div
             className={`p-4 rounded-2xl border ${
-              isDark ? 'bg-black/30 border-white/5' : 'bg-white/80 border-stone-200'
+              isDark ? 'bg-black/30 border-white/5' : 'bg-white border-stone-300 shadow-xs'
             }`}
           >
             <div className="flex justify-between items-center mb-2 font-mono text-xs">
-              <span className="text-stone-400 flex items-center gap-1.5 uppercase tracking-wider">
-                <Dumbbell className="w-3.5 h-3.5 text-emerald-500" /> Protéines
+              <span className="text-stone-700 dark:text-stone-300 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
+                <Dumbbell className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" /> Protéines
               </span>
-              <span className="tabular-nums font-semibold text-stone-900 dark:text-white">
+              <span className="tabular-nums font-semibold text-stone-950 dark:text-white">
                 {consumedProtein} / {targetProtein} g ({protPercent}%)
               </span>
             </div>
             <div className="h-2.5 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
               <div
-                className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
+                className="bg-emerald-700 dark:bg-emerald-400 h-full transition-all duration-300 rounded-full"
                 style={{ width: `${protPercent}%` }}
               />
             </div>
@@ -203,7 +203,7 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
             </div>
             <div className="text-right font-mono tabular-nums text-xs">
               <div className="text-stone-900 dark:text-white">{currentDayPlan.breakfast.caloriesPerServing} kcal</div>
-              <div className="text-emerald-600 dark:text-emerald-400 font-semibold">{currentDayPlan.breakfast.proteinPerServing}g prot</div>
+              <div className="text-emerald-900 dark:text-emerald-400 font-semibold">{currentDayPlan.breakfast.proteinPerServing}g prot</div>
             </div>
           </div>
 
@@ -239,7 +239,7 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
             </div>
             <div className="text-right font-mono tabular-nums text-xs">
               <div className="text-stone-900 dark:text-white">{currentDayPlan.lunch.caloriesPerServing} kcal</div>
-              <div className="text-emerald-600 dark:text-emerald-400 font-semibold">{currentDayPlan.lunch.proteinPerServing}g prot</div>
+              <div className="text-emerald-900 dark:text-emerald-400 font-semibold">{currentDayPlan.lunch.proteinPerServing}g prot</div>
             </div>
           </div>
 
@@ -265,7 +265,7 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
                 {eatenMeals.dinner && <Check className="w-3.5 h-3.5 stroke-[3]" />}
               </div>
               <div>
-                <div className="font-mono text-[10px] uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                <div className="font-mono text-[10px] uppercase tracking-wider text-stone-700 dark:text-stone-300 font-semibold">
                   Souper (Soir)
                 </div>
                 <div className="font-serif text-sm font-medium text-stone-900 dark:text-white">
@@ -274,8 +274,8 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
               </div>
             </div>
             <div className="text-right font-mono tabular-nums text-xs">
-              <div className="text-stone-900 dark:text-white">{currentDayPlan.dinner.caloriesPerServing} kcal</div>
-              <div className="text-emerald-600 dark:text-emerald-400 font-semibold">{currentDayPlan.dinner.proteinPerServing}g prot</div>
+              <div className="text-stone-900 dark:text-white font-medium">{currentDayPlan.dinner.caloriesPerServing} kcal</div>
+              <div className="text-emerald-900 dark:text-emerald-400 font-semibold">{currentDayPlan.dinner.proteinPerServing}g prot</div>
             </div>
           </div>
 
@@ -311,7 +311,7 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
             </div>
             <div className="text-right font-mono tabular-nums text-xs">
               <div className="text-stone-900 dark:text-white">{currentDayPlan.snack.caloriesPerServing} kcal</div>
-              <div className="text-emerald-600 dark:text-emerald-400 font-semibold">{currentDayPlan.snack.proteinPerServing}g prot</div>
+              <div className="text-emerald-900 dark:text-emerald-400 font-semibold">{currentDayPlan.snack.proteinPerServing}g prot</div>
             </div>
           </div>
         </div>

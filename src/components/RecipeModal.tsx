@@ -59,34 +59,34 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({ recipe, isDark, onClos
           {/* Macros Bar Style Apple Fitness */}
           <div
             className={`grid grid-cols-4 gap-2.5 p-4 rounded-2xl border text-center font-mono ${
-              isDark ? 'bg-black/30 border-white/5' : 'bg-white/80 border-stone-200'
+              isDark ? 'bg-black/30 border-white/5' : 'bg-stone-50 border-stone-300'
             }`}
           >
             <div>
-              <div className="text-stone-400 text-[10px] uppercase tracking-wider mb-1 flex items-center justify-center gap-1">
-                <Flame className="w-3 h-3 text-amber-500" /> Calories
+              <div className="text-stone-600 dark:text-stone-400 text-[10px] uppercase tracking-wider mb-1 flex items-center justify-center gap-1 font-medium">
+                <Flame className="w-3 h-3 text-amber-600 dark:text-amber-400" /> Cals
               </div>
-              <div className="text-lg font-light tabular-nums text-amber-600 dark:text-amber-300">
+              <div className="text-lg font-medium tabular-nums text-amber-900 dark:text-amber-300">
                 {recipe.caloriesPerServing} <span className="text-[10px] font-sans">kcal</span>
               </div>
             </div>
             <div>
-              <div className="text-stone-400 text-[10px] uppercase tracking-wider mb-1 flex items-center justify-center gap-1">
-                <Dumbbell className="w-3 h-3 text-emerald-500" /> Protéines
+              <div className="text-stone-600 dark:text-stone-400 text-[10px] uppercase tracking-wider mb-1 flex items-center justify-center gap-1 font-medium">
+                <Dumbbell className="w-3 h-3 text-emerald-700 dark:text-emerald-400" /> Prot
               </div>
-              <div className="text-lg font-light tabular-nums text-emerald-600 dark:text-emerald-400">
+              <div className="text-lg font-medium tabular-nums text-emerald-900 dark:text-emerald-400">
                 {recipe.proteinPerServing} <span className="text-[10px] font-sans">g</span>
               </div>
             </div>
             <div>
-              <div className="text-stone-400 text-[10px] uppercase tracking-wider mb-1">Glucides</div>
-              <div className="text-lg font-light tabular-nums text-sky-600 dark:text-sky-300">
+              <div className="text-stone-600 dark:text-stone-400 text-[10px] uppercase tracking-wider mb-1 font-medium">Glucides</div>
+              <div className="text-lg font-medium tabular-nums text-stone-900 dark:text-stone-200">
                 {recipe.carbsPerServing} <span className="text-[10px] font-sans">g</span>
               </div>
             </div>
             <div>
-              <div className="text-stone-400 text-[10px] uppercase tracking-wider mb-1">Lipides</div>
-              <div className="text-lg font-light tabular-nums text-purple-600 dark:text-purple-300">
+              <div className="text-stone-600 dark:text-stone-400 text-[10px] uppercase tracking-wider mb-1 font-medium">Lipides</div>
+              <div className="text-lg font-medium tabular-nums text-stone-800 dark:text-stone-300">
                 {recipe.fatPerServing} <span className="text-[10px] font-sans">g</span>
               </div>
             </div>
@@ -97,7 +97,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({ recipe, isDark, onClos
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-serif text-lg font-normal text-stone-900 dark:text-white flex items-center gap-2">
                 Ingrédients{' '}
-                <span className="font-sans text-xs text-stone-400 font-normal">
+                <span className="font-sans text-xs text-stone-600 dark:text-stone-400 font-normal">
                   {recipe.servings > 1 ? `(${recipe.servings} portions - souper + dîner)` : '(1 portion)'}
                 </span>
               </h3>
@@ -109,18 +109,18 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({ recipe, isDark, onClos
                   <li
                     key={index}
                     className={`flex items-start justify-between p-3 rounded-2xl border ${
-                      isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white/70 border-stone-200'
+                      isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-stone-200'
                     }`}
                   >
                     <div>
-                      <span className="font-medium text-stone-800 dark:text-stone-200">
+                      <span className="font-medium text-stone-900 dark:text-stone-200">
                         {ingMeta ? ingMeta.name : item.ingredientId}
                       </span>
                       {item.notes && (
-                        <p className="text-xs text-stone-400 italic mt-0.5">{item.notes}</p>
+                        <p className="text-xs text-stone-600 dark:text-stone-400 italic mt-0.5">{item.notes}</p>
                       )}
                     </div>
-                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-lg bg-stone-500/10 text-emerald-700 dark:text-emerald-300 shrink-0 ml-2">
+                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/70 text-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30 shrink-0 ml-2">
                       {item.quantity} {item.unit}
                     </span>
                   </li>
@@ -134,7 +134,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({ recipe, isDark, onClos
             <h3 className="font-serif text-lg font-normal text-stone-900 dark:text-white mb-3">
               Instructions de Préparation
             </h3>
-            <ol className="space-y-2.5 text-sm font-sans leading-relaxed text-stone-700 dark:text-stone-300">
+            <ol className="space-y-2.5 text-sm font-sans leading-relaxed text-stone-800 dark:text-stone-300">
               {recipe.instructions.map((step, idx) => (
                 <li
                   key={idx}
@@ -142,7 +142,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({ recipe, isDark, onClos
                     isDark ? 'bg-white/[0.015] border-white/5' : 'bg-stone-50 border-stone-200'
                   }`}
                 >
-                  <span className="w-6 h-6 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono text-xs flex items-center justify-center shrink-0 border border-emerald-500/20">
+                  <span className="w-6 h-6 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-200 font-mono text-xs flex items-center justify-center shrink-0 border border-stone-300 dark:border-white/10 font-bold">
                     {idx + 1}
                   </span>
                   <span>{step}</span>

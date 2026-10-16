@@ -46,24 +46,24 @@ export const Header: React.FC<HeaderProps> = ({
 
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-serif tracking-tight text-xl font-normal">
-                  FoodPlanner <span className="italic font-light text-stone-400">QC</span>
+                <span className="font-serif tracking-tight text-xl font-normal text-stone-900 dark:text-stone-100">
+                  FoodPlanner <span className="italic font-light text-stone-500 dark:text-stone-400">QC</span>
                 </span>
                 <span
                   className={`text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded-full border ${
                     isDark
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
-                      : 'bg-emerald-950/5 text-emerald-800 border-emerald-800/15'
+                      ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/30'
+                      : 'bg-emerald-50 text-emerald-900 border-emerald-300 font-semibold'
                   }`}
                 >
-                  Metro
+                  Metro QC
                 </span>
                 {coupleModeEnabled && (
                   <span
                     className={`text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded-full border flex items-center gap-1 ${
                       isDark
-                        ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
-                        : 'bg-purple-50 text-purple-800 border-purple-200'
+                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/25'
+                        : 'bg-amber-50 text-amber-900 border-amber-300 font-semibold'
                     }`}
                   >
                     <Users className="w-2.5 h-2.5" /> Couple
@@ -72,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <p
                 className={`text-[11px] tracking-wide hidden sm:block ${
-                  isDark ? 'text-stone-400' : 'text-stone-500'
+                  isDark ? 'text-stone-400' : 'text-stone-600'
                 }`}
               >
                 Prise de masse athlétique • Repas du soir doublés • Metro Québec
@@ -85,19 +85,19 @@ export const Header: React.FC<HeaderProps> = ({
             className={`hidden lg:flex items-center gap-3 px-3.5 py-1.5 rounded-full border transition-all ${
               isDark
                 ? 'bg-white/[0.03] border-white/10 text-stone-200'
-                : 'bg-stone-100/70 border-stone-200 text-stone-800'
+                : 'bg-stone-100 border-stone-300 text-stone-800 shadow-xs'
             }`}
           >
             <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums">
-              <span className="w-2 h-2 rounded-full bg-amber-400 ring-2 ring-amber-400/20" />
-              <span className={isDark ? 'text-stone-400' : 'text-stone-500'}>Cible :</span>
-              <span className="font-semibold">3 050 kcal</span>
+              <span className="w-2 h-2 rounded-full bg-amber-600 dark:bg-amber-400" />
+              <span className={isDark ? 'text-stone-400' : 'text-stone-600'}>Cible :</span>
+              <span className="font-semibold text-stone-900 dark:text-stone-100">3 050 kcal</span>
             </div>
             <div className={`h-3 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-300'}`} />
             <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-400/20" />
-              <span className={isDark ? 'text-stone-400' : 'text-stone-500'}>Protéines :</span>
-              <span className="font-semibold">165 g</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-700 dark:bg-emerald-400" />
+              <span className={isDark ? 'text-stone-400' : 'text-stone-600'}>Protéines :</span>
+              <span className="font-semibold text-stone-900 dark:text-stone-100">165 g</span>
             </div>
           </div>
 
@@ -120,7 +120,7 @@ export const Header: React.FC<HeaderProps> = ({
                       : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
                     : isDark
                     ? 'text-stone-400 hover:text-white'
-                    : 'text-stone-600 hover:text-stone-900'
+                    : 'text-stone-700 hover:text-stone-950 font-medium'
                 }`}
               >
                 <Calendar className="w-3.5 h-3.5" />
@@ -136,7 +136,7 @@ export const Header: React.FC<HeaderProps> = ({
                       : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
                     : isDark
                     ? 'text-stone-400 hover:text-white'
-                    : 'text-stone-600 hover:text-stone-900'
+                    : 'text-stone-700 hover:text-stone-950 font-medium'
                 }`}
               >
                 <ShoppingBag className="w-3.5 h-3.5" />
@@ -167,7 +167,7 @@ export const Header: React.FC<HeaderProps> = ({
                       : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
                     : isDark
                     ? 'text-stone-400 hover:text-white'
-                    : 'text-stone-600 hover:text-stone-900'
+                    : 'text-stone-700 hover:text-stone-950 font-medium'
                 }`}
               >
                 <Activity className="w-3.5 h-3.5" />
@@ -183,7 +183,7 @@ export const Header: React.FC<HeaderProps> = ({
                       : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
                     : isDark
                     ? 'text-stone-400 hover:text-white'
-                    : 'text-stone-600 hover:text-stone-900'
+                    : 'text-stone-700 hover:text-stone-950 font-medium'
                 }`}
               >
                 <Store className="w-3.5 h-3.5" />

@@ -120,7 +120,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
               }`}
               title="Régénérer le menu de la semaine"
             >
-              <RefreshCw className="w-4 h-4 text-emerald-400" />
+              <RefreshCw className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
             </button>
           </div>
         </div>
@@ -209,24 +209,24 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                 </button>
               </div>
 
-              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-colors">
+              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-emerald-800 dark:group-hover:text-emerald-300 transition-colors">
                 {currentDay.breakfast.title}
               </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 line-clamp-2 font-sans">
+              <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 line-clamp-2 font-sans">
                 {currentDay.breakfast.ingredients.slice(0, 4).map((i) => i.ingredientId.replace(/_/g, ' ')).join(', ')}...
               </p>
             </div>
 
-            <div className="mt-5 pt-3 border-t border-stone-200/50 dark:border-white/10 flex items-center justify-between text-xs">
+            <div className="mt-5 pt-3 border-t border-stone-200 dark:border-white/10 flex items-center justify-between text-xs">
               <div className="flex items-center gap-3 font-mono tabular-nums">
-                <span className="font-semibold text-amber-600 dark:text-amber-300">
+                <span className="font-semibold text-amber-900 dark:text-amber-300">
                   {currentDay.breakfast.caloriesPerServing} kcal
                 </span>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="font-semibold text-emerald-900 dark:text-emerald-400">
                   {currentDay.breakfast.proteinPerServing}g prot
                 </span>
               </div>
-              <span className="text-stone-400 group-hover:text-emerald-500 flex items-center gap-0.5 transition-colors">
+              <span className="text-stone-600 dark:text-stone-400 group-hover:text-stone-950 dark:group-hover:text-stone-200 flex items-center gap-0.5 transition-colors font-medium">
                 Voir recette <ChevronRight className="w-3.5 h-3.5" />
               </span>
             </div>
@@ -239,32 +239,32 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20">
-                  <Sun className="w-3 h-3 text-sky-500" /> Dîner (Midi)
+                <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
+                  <Sun className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Dîner (Midi)
                 </span>
-                <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30 font-semibold">
                   Portion de la veille
                 </span>
               </div>
 
-              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-colors">
+              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-emerald-800 dark:group-hover:text-emerald-300 transition-colors">
                 {currentDay.lunch.title}
               </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 font-sans">
+              <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 font-sans">
                 Cuisiné hier soir en portion double. Prêt à réchauffer au dîner.
               </p>
             </div>
 
-            <div className="mt-5 pt-3 border-t border-stone-200/50 dark:border-white/10 flex items-center justify-between text-xs">
+            <div className="mt-5 pt-3 border-t border-stone-200 dark:border-white/10 flex items-center justify-between text-xs">
               <div className="flex items-center gap-3 font-mono tabular-nums">
-                <span className="font-semibold text-amber-600 dark:text-amber-300">
+                <span className="font-semibold text-amber-900 dark:text-amber-300">
                   {currentDay.lunch.caloriesPerServing} kcal
                 </span>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="font-semibold text-emerald-900 dark:text-emerald-400">
                   {currentDay.lunch.proteinPerServing}g prot
                 </span>
               </div>
-              <span className="text-stone-400 group-hover:text-emerald-500 flex items-center gap-0.5 transition-colors">
+              <span className="text-stone-600 dark:text-stone-400 group-hover:text-stone-950 dark:group-hover:text-stone-200 flex items-center gap-0.5 transition-colors font-medium">
                 Voir fiche <ChevronRight className="w-3.5 h-3.5" />
               </span>
             </div>
@@ -275,53 +275,53 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
             onClick={() => onSelectRecipe(currentDay.dinner)}
             className={`p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between group ${
               isDark
-                ? 'liquid-glass border-emerald-500/40 hover:border-emerald-400'
-                : 'liquid-glass-light border-emerald-700/30 hover:border-emerald-700'
+                ? 'liquid-glass border-white/20 hover:border-white/40'
+                : 'liquid-glass-light border-stone-400 hover:border-stone-800 shadow-xs'
             }`}
           >
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
-                  <Moon className="w-3 h-3 text-purple-500" /> Souper du Soir (Cuisiné frais)
+                <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/10 font-semibold">
+                  <Moon className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Souper du Soir (Cuisiné frais)
                 </span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'dinner' });
                   }}
-                  className="text-xs text-stone-400 hover:text-emerald-500 transition-colors px-2 py-0.5 rounded-lg"
+                  className="text-xs text-stone-600 dark:text-stone-400 hover:text-stone-950 dark:hover:text-white transition-colors px-2 py-0.5 rounded-lg font-medium"
                 >
                   Changer ▾
                 </button>
               </div>
 
               <div className="flex items-center gap-2 mb-1.5">
-                <span className="font-mono text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-emerald-950 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-500/30 px-2 py-0.5 rounded-md font-semibold">
                   2 portions à préparer
                 </span>
-                <span className="text-xs text-stone-400">
+                <span className="text-xs text-stone-600 dark:text-stone-400 font-mono">
                   ~{currentDay.dinner.prepTimeMinutes + currentDay.dinner.cookTimeMinutes} min
                 </span>
               </div>
 
-              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-colors">
+              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-emerald-800 dark:group-hover:text-emerald-300 transition-colors">
                 {currentDay.dinner.title}
               </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 line-clamp-2 font-sans">
+              <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 line-clamp-2 font-sans">
                 {currentDay.dinner.ingredients.slice(0, 4).map((i) => i.ingredientId.replace(/_/g, ' ')).join(', ')}...
               </p>
             </div>
 
-            <div className="mt-5 pt-3 border-t border-stone-200/50 dark:border-white/10 flex items-center justify-between text-xs">
+            <div className="mt-5 pt-3 border-t border-stone-200 dark:border-white/10 flex items-center justify-between text-xs">
               <div className="flex items-center gap-3 font-mono tabular-nums">
-                <span className="font-semibold text-amber-600 dark:text-amber-300">
+                <span className="font-semibold text-amber-900 dark:text-amber-300">
                   {currentDay.dinner.caloriesPerServing} kcal
                 </span>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="font-semibold text-emerald-900 dark:text-emerald-400">
                   {currentDay.dinner.proteinPerServing}g prot
                 </span>
               </div>
-              <span className="text-stone-400 group-hover:text-emerald-500 flex items-center gap-0.5 transition-colors">
+              <span className="text-stone-600 dark:text-stone-400 group-hover:text-stone-950 dark:group-hover:text-stone-200 flex items-center gap-0.5 transition-colors font-medium">
                 Voir recette <ChevronRight className="w-3.5 h-3.5" />
               </span>
             </div>
@@ -334,38 +334,38 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20">
-                  <Zap className="w-3 h-3 text-rose-500" /> Collation Sportive (~450 kcal)
+                <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
+                  <Zap className="w-3 h-3 text-amber-700 dark:text-amber-400" /> Collation Sportive (~450 kcal)
                 </span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'snack' });
                   }}
-                  className="text-xs text-stone-400 hover:text-emerald-500 transition-colors px-2 py-0.5 rounded-lg"
+                  className="text-xs text-stone-600 dark:text-stone-400 hover:text-stone-950 dark:hover:text-white transition-colors px-2 py-0.5 rounded-lg font-medium"
                 >
                   Changer ▾
                 </button>
               </div>
 
-              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-colors">
+              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-emerald-800 dark:group-hover:text-emerald-300 transition-colors">
                 {currentDay.snack.title}
               </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 font-sans">
+              <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 font-sans">
                 Aliments entiers denses : yogourt grec, cottage, fruits, noix, beurre d'arachide.
               </p>
             </div>
 
-            <div className="mt-5 pt-3 border-t border-stone-200/50 dark:border-white/10 flex items-center justify-between text-xs">
+            <div className="mt-5 pt-3 border-t border-stone-200 dark:border-white/10 flex items-center justify-between text-xs">
               <div className="flex items-center gap-3 font-mono tabular-nums">
-                <span className="font-semibold text-amber-600 dark:text-amber-300">
+                <span className="font-semibold text-amber-900 dark:text-amber-300">
                   {currentDay.snack.caloriesPerServing} kcal
                 </span>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="font-semibold text-emerald-900 dark:text-emerald-400">
                   {currentDay.snack.proteinPerServing}g prot
                 </span>
               </div>
-              <span className="text-stone-400 group-hover:text-emerald-500 flex items-center gap-0.5 transition-colors">
+              <span className="text-stone-600 dark:text-stone-400 group-hover:text-stone-950 dark:group-hover:text-stone-200 flex items-center gap-0.5 transition-colors font-medium">
                 Voir détails <ChevronRight className="w-3.5 h-3.5" />
               </span>
             </div>

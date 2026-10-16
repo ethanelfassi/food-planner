@@ -47,24 +47,24 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
           <div
             className={`mt-6 p-4 rounded-2xl border flex items-center justify-between ${
               isDark
-                ? 'bg-purple-950/20 border-purple-500/30'
-                : 'bg-purple-50/70 border-purple-200'
+                ? 'bg-amber-950/20 border-amber-500/30'
+                : 'bg-amber-50 border-amber-300 shadow-xs'
             }`}
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-300 flex items-center justify-center font-bold">
-                <Crown className="w-5 h-5 text-amber-500" />
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-300 flex items-center justify-center font-bold">
+                <Crown className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <div className="text-xs font-mono uppercase tracking-wider text-purple-900 dark:text-purple-200 font-bold">
+                <div className="text-xs font-mono uppercase tracking-wider text-amber-950 dark:text-amber-200 font-bold">
                   Rabais total Membre Moi appliqué
                 </div>
-                <div className="text-xs text-stone-500 dark:text-stone-400 font-sans">
+                <div className="text-xs text-stone-700 dark:text-stone-300 font-sans">
                   Économie de <strong>{receipt.totalSavingsMoi.toFixed(2)} $ CAD</strong> cette semaine avec votre carte Moi.
                 </div>
               </div>
             </div>
-            <div className="font-mono tabular-nums text-xl font-light text-purple-700 dark:text-purple-300">
+            <div className="font-mono tabular-nums text-xl font-medium text-amber-900 dark:text-amber-300">
               -{receipt.totalSavingsMoi.toFixed(2)} $
             </div>
           </div>
@@ -156,12 +156,12 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
         <div className={`rounded-3xl p-6 sm:p-8 transition-all border ${cardGlassClass}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Crown className="w-5 h-5 text-amber-500" />
+              <Crown className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               <h2 className="font-serif text-xl font-normal text-stone-900 dark:text-white">
                 Offres Exclusives Membre Moi Présentes dans votre Panier
               </h2>
             </div>
-            <span className="font-mono text-xs text-purple-700 dark:text-purple-300">
+            <span className="font-mono text-xs font-semibold text-amber-900 dark:text-amber-300">
               {moiItems.length} aubaines
             </span>
           </div>
@@ -173,22 +173,22 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
                 className={`p-4 rounded-2xl border flex items-center justify-between ${
                   isDark
                     ? 'bg-white/[0.02] border-white/5'
-                    : 'bg-white/80 border-stone-200'
+                    : 'bg-white border-stone-300'
                 }`}
               >
                 <div>
                   <div className="font-medium text-sm text-stone-900 dark:text-white">{item.name}</div>
-                  <div className="font-mono text-xs text-stone-400 mt-0.5">
-                    {item.packageDescription} • <span className="text-emerald-600 dark:text-emerald-400">{item.unitPriceLabel}</span>
+                  <div className="font-mono text-xs text-stone-600 dark:text-stone-400 mt-0.5">
+                    {item.packageDescription} • <span className="text-emerald-900 dark:text-emerald-400 font-medium">{item.unitPriceLabel}</span>
                   </div>
                 </div>
 
                 <div className="text-right shrink-0 ml-2 font-mono">
-                  <div className="text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded-lg border border-purple-500/20">
+                  <div className="text-xs font-semibold text-amber-950 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/10 px-2.5 py-0.5 rounded-lg border border-amber-300 dark:border-amber-500/25">
                     {item.exactPriceMetro.toFixed(2)} $
                   </div>
                   {item.savingsAmount > 0 && (
-                    <div className="text-[10px] text-stone-400 line-through mt-0.5">
+                    <div className="text-[10px] text-stone-500 dark:text-stone-400 line-through mt-0.5">
                       {item.regularPriceMetro.toFixed(2)} $
                     </div>
                   )}
