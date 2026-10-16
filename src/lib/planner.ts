@@ -1,5 +1,6 @@
 import { DayPlan, Recipe, WeeklyPlan } from '@/types';
 import { RECIPES } from '@/data/recipes';
+import { INGREDIENTS } from '@/data/ingredients';
 
 const DAY_NAMES = [
   'Lundi',
@@ -11,33 +12,56 @@ const DAY_NAMES = [
   'Dimanche',
 ];
 
-const breakfasts = RECIPES.filter((r) => r.mealType === 'dejeuner');
-const dinners = RECIPES.filter((r) => r.mealType === 'souper');
-const snacks = RECIPES.filter((r) => r.mealType === 'collation');
+// Fonction pour calculer le score de promotion d'une recette
+function calculateRecipePromoScore(recipe: Recipe): number {
+  let score = 0;
+  for (const item of recipe.ingredients) {
+    const ing = INGREDIENTS[item.ingredientId];
+    if (ing) {
+      if (ing.packaging.isMoiMemberPrice) score += 3; // Priorité Prix Membre Moi
+      if (ing.flyerDeal?.store === 'Metro') score += 2; // Promo circulaire
+    }
+  }
+  return score;
+}
+
+// Trier et marquer les recettes
+const scoredRecipes = RECIPES.map((r) => ({
+  ...r,
+  promoScore: calculateRecipePromoScore(r),
+  hasPromoOrMoiDeal: calculateRecipePromoScore(r) > 0,
+}));
+
+const breakfasts = scoredRecipes.filter((r) => r.mealType === 'dejeuner');
+const dinners = scoredRecipes.filter((r) => r.mealType === 'souper');
+const snacks = scoredRecipes.filter((r) => r.mealType === 'collation');
 
 export function generateWeeklyPlan(): WeeklyPlan {
   const days: DayPlan[] = [];
 
-  // Sélectionner 7 soupers distincts ou variés pour chaque soir
-  const dinnerSelection: Recipe[] = [];
-  const shuffledDinners = [...dinners].sort(() => Math.random() - 0.5);
+  // Favoriser les promos et les prix Membre Moi :
+  // Trier les soupers par score de promotion décroissant, avec une légère composante de variété
+  const sortedDinners = [...dinners].sort((a, b) => b.promoScore - a.promoScore);
 
+  // Placer en priorité les meilleures aubaines de la semaine (bœuf haché Membre Moi, poulet club Membre Moi, saumon circulaire)
+  const dinnerSelection: Recipe[] = [];
   for (let i = 0; i < 7; i++) {
-    dinnerSelection.push(shuffledDinners[i % shuffledDinners.length]);
+    dinnerSelection.push(sortedDinners[i % sortedDinners.length]);
   }
+
+  // De même pour déjeuners et collations
+  const sortedBreakfasts = [...breakfasts].sort((a, b) => b.promoScore - a.promoScore);
+  const sortedSnacks = [...snacks].sort((a, b) => b.promoScore - a.promoScore);
 
   for (let i = 0; i < 7; i++) {
     const dayName = DAY_NAMES[i];
-    const breakfast = breakfasts[i % breakfasts.length];
-    const snack = snacks[i % snacks.length];
+    const breakfast = sortedBreakfasts[i % sortedBreakfasts.length];
+    const snack = sortedSnacks[i % sortedSnacks.length];
     const dinner = dinnerSelection[i];
 
     // Le midi : portion de la veille au soir !
-    // Pour le lundi midi (jour 0), on prend une portion du souper du dimanche ou le premier souper
     const lunch = i === 0 ? dinnerSelection[dinnerSelection.length - 1] : dinnerSelection[i - 1];
 
-    // Calcul des totaux journaliers
-    // Noter que pour le lunch, c'est la même valeur par portion que le souper
     const dailyCalories =
       breakfast.caloriesPerServing +
       lunch.caloriesPerServing +
@@ -114,7 +138,6 @@ export function replaceRecipeInPlan(
     targetDay.breakfast = candidate;
   } else if (mealType === 'dinner') {
     targetDay.dinner = candidate;
-    // Si on change le souper de ce soir, le dîner du lendemain hérite de cette nouvelle recette !
     const nextDayIndex = (dayIndex + 1) % 7;
     if (newDays[nextDayIndex]) {
       const nextDay = { ...newDays[nextDayIndex] };

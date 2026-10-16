@@ -1,5 +1,5 @@
 import { GroceryItem } from '@/types';
-import { AISLE_LABELS } from './grocery';
+import { AISLE_LABELS, calculateReceiptTaxes } from './grocery';
 
 export function formatGroceryListAsText(items: GroceryItem[], storeName = 'Metro'): string {
   const dateStr = new Date().toLocaleDateString('fr-CA', {
@@ -9,10 +9,13 @@ export function formatGroceryListAsText(items: GroceryItem[], storeName = 'Metro
     day: 'numeric',
   });
 
-  const totalMetro = items.reduce((acc, i) => acc + i.estimatedPriceMetro, 0);
+  const receipt = calculateReceiptTaxes(items);
 
-  let text = `🛒 LISTE D'ÉPICERIE (${storeName.toUpperCase()}) - ${dateStr}\n`;
-  text += `🎯 Total estimé : ~${Math.round(totalMetro)} $ CAD (${items.length} articles)\n`;
+  let text = `🛒 LISTE D'ÉPICERIE EXACTE (${storeName.toUpperCase()}) - ${dateStr}\n`;
+  text += `🎯 TOTAL EXACT À LA CAISSE : ${receipt.totalWithTax.toFixed(2)} $ CAD\n`;
+  if (receipt.totalSavingsMoi > 0) {
+    text += `🎁 Économies Membre Moi & Promos : -${receipt.totalSavingsMoi.toFixed(2)} $\n`;
+  }
   text += `--------------------------------------------------\n\n`;
 
   // Grouper par rayon
@@ -24,7 +27,6 @@ export function formatGroceryListAsText(items: GroceryItem[], storeName = 'Metro
     byAisle[item.aisle].push(item);
   }
 
-  // Trier les rayons selon l'ordre physique Metro
   const sortedAisles = Object.keys(byAisle).sort((a, b) => {
     const orderA = AISLE_LABELS[a as keyof typeof AISLE_LABELS]?.order ?? 99;
     const orderB = AISLE_LABELS[b as keyof typeof AISLE_LABELS]?.order ?? 99;
@@ -36,20 +38,33 @@ export function formatGroceryListAsText(items: GroceryItem[], storeName = 'Metro
     text += `📍 [ ${label.toUpperCase()} ]\n`;
     for (const item of byAisle[aisleKey]) {
       const checkMark = item.checked ? '[x]' : '[ ]';
-      const deal = item.flyerHighlight ? ` 🔥 (${item.flyerHighlight})` : '';
-      text += `  ${checkMark} ${item.name} -> ${item.packageDescription}${deal}\n`;
+      const moi = item.isMoiMemberPrice ? ' [👑 PRIX MEMBRE MOI]' : '';
+      const unitP = item.unitPriceLabel ? ` (${item.unitPriceLabel})` : '';
+      const tax = item.isTaxable ? ' [Taxable +14.975%]' : ' [Détaxé 0%]';
+      text += `  ${checkMark} ${item.name}\n`;
+      text += `      -> ${item.packageDescription} | ${item.exactPriceMetro.toFixed(2)} $ CAD${unitP}${moi}${tax}\n`;
     }
     text += `\n`;
   }
 
-  text += `--------------------------------------------------\n`;
-  text += `Généré automatiquement par Food Planner Québec.\n`;
+  text += `==================================================\n`;
+  text += `🧾 DÉTAIL DU TICKET DE CAISSE (REVENU QUÉBEC) :\n`;
+  text += `  - Épicerie de base détaxée (0% taxe) : ${receipt.subtotalZeroRated.toFixed(2)} $\n`;
+  if (receipt.subtotalTaxable > 0) {
+    text += `  - Produits taxables : ${receipt.subtotalTaxable.toFixed(2)} $\n`;
+    text += `  - TPS (5.0%) : ${receipt.tps.toFixed(2)} $\n`;
+    text += `  - TVQ (9.975%) : ${receipt.tvq.toFixed(2)} $\n`;
+  }
+  text += `  ------------------------------------------------\n`;
+  text += `  👉 MONTANT EXACT À PAYER : ${receipt.totalWithTax.toFixed(2)} $ CAD\n`;
+  text += `==================================================\n`;
 
   return text;
 }
 
 export function generateMailtoUrl(items: GroceryItem[], targetEmail = ''): string {
-  const subject = encodeURIComponent(`🛒 Ma liste d'épicerie Metro du ${new Date().toLocaleDateString('fr-CA')}`);
+  const receipt = calculateReceiptTaxes(items);
+  const subject = encodeURIComponent(`🛒 Ma liste d'épicerie Metro du ${new Date().toLocaleDateString('fr-CA')} (${receipt.totalWithTax.toFixed(2)}$ TTC)`);
   const body = encodeURIComponent(formatGroceryListAsText(items, 'Metro'));
   return `mailto:${targetEmail}?subject=${subject}&body=${body}`;
 }

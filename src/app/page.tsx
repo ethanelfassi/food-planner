@@ -97,7 +97,13 @@ export default function Home() {
     );
   };
 
-  const handleAddItem = (name: string, aisle: MetroAisle, packageDescription: string) => {
+  const handleAddItem = (
+    name: string,
+    aisle: MetroAisle,
+    packageDescription: string,
+    isTaxable = false,
+    price = 0
+  ) => {
     const newItem: GroceryItem = {
       id: `custom_${Date.now()}`,
       name,
@@ -106,10 +112,16 @@ export default function Home() {
       unit: 'unite',
       packageDescription,
       packageCount: 1,
-      estimatedPriceMetro: 0,
-      estimatedPriceMaxi: 0,
-      estimatedPriceSuperC: 0,
-      estimatedPriceIGA: 0,
+      regularPriceMetro: price,
+      exactPriceMetro: price,
+      unitPriceLabel: price > 0 ? `${price.toFixed(2)} $ / unité` : '',
+      pricePer100g: 0,
+      isTaxable,
+      isMoiMemberPrice: false,
+      savingsAmount: 0,
+      estimatedPriceMaxi: price,
+      estimatedPriceSuperC: price,
+      estimatedPriceIGA: price,
       checked: false,
       isCustom: true,
     };

@@ -11,10 +11,16 @@ export interface IngredientPackaging {
   amount: number;
   unit: string;
   label: string; // Ex: "Barquette de 450g", "Pot de 750g", "Douzaine"
-  priceMetro: number;
+  regularPriceMetro: number;
+  exactPriceMetro: number; // Prix exact appliqué chez Metro (promo / Membre Moi si actif)
+  unitPricePer100g: number; // Prix calculé aux 100g ou 100ml ou unité
+  unitPriceLabel: string; // Ex: "2.00 $ / 100g", "0.33 $ / unité"
   priceMaxi: number;
   priceSuperC: number;
   priceIGA: number;
+  isTaxable: boolean; // false pour épicerie de base détaxée (0%), true pour articles taxés (14.975%)
+  isMoiMemberPrice: boolean; // Si prix exclusif réservé aux membres Moi
+  moiPriceLabel?: string; // Ex: "Prix exclusif Membre Moi"
 }
 
 export interface Ingredient {
@@ -35,6 +41,7 @@ export interface Ingredient {
     store: 'Metro' | 'Maxi' | 'Super C' | 'IGA';
     promoLabel: string;
     discountPrice: number;
+    isMoiExclusive?: boolean;
   };
 }
 
@@ -42,7 +49,7 @@ export type MealType = 'dejeuner' | 'diner' | 'souper' | 'collation';
 
 export interface RecipeIngredientItem {
   ingredientId: string;
-  quantity: number; // Quantité par portion unitaire
+  quantity: number;
   unit: string;
   displayQuantity?: string;
   notes?: string;
@@ -54,7 +61,7 @@ export interface Recipe {
   mealType: 'dejeuner' | 'souper' | 'collation';
   prepTimeMinutes: number;
   cookTimeMinutes: number;
-  servings: number; // Portions produites par la recette (2 pour les soupers cuisinés le soir)
+  servings: number;
   caloriesPerServing: number;
   proteinPerServing: number;
   carbsPerServing: number;
@@ -62,15 +69,16 @@ export interface Recipe {
   ingredients: RecipeIngredientItem[];
   instructions: string[];
   tags: string[];
+  hasPromoOrMoiDeal?: boolean; // Pour prioriser les recettes en promo
 }
 
 export interface DayPlan {
   dayIndex: number;
-  dayName: string; // "Lundi", "Mardi", etc.
+  dayName: string;
   breakfast: Recipe;
-  lunch: Recipe; // Restes du souper de la veille ou repas midi
-  dinner: Recipe; // Cuisiné le soir (x2 portions pour couvrir le midi suivant)
-  snack: Recipe; // Collation sportive riche en protéines
+  lunch: Recipe;
+  dinner: Recipe;
+  snack: Recipe;
   dailyCalories: number;
   dailyProtein: number;
   dailyCarbs: number;
@@ -94,7 +102,14 @@ export interface GroceryItem {
   unit: string;
   packageDescription: string;
   packageCount: number;
-  estimatedPriceMetro: number;
+  regularPriceMetro: number;
+  exactPriceMetro: number; // Prix final appliqué (avec rabais Membre Moi inclus)
+  unitPriceLabel: string; // "2.00 $ / 100g"
+  pricePer100g: number;
+  isTaxable: boolean; // TPS (5%) et TVQ (9.975%)
+  isMoiMemberPrice: boolean;
+  moiPriceLabel?: string;
+  savingsAmount: number; // Économie réalisée par rapport au prix régulier
   estimatedPriceMaxi: number;
   estimatedPriceSuperC: number;
   estimatedPriceIGA: number;
@@ -105,6 +120,17 @@ export interface GroceryItem {
   metroProductUrl?: string;
 }
 
+export interface ReceiptTaxCalculation {
+  subtotalZeroRated: number; // Épicerie de base non taxable (0%)
+  subtotalTaxable: number; // Produits taxables (articles de maison, snacks)
+  tps: number; // 5.0%
+  tvq: number; // 9.975%
+  totalTaxes: number;
+  totalWithTax: number; // Ce qu'on va EXACTEMENT payer à la caisse
+  regularTotal: number; // Total si prix réguliers sans promo
+  totalSavingsMoi: number; // Montant total sauvé grâce aux prix Membre Moi & promos
+}
+
 export interface StorePriceSummary {
   storeName: string;
   totalEstimated: number;
@@ -112,20 +138,19 @@ export interface StorePriceSummary {
   bannerType: 'Standard' | 'Discount' | 'Haut de gamme';
 }
 
-// --- NOUVEAUX TYPES : GESTION DE COUPLE & RÉPARTITION DES COURSES ---
 export interface UserProfile {
   id: string;
   name: string;
   targetCalories: number;
   targetProtein: number;
   dietaryDescription: string;
-  portionMultiplier: number; // Ratio calorique / protéique relatif
+  portionMultiplier: number;
 }
 
 export interface CoupleSettings {
   coupleModeEnabled: boolean;
-  user1: UserProfile; // Ethan (Sportif, 3050 kcal, 165g prot)
-  user2: UserProfile; // Copine (Régime / Objectif différent)
+  user1: UserProfile;
+  user2: UserProfile;
 }
 
 export interface SplitCostReport {
@@ -139,7 +164,6 @@ export interface SplitCostReport {
   explanation: string;
 }
 
-// --- NOUVEAUX TYPES : TRACKER CALORIQUE INTÉGRÉ ---
 export interface DailyLoggedItem {
   id: string;
   name: string;

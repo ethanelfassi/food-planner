@@ -3,7 +3,8 @@
 import React from 'react';
 import { GroceryItem } from '@/types';
 import { calculateStorePriceComparison } from '@/lib/price-comparator';
-import { Store, TrendingDown, Flame, DollarSign, ArrowRight, Sparkles, AlertCircle } from 'lucide-react';
+import { calculateReceiptTaxes } from '@/lib/grocery';
+import { Store, TrendingDown, Flame, Crown, Sparkles, AlertCircle, ShieldCheck } from 'lucide-react';
 
 interface DealsAndPricesViewProps {
   groceryItems: GroceryItem[];
@@ -11,10 +12,12 @@ interface DealsAndPricesViewProps {
 
 export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryItems }) => {
   const priceComparison = calculateStorePriceComparison(groceryItems);
+  const receipt = calculateReceiptTaxes(groceryItems);
   const metroTotal = priceComparison.find((p) => p.storeName === 'Metro')?.totalEstimated || 0;
 
-  // Récupérer les ingrédients en promo dans la liste
-  const itemsWithPromos = groceryItems.filter((i) => i.flyerHighlight);
+  // Récupérer les ingrédients en promo ou Membre Moi
+  const moiItems = groceryItems.filter((i) => i.isMoiMemberPrice);
+  const circularItems = groceryItems.filter((i) => i.flyerHighlight && !i.isMoiMemberPrice);
 
   return (
     <div className="space-y-6">
@@ -24,21 +27,43 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
           <span className="text-xs uppercase font-bold tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-0.5 rounded-full border border-amber-400/20">
             Économies & Intelligence de Marché QC
           </span>
-          <span className="text-xs text-slate-400">Circulaires du Jeudi</span>
+          <span className="text-xs text-slate-400">Programme Moi & Circulaires</span>
         </div>
         <h1 className="text-xl sm:text-2xl font-black text-white">
-          Comparateur de Panier & Circulaires Hebdomadaires
+          Comparateur de Panier & Offres Membre Moi
         </h1>
         <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-3xl">
-          Au Québec, les circulaires changent chaque jeudi. Voici la simulation du coût de votre panier hebdomadaire d'athlète (aliments complets, ~3 050 kcal) selon les bannières alimentaires.
+          Votre planificateur a automatiquement favorisé les recettes intégrant les <strong>Prix Membre Moi</strong> et les rabais de circulaire de la semaine pour minimiser votre facture à la caisse de Metro.
         </p>
+
+        {receipt.totalSavingsMoi > 0 && (
+          <div className="mt-4 p-3 bg-gradient-to-r from-purple-950/60 via-purple-900/40 to-slate-900 border border-purple-500/40 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-amber-400/20 text-amber-300 flex items-center justify-center font-bold">
+                <Crown className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-amber-200">
+                  Rabais total Membre Moi appliqué
+                </div>
+                <div className="text-xs text-slate-300">
+                  Vous économisez <strong>{receipt.totalSavingsMoi.toFixed(2)} $ CAD</strong> cette semaine grâce à votre compte Moi.
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-lg font-black text-amber-300">
+                -{receipt.totalSavingsMoi.toFixed(2)} $
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Cartes Comparatives Multi-Supermarchés */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {priceComparison.map((store) => {
           const isMetro = store.storeName === 'Metro';
-          const isDiscount = store.bannerType === 'Discount';
           const savings = metroTotal > 0 ? Math.round(((metroTotal - store.totalEstimated) / metroTotal) * 100) : 0;
 
           return (
@@ -84,7 +109,7 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
               <div className="pt-3 border-t border-slate-800/80">
                 {isMetro ? (
                   <div className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5" /> Supermarché de référence sélectionné
+                    <Sparkles className="w-3.5 h-3.5" /> Supermarché de référence (Prix Moi inclus)
                   </div>
                 ) : store.differenceWithMetro < 0 ? (
                   <div className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
@@ -102,59 +127,100 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
         })}
       </div>
 
-      {/* Détail des Rabais Circulaires Détectés dans la Semaine */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Flame className="w-5 h-5 text-amber-400" />
-            <h2 className="text-lg font-bold text-white">
-              Articles en Vedette Circulaire dans votre Menu
-            </h2>
+      {/* Détail des Rabais Membre Moi Détectés */}
+      {moiItems.length > 0 && (
+        <div className="bg-gradient-to-br from-slate-900 to-purple-950/40 border border-purple-500/30 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Crown className="w-5 h-5 text-amber-400" />
+              <h2 className="text-lg font-bold text-white">
+                Offres Exclusives Membre Moi Présentes dans votre Menu
+              </h2>
+            </div>
+            <span className="text-xs font-semibold text-amber-300 bg-purple-900/60 px-2.5 py-1 rounded-full border border-purple-500/30">
+              {moiItems.length} aubaines Moi
+            </span>
           </div>
-          <span className="text-xs text-slate-400">
-            {itemsWithPromos.length} articles en promotion
-          </span>
-        </div>
 
-        <p className="text-xs text-slate-300">
-          Votre planificateur a automatiquement priorisé des recettes composées d'ingrédients en rabais cette semaine :
-        </p>
+          <p className="text-xs text-slate-300">
+            Ces produits bénéficient d'un tarif préférentiel exclusif sur présentation de la carte ou de l'application Metro Moi :
+          </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {itemsWithPromos.map((item) => (
-            <div
-              key={item.id}
-              className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-3.5 flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-amber-400/10 text-amber-400 flex items-center justify-center shrink-0 border border-amber-400/20">
-                  <Flame className="w-4 h-4" />
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {moiItems.map((item) => (
+              <div
+                key={item.id}
+                className="bg-slate-900/80 border border-purple-500/30 rounded-xl p-3.5 flex items-center justify-between"
+              >
                 <div>
                   <div className="font-semibold text-sm text-white">{item.name}</div>
-                  <div className="text-xs text-slate-400">{item.packageDescription}</div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    {item.packageDescription} • <span className="text-emerald-400 font-medium">{item.unitPriceLabel}</span>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0 ml-2">
+                  <div className="text-xs font-bold text-amber-300 bg-gradient-to-r from-purple-900 to-purple-800 px-2.5 py-1 rounded-lg border border-purple-500/40">
+                    {item.exactPriceMetro.toFixed(2)} $ CAD
+                  </div>
+                  {item.savingsAmount > 0 && (
+                    <div className="text-[10px] text-slate-400 line-through mt-0.5">
+                      Rég. {item.regularPriceMetro.toFixed(2)} $
+                    </div>
+                  )}
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-              <div className="text-right shrink-0 ml-2">
-                <span className="text-xs font-bold text-amber-300 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20 inline-block">
-                  {item.flyerHighlight}
-                </span>
-              </div>
+      {/* Détail des Rabais Circulaires Standards */}
+      {circularItems.length > 0 && (
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Flame className="w-5 h-5 text-amber-400" />
+              <h2 className="text-lg font-bold text-white">
+                Articles en Circulaire Régulière (Metro)
+              </h2>
             </div>
-          ))}
-        </div>
-      </div>
+            <span className="text-xs text-slate-400">
+              {circularItems.length} rabais
+            </span>
+          </div>
 
-      {/* Conseils Stratégiques pour Athlète au Québec */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-800/60 border border-slate-700/50 rounded-2xl p-5 flex items-start gap-4">
-        <div className="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0 border border-sky-500/30">
-          <AlertCircle className="w-5 h-5" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {circularItems.map((item) => (
+              <div
+                key={item.id}
+                className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-3.5 flex items-center justify-between"
+              >
+                <div>
+                  <div className="font-semibold text-sm text-white">{item.name}</div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    {item.packageDescription} • <span className="text-emerald-400 font-medium">{item.unitPriceLabel}</span>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0 ml-2">
+                  <span className="text-xs font-bold text-amber-300 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20 inline-block">
+                    {item.flyerHighlight}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="space-y-1 text-xs sm:text-sm">
-          <h3 className="font-bold text-white">Astuce Épicerie Sportive & Prise de Masse au Québec</h3>
-          <p className="text-slate-300 leading-relaxed">
-            Pour maintenir votre cible de <strong>~165 g de protéines par jour sans poudre</strong> au meilleur tarif, la circulaire Metro du jeudi est particulièrement avantageuse pour les gros paquets de poitrines de poulet club et le saumon frais. Si vous souhaitez maximiser les économies sur les féculents (avoine, riz, pâtes) et les œufs, une halte ponctuelle chez <strong>Maxi</strong> ou <strong>Super C</strong> vous fait économiser environ <strong>25 à 30 $ par semaine</strong>.
+      )}
+
+      {/* Informations Légales Fiscales Revenu Québec */}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-start gap-3 text-xs text-slate-300">
+        <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <h3 className="font-bold text-white">Règles Fiscales de Revenu Québec (Aliments de base détaxés à 0%)</h3>
+          <p className="leading-relaxed">
+            Au Québec, la nourriture de base (viandes fraîches, volaille, poisson, œufs, produits laitiers, fruits, légumes, pain, avoine, pâtes, riz) est strictement <strong>détaxée (0 % de TPS et 0 % de TVQ)</strong>. Seuls les produits non alimentaires ou certains snacks préparés individuellement sont assujettis aux taxes combinées de <strong>14,975 %</strong>. Votre ticket FoodPlanner applique fidèlement ces règles.
           </p>
         </div>
       </div>

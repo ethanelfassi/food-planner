@@ -1,4 +1,4 @@
-import { GroceryItem, MetroAisle, WeeklyPlan } from '@/types';
+import { GroceryItem, MetroAisle, ReceiptTaxCalculation, WeeklyPlan } from '@/types';
 import { INGREDIENTS } from '@/data/ingredients';
 
 export const AISLE_LABELS: Record<MetroAisle, { title: string; order: number; icon: string }> = {
@@ -17,23 +17,17 @@ export function generateGroceryList(weeklyPlan: WeeklyPlan, coupleModeEnabled = 
 
   // Parcourir chaque jour
   for (const day of weeklyPlan.days) {
-    // 1. Déjeuner (1 portion de base, multiplié si couple)
     for (const item of day.breakfast.ingredients) {
       aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity * coupleFactor;
     }
-
-    // 2. Collation
     for (const item of day.snack.ingredients) {
       aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity * coupleFactor;
     }
-
-    // 3. Souper cuisiné le soir (ingrédients déjà quantifiés pour 2 portions dans la recette de base)
     for (const item of day.dinner.ingredients) {
       aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity * coupleFactor;
     }
   }
 
-  // Transformer en GroceryItem
   const groceryItems: GroceryItem[] = [];
 
   for (const [ingredientId, neededQuantity] of Object.entries(aggregated)) {
@@ -50,19 +44,14 @@ export function generateGroceryList(weeklyPlan: WeeklyPlan, coupleModeEnabled = 
       packageDescription += ` (${Math.round(neededQuantity)} requis)`;
     }
 
-    // Calcul des prix
-    const metroUnitCost = (ingredient.flyerDeal?.store === 'Metro' && ingredient.flyerDeal.discountPrice)
-      ? ingredient.flyerDeal.discountPrice
-      : pack.priceMetro;
+    const regUnitCost = pack.regularPriceMetro;
+    const exactUnitCost = pack.exactPriceMetro; // Intègre déjà le prix promo / Membre Moi
+    const totalRegular = Math.round(packageCount * regUnitCost * 100) / 100;
+    const totalExact = Math.round(packageCount * exactUnitCost * 100) / 100;
+    const savings = Math.max(0, Math.round((totalRegular - totalExact) * 100) / 100);
 
-    const maxiUnitCost = (ingredient.flyerDeal?.store === 'Maxi' && ingredient.flyerDeal.discountPrice)
-      ? ingredient.flyerDeal.discountPrice
-      : pack.priceMaxi;
-
-    const superCUnitCost = (ingredient.flyerDeal?.store === 'Super C' && ingredient.flyerDeal.discountPrice)
-      ? ingredient.flyerDeal.discountPrice
-      : pack.priceSuperC;
-
+    const maxiUnitCost = pack.priceMaxi;
+    const superCUnitCost = pack.priceSuperC;
     const igaUnitCost = pack.priceIGA;
 
     groceryItems.push({
@@ -74,7 +63,14 @@ export function generateGroceryList(weeklyPlan: WeeklyPlan, coupleModeEnabled = 
       unit: ingredient.baseUnit,
       packageDescription,
       packageCount,
-      estimatedPriceMetro: Math.round(packageCount * metroUnitCost * 100) / 100,
+      regularPriceMetro: totalRegular,
+      exactPriceMetro: totalExact,
+      unitPriceLabel: pack.unitPriceLabel,
+      pricePer100g: pack.unitPricePer100g,
+      isTaxable: pack.isTaxable,
+      isMoiMemberPrice: pack.isMoiMemberPrice,
+      moiPriceLabel: pack.moiPriceLabel,
+      savingsAmount: savings,
       estimatedPriceMaxi: Math.round(packageCount * maxiUnitCost * 100) / 100,
       estimatedPriceSuperC: Math.round(packageCount * superCUnitCost * 100) / 100,
       estimatedPriceIGA: Math.round(packageCount * igaUnitCost * 100) / 100,
@@ -94,4 +90,44 @@ export function generateGroceryList(weeklyPlan: WeeklyPlan, coupleModeEnabled = 
   });
 
   return groceryItems;
+}
+
+// Calcul fiscal exact pour le Québec (TPS 5% + TVQ 9.975%)
+export function calculateReceiptTaxes(items: GroceryItem[]): ReceiptTaxCalculation {
+  let subtotalZeroRated = 0;
+  let subtotalTaxable = 0;
+  let regularTotal = 0;
+
+  for (const item of items) {
+    regularTotal += item.regularPriceMetro;
+    if (item.isTaxable) {
+      subtotalTaxable += item.exactPriceMetro;
+    } else {
+      subtotalZeroRated += item.exactPriceMetro;
+    }
+  }
+
+  // Arrondi au centime
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+
+  subtotalZeroRated = round2(subtotalZeroRated);
+  subtotalTaxable = round2(subtotalTaxable);
+  regularTotal = round2(regularTotal);
+
+  const tps = round2(subtotalTaxable * 0.05); // TPS fédérale 5%
+  const tvq = round2(subtotalTaxable * 0.09975); // TVQ québécoise 9.975%
+  const totalTaxes = round2(tps + tvq);
+  const totalWithTax = round2(subtotalZeroRated + subtotalTaxable + totalTaxes);
+  const totalSavingsMoi = round2(Math.max(0, regularTotal - (subtotalZeroRated + subtotalTaxable)));
+
+  return {
+    subtotalZeroRated,
+    subtotalTaxable,
+    tps,
+    tvq,
+    totalTaxes,
+    totalWithTax,
+    regularTotal,
+    totalSavingsMoi,
+  };
 }

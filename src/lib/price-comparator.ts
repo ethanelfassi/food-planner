@@ -1,7 +1,7 @@
 import { GroceryItem, StorePriceSummary } from '@/types';
 
 export function calculateStorePriceComparison(groceryList: GroceryItem[]): StorePriceSummary[] {
-  const totalMetro = groceryList.reduce((acc, item) => acc + item.estimatedPriceMetro, 0);
+  const totalMetro = groceryList.reduce((acc, item) => acc + item.exactPriceMetro, 0);
   const totalMaxi = groceryList.reduce((acc, item) => acc + item.estimatedPriceMaxi, 0);
   const totalSuperC = groceryList.reduce((acc, item) => acc + item.estimatedPriceSuperC, 0);
   const totalIGA = groceryList.reduce((acc, item) => acc + item.estimatedPriceIGA, 0);

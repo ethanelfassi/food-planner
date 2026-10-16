@@ -12,12 +12,20 @@ Ce document répertorie l'ensemble des fonctionnalités de l'application, distin
 - [x] **Rythme de cuisine du soir & restes automatiques** : Préparation chaque soir d'un plat chaud calibré pour 2 portions. La 2e portion devient automatiquement le dîner du lendemain midi, évitant de cuisiner deux fois par jour.
 - [x] **Fiches recettes détaillées & modal interactif** : Ingrédients précis, temps de cuisson, répartition macro (Calories, Protéines, Glucides, Lipides) et étapes de préparation.
 - [x] **Régénération & substitution de repas** : Possibilité de changer un repas individuel par une alternative de même catégorie ou de régénérer la semaine entière.
+- [x] **Priorisation active des promotions et des offres Membre Moi** : L'algorithme favorise automatiquement les repas composés des ingrédients en rabais cette semaine chez Metro.
 
-### B. Épicerie Intelligente & Supermarché Metro Québec
+### B. Épicerie Intelligente, Prix Exacts & Supermarché Metro Québec
 - [x] **Consolidation automatique de l'épicerie** : Calcul des quantités cumulées sur 7 jours avec conversion vers les formats de vente réels (ex. *3x Paquet club ~600g*, *boîtes de 12 ou 18 œufs*, *pots de yogourt 750g*).
+- [x] **Prix exacts au centime près** : Chaque article affiche son tarif exact appliqué chez Metro (intégrant les rabais actuels).
+- [x] **Prix aux 100g / 100ml / unité** : Calcul et affichage automatique du prix unitaire (ex. `2.00 $ / 100g` pour le poulet, `0.35 $ / œuf`, `0.73 $ / 100g` pour le yogourt grec) pour comparer la valeur réelle en rayon.
+- [x] **Prix pour les Membres Moi de Metro** : Badge exclusif 👑 et calcul des économies réalisées grâce au programme de fidélité Moi (ex. bœuf haché à 5.49$ au lieu de 7.99$, yogourt grec à 5.49$ au lieu de 6.99$).
+- [x] **Calcul fiscal exact Revenu Québec (TPS 5% & TVQ 9.975%)** :
+  - Identification automatique des **aliments de base détaxés à 0 %** (viandes, poissons, produits laitiers, légumes, fruits, pain, avoine, riz, etc.).
+  - Application stricte des taxes de **14,975 %** sur les produits taxables (articles de maison, produits ménagers).
+  - Ticket de caisse exact indiquant le sous-total détaxé, le sous-total taxable, la TPS, la TVQ et le montant final à payer à la caisse.
 - [x] **Tri par rayons physiques de supermarché** : Organisation dans l'ordre de circulation d'un Metro québécois (Fruits & Légumes $\rightarrow$ Boulangerie $\rightarrow$ Boucherie/Poissonnerie $\rightarrow$ Produits laitiers $\rightarrow$ Épicerie & Féculents $\rightarrow$ Surgelés).
 - [x] **Photos de produits & Liens officiels Metro.ca** : Chaque article affiche sa photo de référence et un lien direct vers la page de recherche officielle Metro.ca pour vérifier en temps réel le prix, le packaging et les disponibilités en magasin.
-- [x] **Ajout d'articles personnels** : Saisie d'articles hors-recettes (produits ménagers, café, essuie-tout) classés dans les bons rayons.
+- [x] **Ajout d'articles personnels avec statut de taxe** : Saisie d'articles hors-recettes (produits ménagers, café, essuie-tout) avec attribution de rayon, prix et case à cocher pour la taxation.
 - [x] **Checklist interactive en magasin** : Cases à cocher avec filtres (*Tous*, *À acheter*, *Cochés*) et réinitialisation en un clic.
 
 ### C. Mode Couple & Répartition Équitable des Courses
@@ -31,14 +39,15 @@ Ce document répertorie l'ensemble des fonctionnalités de l'application, distin
 - [x] **Ajout d'extras et collations libres** : Possibilité de consigner des ajouts ponctuels (+kcal, +protéines).
 - [x] **Indicateur de statut sportif** : Alertes motivantes selon l'atteinte du quota de protéines journalier.
 
-### E. Intelligence de Prix & Circulaires
+### E. Intelligence de Prix, Programme Moi & Circulaires
 - [x] **Comparateur multi-enseignes** : Comparaison instantanée de la facture du panier entre **Metro**, **Maxi**, **Super C** et **IGA** pour mesurer les écarts de prix.
 - [x] **Mise en valeur des rabais circulaires du jeudi** : Identification des protéines et produits vedettes en solde (poitrine club, saumon, thon).
+- [x] **Tableau de bord des économies Membre Moi** : Montant total épargné affiché en évidence sur le panier et le comparateur.
 
 ### F. Export Mobile Hors-Ligne (Self-Hosted / Réseau Local)
-- [x] **Copie presse-papier formatée** : Prêt pour coller en 1 clic dans Apple Notes ou Google Keep avec cases `[ ]`.
+- [x] **Copie presse-papier formatée avec ticket complet** : Prêt pour coller en 1 clic dans Apple Notes ou Google Keep avec cases `[ ]`, prix aux 100g et total TTC.
 - [x] **Téléchargement .txt autonome** : Fichier texte léger ouvrable sans connexion réseau au supermarché.
-- [x] **Envoi par courriel en 1 clic** : Génération de lien `mailto:` pré-rempli.
+- [x] **Envoi par courriel en 1 clic** : Génération de lien `mailto:` pré-rempli avec ventilation fiscale.
 
 ---
 

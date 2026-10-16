@@ -24,7 +24,7 @@ export function calculateSplitCost(
   groceryItems: GroceryItem[],
   settings: CoupleSettings
 ): SplitCostReport {
-  const totalMetro = groceryItems.reduce((acc, i) => acc + i.estimatedPriceMetro, 0);
+  const totalMetro = groceryItems.reduce((acc, i) => acc + i.exactPriceMetro, 0);
 
   if (!settings.coupleModeEnabled) {
     return {
@@ -48,7 +48,7 @@ export function calculateSplitCost(
   let meatDairyCopine = 0;
 
   for (const item of groceryItems) {
-    const cost = item.estimatedPriceMetro;
+    const cost = item.exactPriceMetro;
     if (item.aisle === 'BOUCHERIE_ET_POISSONNERIE') {
       // Forte surconsommation sportive
       const share1 = cost * 0.70;
