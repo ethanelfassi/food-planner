@@ -31,25 +31,41 @@ export default function Home() {
   });
 
   const isDark = theme === 'dark';
-  const toggleTheme = () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
 
-  // Synchroniser la classe 'dark' sur l'élément racine <html>
+  // Initialisation complète au montage
   useEffect(() => {
-    if (theme === 'dark') {
+    // 1. Thème
+    const saved = typeof window !== 'undefined' ? (localStorage.getItem('fp_theme') as 'dark' | 'light' | null) : null;
+    const initialTheme = saved || 'dark';
+    setTheme(initialTheme);
+    if (initialTheme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-  }, [theme]);
 
-  // Initialisation au montage
-  useEffect(() => {
+    // 2. Menu et liste d'épicerie
     const plan = generateWeeklyPlan();
     setWeeklyPlan(plan);
     const groceries = generateGroceryList(plan, coupleSettings.coupleModeEnabled);
     setGroceryItems(groceries);
     setSplitReport(calculateSplitCost(groceries, coupleSettings));
   }, []);
+
+  const toggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('fp_theme', next);
+      }
+      if (next === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      return next;
+    });
+  };
 
   const handleToggleCoupleMode = () => {
     const updatedSettings: CoupleSettings = {
