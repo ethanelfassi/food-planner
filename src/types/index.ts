@@ -23,6 +23,8 @@ export interface Ingredient {
   aisle: MetroAisle;
   baseUnit: 'g' | 'ml' | 'unite' | 'c_a_soupe' | 'canne' | 'tranche';
   packaging: IngredientPackaging;
+  imageUrl?: string;
+  metroProductUrl?: string;
   macrosPer100g: {
     calories: number;
     protein: number;
@@ -99,11 +101,52 @@ export interface GroceryItem {
   checked: boolean;
   isCustom?: boolean;
   flyerHighlight?: string;
+  imageUrl?: string;
+  metroProductUrl?: string;
 }
 
 export interface StorePriceSummary {
   storeName: string;
   totalEstimated: number;
-  differenceWithMetro: number; // Négatif si moins cher que Metro
+  differenceWithMetro: number;
   bannerType: 'Standard' | 'Discount' | 'Haut de gamme';
+}
+
+// --- NOUVEAUX TYPES : GESTION DE COUPLE & RÉPARTITION DES COURSES ---
+export interface UserProfile {
+  id: string;
+  name: string;
+  targetCalories: number;
+  targetProtein: number;
+  dietaryDescription: string;
+  portionMultiplier: number; // Ratio calorique / protéique relatif
+}
+
+export interface CoupleSettings {
+  coupleModeEnabled: boolean;
+  user1: UserProfile; // Ethan (Sportif, 3050 kcal, 165g prot)
+  user2: UserProfile; // Copine (Régime / Objectif différent)
+}
+
+export interface SplitCostReport {
+  totalMetroCost: number;
+  user1Share: number;
+  user2Share: number;
+  user1Percent: number;
+  user2Percent: number;
+  meatDairyShareUser1: number;
+  meatDairyShareUser2: number;
+  explanation: string;
+}
+
+// --- NOUVEAUX TYPES : TRACKER CALORIQUE INTÉGRÉ ---
+export interface DailyLoggedItem {
+  id: string;
+  name: string;
+  mealType: MealType | 'extra';
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  consumed: boolean;
 }

@@ -11,24 +11,25 @@ export const AISLE_LABELS: Record<MetroAisle, { title: string; order: number; ic
   DIVERS: { title: 'Articles divers & Maison', order: 7, icon: 'Package' },
 };
 
-export function generateGroceryList(weeklyPlan: WeeklyPlan): GroceryItem[] {
+export function generateGroceryList(weeklyPlan: WeeklyPlan, coupleModeEnabled = false): GroceryItem[] {
   const aggregated: Record<string, number> = {};
+  const coupleFactor = coupleModeEnabled ? 1.6 : 1.0;
 
   // Parcourir chaque jour
   for (const day of weeklyPlan.days) {
-    // 1. Déjeuner (1 portion)
+    // 1. Déjeuner (1 portion de base, multiplié si couple)
     for (const item of day.breakfast.ingredients) {
-      aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity;
+      aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity * coupleFactor;
     }
 
-    // 2. Collation (1 portion)
+    // 2. Collation
     for (const item of day.snack.ingredients) {
-      aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity;
+      aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity * coupleFactor;
     }
 
-    // 3. Souper cuisiné le soir (ingrédients déjà quantifiés pour 2 portions dans la recette)
+    // 3. Souper cuisiné le soir (ingrédients déjà quantifiés pour 2 portions dans la recette de base)
     for (const item of day.dinner.ingredients) {
-      aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity;
+      aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity * coupleFactor;
     }
   }
 
@@ -79,6 +80,8 @@ export function generateGroceryList(weeklyPlan: WeeklyPlan): GroceryItem[] {
       estimatedPriceIGA: Math.round(packageCount * igaUnitCost * 100) / 100,
       checked: false,
       flyerHighlight: ingredient.flyerDeal?.promoLabel,
+      imageUrl: ingredient.imageUrl,
+      metroProductUrl: ingredient.metroProductUrl,
     });
   }
 

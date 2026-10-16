@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GroceryItem, MetroAisle } from '@/types';
+import { CoupleSettings, GroceryItem, MetroAisle, SplitCostReport } from '@/types';
 import { AISLE_LABELS } from '@/lib/grocery';
 import { 
   formatGroceryListAsText, 
@@ -18,23 +18,31 @@ import {
   Trash2, 
   CheckCheck,
   ShoppingBag,
-  ExternalLink
+  ExternalLink,
+  Users,
+  PieChart
 } from 'lucide-react';
 
 interface GroceryListViewProps {
   items: GroceryItem[];
+  coupleSettings: CoupleSettings;
+  splitReport: SplitCostReport;
   onToggleItem: (id: string) => void;
   onAddItem: (name: string, aisle: MetroAisle, packageDescription: string) => void;
   onRemoveItem: (id: string) => void;
   onClearChecked: () => void;
+  onToggleCoupleMode: () => void;
 }
 
 export const GroceryListView: React.FC<GroceryListViewProps> = ({
   items,
+  coupleSettings,
+  splitReport,
   onToggleItem,
   onAddItem,
   onRemoveItem,
   onClearChecked,
+  onToggleCoupleMode,
 }) => {
   const [copySuccess, setCopySuccess] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -90,6 +98,122 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Sélecteur Mode Couple & Répartition Équitable */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border border-slate-700/80 rounded-2xl p-4 sm:p-5 shadow-xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${
+              coupleSettings.coupleModeEnabled 
+                ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' 
+                : 'bg-slate-800 text-slate-400 border-slate-700'
+            }`}>
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-white text-base">
+                  Mode Deux Personnes (Ethan & Copine)
+                </h3>
+                <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${
+                  coupleSettings.coupleModeEnabled
+                    ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                }`}>
+                  {coupleSettings.coupleModeEnabled ? 'Activé' : 'Désactivé (1 pers)'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Régimes différents : calcule la part exacte des courses en tenant compte de la surconsommation protéique et calorique d'Ethan.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onToggleCoupleMode}
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 border ${
+              coupleSettings.coupleModeEnabled
+                ? 'bg-purple-600 hover:bg-purple-500 text-white border-purple-400 shadow-md shadow-purple-900/30'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+            }`}
+          >
+            {coupleSettings.coupleModeEnabled ? 'Désactiver le Mode Couple' : 'Activer pour Nous Deux'}
+          </button>
+        </div>
+
+        {/* Détails de la répartition si activé */}
+        {coupleSettings.coupleModeEnabled && (
+          <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Part Ethan */}
+              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <span className="font-semibold text-slate-200">Part d'Ethan (Sportif)</span>
+                  </div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    3 050 kcal • 165g prot (Gros mangeur viande/œufs)
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-extrabold text-emerald-400">
+                    {splitReport.user1Share.toFixed(2)} $
+                  </div>
+                  <div className="text-[11px] font-semibold text-slate-400">
+                    {splitReport.user1Percent} % du total
+                  </div>
+                </div>
+              </div>
+
+              {/* Part Copine */}
+              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                    <span className="w-2 h-2 rounded-full bg-purple-400" />
+                    <span className="font-semibold text-slate-200">Part de sa Copine</span>
+                  </div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    ~1 950 kcal • 75g prot (Régime plus léger)
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-extrabold text-purple-300">
+                    {splitReport.user2Share.toFixed(2)} $
+                  </div>
+                  <div className="text-[11px] font-semibold text-slate-400">
+                    {splitReport.user2Percent} % du total
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Barre de répartition visuelle */}
+            <div>
+              <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden flex">
+                <div 
+                  className="bg-emerald-500 h-full transition-all duration-300" 
+                  style={{ width: `${splitReport.user1Percent}%` }} 
+                  title={`Ethan: ${splitReport.user1Percent}%`}
+                />
+                <div 
+                  className="bg-purple-500 h-full transition-all duration-300" 
+                  style={{ width: `${splitReport.user2Percent}%` }} 
+                  title={`Copine: ${splitReport.user2Percent}%`}
+                />
+              </div>
+              <div className="flex justify-between text-[11px] text-slate-400 mt-1">
+                <span>Ethan : {splitReport.user1Percent}%</span>
+                <span>Copine : {splitReport.user2Percent}%</span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-400 italic">
+              ℹ️ {splitReport.explanation}
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Barre d'Export et Statistiques Mobile-Ready */}
       <div className="bg-slate-900 border border-slate-700/70 rounded-2xl p-4 sm:p-5 shadow-xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -109,13 +233,12 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
               </span>
             </h1>
             <p className="text-xs text-slate-300 mt-1">
-              📲 <strong>Hors-ligne au magasin :</strong> Exportez votre liste sur votre téléphone avant de partir grâce aux boutons ci-contre.
+              📲 <strong>Hors-ligne au magasin :</strong> Exportez votre liste sur votre téléphone avant de partir ou cliquez sur les liens pour voir la fiche officielle Metro.ca.
             </p>
           </div>
 
           {/* Boutons d'Export Mobile */}
           <div className="flex items-center flex-wrap gap-2">
-            {/* Copier pour Notes / Keep */}
             <button
               onClick={handleCopyClipboard}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-sm ${
@@ -129,7 +252,6 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
               <span>{copySuccess ? 'Copié !' : 'Copier pour Notes/Keep'}</span>
             </button>
 
-            {/* Télécharger .txt */}
             <button
               onClick={() => downloadGroceryListFile(items, 'Metro')}
               className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs sm:text-sm font-semibold transition-all border border-slate-700 active:scale-95"
@@ -139,7 +261,6 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
               <span>Fichier .txt</span>
             </button>
 
-            {/* Envoyer par Email */}
             <a
               href={generateMailtoUrl(items)}
               className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-md shadow-emerald-900/30 active:scale-95"
@@ -296,21 +417,22 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                   </span>
                 </div>
 
-                {/* Grille des articles du rayon */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {/* Grille des articles du rayon avec photos et liens officiels Metro */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {aisleItems.map((item) => (
                     <div
                       key={item.id}
                       onClick={() => onToggleItem(item.id)}
-                      className={`flex items-start justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                      className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
                         item.checked
                           ? 'bg-slate-950/40 border-slate-800/40 text-slate-500 opacity-60'
                           : 'bg-slate-800/40 hover:bg-slate-800 border-slate-700/50 hover:border-emerald-500/50 text-slate-200'
                       }`}
                     >
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Checkbox */}
                         <div
-                          className={`w-5 h-5 mt-0.5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+                          className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
                             item.checked
                               ? 'bg-emerald-500 text-slate-950'
                               : 'border-2 border-slate-600'
@@ -319,16 +441,34 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                           {item.checked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                         </div>
 
-                        <div>
-                          <div className={`text-sm font-semibold ${item.checked ? 'line-through text-slate-500' : 'text-white'}`}>
+                        {/* Photo Produit */}
+                        {item.imageUrl ? (
+                          <div className="w-12 h-12 rounded-lg bg-slate-950 overflow-hidden shrink-0 border border-slate-700/60 relative">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.imageUrl}
+                              alt={item.name}
+                              className={`w-full h-full object-cover transition-opacity ${item.checked ? 'opacity-40 grayscale' : 'opacity-90'}`}
+                              loading="lazy"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center shrink-0 border border-slate-700 text-slate-500 text-xs">
+                            Metro
+                          </div>
+                        )}
+
+                        {/* Infos Produit */}
+                        <div className="min-w-0 pr-2">
+                          <div className={`text-sm font-semibold truncate ${item.checked ? 'line-through text-slate-500' : 'text-white'}`}>
                             {item.name}
                           </div>
-                          <div className="text-xs text-slate-400 mt-0.5">
+                          <div className="text-xs text-slate-400 mt-0.5 truncate">
                             {item.packageDescription}
                           </div>
 
                           {item.flyerHighlight && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded-full mt-1.5 border border-amber-400/20">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded-full mt-1 border border-amber-400/20">
                               <Flame className="w-3 h-3 text-amber-400" />
                               {item.flyerHighlight}
                             </span>
@@ -336,19 +476,35 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                         </div>
                       </div>
 
-                      <div className="text-right shrink-0 ml-2">
+                      {/* Prix et Lien Officiel Metro */}
+                      <div className="text-right shrink-0 ml-2 flex flex-col items-end justify-center gap-1">
                         {item.estimatedPriceMetro > 0 && (
                           <div className="text-xs font-bold text-emerald-400">
                             ~{item.estimatedPriceMetro.toFixed(2)} $
                           </div>
                         )}
+
+                        {item.metroProductUrl && (
+                          <a
+                            href={item.metroProductUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2 py-0.5 rounded-md border border-sky-500/20 transition-colors"
+                            title="Voir la fiche officielle et le prix en direct sur Metro.ca"
+                          >
+                            <span>Metro.ca</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+
                         {item.isCustom && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               onRemoveItem(item.id);
                             }}
-                            className="text-slate-500 hover:text-rose-400 p-1 rounded transition-colors mt-1"
+                            className="text-slate-500 hover:text-rose-400 p-1 rounded transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
