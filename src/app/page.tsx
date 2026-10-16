@@ -12,10 +12,19 @@ import {
   WeeklyPlan,
   CustomPricesMap,
   UserCustomizationSettings,
-  DEFAULT_USER_SETTINGS
+  DEFAULT_USER_SETTINGS,
+  DEFAULT_COPINE_SETTINGS,
+  UserAccount,
+  DEFAULT_ACCOUNTS,
+  GroceryViewScope
 } from '@/types';
 import { generateWeeklyPlan, replaceRecipeInPlan } from '@/lib/planner';
-import { generateGroceryList } from '@/lib/grocery';
+import { 
+  generateGroceryList, 
+  generateCommonGroceryList, 
+  calculateCommonListSplit,
+  AccountSplitSummary 
+} from '@/lib/grocery';
 import { DEFAULT_COUPLE_SETTINGS, calculateSplitCost } from '@/lib/couple-split';
 import { Header } from '@/components/Header';
 import { WeeklyPlannerView } from '@/components/WeeklyPlannerView';
@@ -27,32 +36,38 @@ import { RecipeModal } from '@/components/RecipeModal';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'planner' | 'grocery' | 'prices' | 'tracker' | 'preferences'>('planner');
-  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan | null>(null);
-  const [groceryItems, setGroceryItems] = useState<GroceryItem[]>([]);
-  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
-  const [coupleSettings, setCoupleSettings] = useState<CoupleSettings>(DEFAULT_COUPLE_SETTINGS);
-  const [preferences, setPreferences] = useState<ProductPreferencesMap>({});
-  const [customPrices, setCustomPrices] = useState<CustomPricesMap>({});
-  const [userSettings, setUserSettings] = useState<UserCustomizationSettings>(DEFAULT_USER_SETTINGS);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [splitReport, setSplitReport] = useState<SplitCostReport>({
-    totalMetroCost: 0,
-    user1Share: 0,
-    user2Share: 0,
-    user1Percent: 100,
-    user2Percent: 0,
-    meatDairyShareUser1: 0,
-    meatDairyShareUser2: 0,
-    explanation: '',
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+
+  // Multi-comptes
+  const [accounts, setAccounts] = useState<UserAccount[]>(DEFAULT_ACCOUNTS);
+  const [activeAccountId, setActiveAccountId] = useState<string>('ethan');
+  const [groceryScope, setGroceryScope] = useState<GroceryViewScope>('common');
+
+  // Données par compte
+  const [preferencesByAccount, setPreferencesByAccount] = useState<Record<string, ProductPreferencesMap>>({
+    ethan: {},
+    copine: {},
   });
+  const [settingsByAccount, setSettingsByAccount] = useState<Record<string, UserCustomizationSettings>>({
+    ethan: DEFAULT_USER_SETTINGS,
+    copine: DEFAULT_COPINE_SETTINGS,
+  });
+  const [plansByAccount, setPlansByAccount] = useState<Record<string, WeeklyPlan>>({});
+
+  // Paramètres globaux & personnalisations
+  const [customPrices, setCustomPrices] = useState<CustomPricesMap>({});
+  const [customManualItems, setCustomManualItems] = useState<GroceryItem[]>([]);
+  const [checkedItemsMap, setCheckedItemsMap] = useState<Record<string, boolean>>({});
+  const [coupleSettings, setCoupleSettings] = useState<CoupleSettings>(DEFAULT_COUPLE_SETTINGS);
 
   const isDark = theme === 'dark';
 
-  // Initialisation complète au montage avec chargement de la base SQLite
+  // 1. Initialisation au montage avec chargement depuis SQLite
   useEffect(() => {
-    // 1. Thème
-    const saved = typeof window !== 'undefined' ? (localStorage.getItem('fp_theme') as 'dark' | 'light' | null) : null;
-    const initialTheme = saved || 'dark';
+    // Thème
+    const savedTheme = typeof window !== 'undefined' ? (localStorage.getItem('fp_theme') as 'dark' | 'light' | null) : null;
+    const initialTheme = savedTheme || 'dark';
     setTheme(initialTheme);
     if (initialTheme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -60,57 +75,71 @@ export default function Home() {
       document.documentElement.classList.remove('dark');
     }
 
-    // 2. Charger les préférences, prix personnalisés et réglages depuis SQLite
+    // Chargement SQLite
     const initAppData = async () => {
-      let loadedPrefs: ProductPreferencesMap = {};
+      let loadedAccounts = DEFAULT_ACCOUNTS;
+      let activeAcc = 'ethan';
+      let loadedPrefs: Record<string, ProductPreferencesMap> = { ethan: {}, copine: {} };
+      let loadedSettings: Record<string, UserCustomizationSettings> = {
+        ethan: DEFAULT_USER_SETTINGS,
+        copine: DEFAULT_COPINE_SETTINGS,
+      };
       let loadedPrices: CustomPricesMap = {};
-      let loadedSettings: UserCustomizationSettings = DEFAULT_USER_SETTINGS;
 
       try {
         const res = await fetch('/api/preferences');
         if (res.ok) {
           const data = await res.json();
-          loadedPrefs = data.preferences || {};
-          loadedPrices = data.customPrices || {};
+          if (data.accounts && data.accounts.length > 0) {
+            loadedAccounts = data.accounts;
+          }
+          if (data.activeAccountId) {
+            activeAcc = data.activeAccountId;
+          }
+          if (data.preferences) {
+            loadedPrefs = data.preferences;
+          }
           if (data.settings) {
             loadedSettings = data.settings;
           }
-          setPreferences(loadedPrefs);
-          setCustomPrices(loadedPrices);
-          setUserSettings(loadedSettings);
+          if (data.customPrices) {
+            loadedPrices = data.customPrices;
+          }
         }
       } catch (err) {
         console.warn('Impossible de joindre /api/preferences, fallback local:', err);
       }
 
-      // Synchroniser les paramètres de couple avec les variables personnalisées
-      const initialCoupleSettings: CoupleSettings = {
-        ...DEFAULT_COUPLE_SETTINGS,
+      setAccounts(loadedAccounts);
+      setActiveAccountId(activeAcc);
+      setPreferencesByAccount(loadedPrefs);
+      setSettingsByAccount(loadedSettings);
+      setCustomPrices(loadedPrices);
+
+      // Générer les plans de chaque compte selon leurs préférences respectives
+      const initialPlans: Record<string, WeeklyPlan> = {};
+      for (const acc of loadedAccounts) {
+        const userPrefs = loadedPrefs[acc.id] || {};
+        initialPlans[acc.id] = generateWeeklyPlan(userPrefs);
+      }
+      setPlansByAccount(initialPlans);
+
+      // Mettre à jour coupleSettings
+      const ethanSett = loadedSettings['ethan'] || DEFAULT_USER_SETTINGS;
+      const copineSett = loadedSettings['copine'] || DEFAULT_COPINE_SETTINGS;
+      setCoupleSettings({
+        coupleModeEnabled: true,
         user1: {
           ...DEFAULT_COUPLE_SETTINGS.user1,
-          targetCalories: loadedSettings.targetCalories,
-          targetProtein: loadedSettings.targetProtein,
+          targetCalories: ethanSett.targetCalories,
+          targetProtein: ethanSett.targetProtein,
         },
         user2: {
           ...DEFAULT_COUPLE_SETTINGS.user2,
-          targetCalories: loadedSettings.partnerCalories,
-          targetProtein: loadedSettings.partnerProtein,
+          targetCalories: copineSett.targetCalories,
+          targetProtein: copineSett.targetProtein,
         },
-      };
-      setCoupleSettings(initialCoupleSettings);
-
-      // 3. Générer le menu hebdomadaire et la liste d'épicerie avec prix custom
-      const plan = generateWeeklyPlan(loadedPrefs);
-      setWeeklyPlan(plan);
-      const groceries = generateGroceryList(
-        plan,
-        initialCoupleSettings.coupleModeEnabled,
-        loadedPrices,
-        loadedSettings.targetCalories,
-        loadedSettings.partnerCalories
-      );
-      setGroceryItems(groceries);
-      setSplitReport(calculateSplitCost(groceries, initialCoupleSettings));
+      });
     };
 
     initAppData();
@@ -131,7 +160,189 @@ export default function Home() {
     });
   };
 
-  // Mise à jour d'un prix personnalisé avec persistance SQLite immédiate
+  // Profil et réglages actifs
+  const activeAccount = accounts.find((a) => a.id === activeAccountId) || accounts[0] || DEFAULT_ACCOUNTS[0];
+  const activeSettings = settingsByAccount[activeAccountId] || DEFAULT_USER_SETTINGS;
+  const activePreferences = preferencesByAccount[activeAccountId] || {};
+  const activePlan = plansByAccount[activeAccountId] || plansByAccount['ethan'];
+
+  // --- ACTIONS MULTI-COMPTES ---
+
+  const handleSwitchAccount = async (newAccountId: string) => {
+    setActiveAccountId(newAccountId);
+
+    try {
+      await fetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'switch_account', accountId: newAccountId }),
+      });
+    } catch (err) {
+      console.error('Erreur switch account SQLite:', err);
+    }
+  };
+
+  const handleRenameAccount = async (accountId: string, newName: string) => {
+    setAccounts((prev) =>
+      prev.map((a) =>
+        a.id === accountId
+          ? { ...a, name: newName, avatarInitials: newName.substring(0, 2).toUpperCase() }
+          : a
+      )
+    );
+
+    try {
+      await fetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'rename_account', accountId, name: newName }),
+      });
+    } catch (err) {
+      console.error('Erreur rename account SQLite:', err);
+    }
+  };
+
+  const handleCreateAccount = async (name: string) => {
+    const cleanId = name.toLowerCase().replace(/[^a-z0-9_-]/g, '') || `user_${Date.now()}`;
+    const newAcc: UserAccount = {
+      id: cleanId,
+      name,
+      avatarInitials: name.substring(0, 2).toUpperCase(),
+    };
+
+    setAccounts((prev) => [...prev, newAcc]);
+    const defaultSett = { ...DEFAULT_COPINE_SETTINGS, goalName: 'Alimentation saine & équilibrée' };
+    setSettingsByAccount((prev) => ({ ...prev, [cleanId]: defaultSett }));
+    setPreferencesByAccount((prev) => ({ ...prev, [cleanId]: {} }));
+    const newPlan = generateWeeklyPlan({});
+    setPlansByAccount((prev) => ({ ...prev, [cleanId]: newPlan }));
+    setActiveAccountId(cleanId);
+
+    try {
+      await fetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create_account', id: cleanId, name }),
+      });
+    } catch (err) {
+      console.error('Erreur create account SQLite:', err);
+    }
+  };
+
+  // --- GESTION DES PRÉFÉRENCES (PAR COMPTE) ---
+
+  const handleUpdatePreference = async (ingredientId: string, status: ProductPreferenceStatus) => {
+    const currentPrefs = preferencesByAccount[activeAccountId] || {};
+    const nextPrefs: ProductPreferencesMap = { ...currentPrefs };
+    if (status === 'neutral') {
+      delete nextPrefs[ingredientId];
+    } else {
+      nextPrefs[ingredientId] = status;
+    }
+
+    setPreferencesByAccount((prev) => ({
+      ...prev,
+      [activeAccountId]: nextPrefs,
+    }));
+
+    try {
+      await fetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'set_preference',
+          accountId: activeAccountId,
+          ingredientId,
+          status,
+        }),
+      });
+    } catch (err) {
+      console.error('Erreur sauvegarde preference SQLite:', err);
+    }
+
+    // Si banni, réadapter immédiatement le plan du compte actif
+    if (status === 'disliked') {
+      const newPlan = generateWeeklyPlan(nextPrefs);
+      setPlansByAccount((prev) => ({
+        ...prev,
+        [activeAccountId]: newPlan,
+      }));
+    }
+  };
+
+  const handleResetAllPreferences = async () => {
+    setPreferencesByAccount((prev) => ({
+      ...prev,
+      [activeAccountId]: {},
+    }));
+
+    try {
+      const keys = Object.keys(preferencesByAccount[activeAccountId] || {});
+      await Promise.all(
+        keys.map((id) =>
+          fetch('/api/preferences', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'set_preference',
+              accountId: activeAccountId,
+              ingredientId: id,
+              status: 'neutral',
+            }),
+          })
+        )
+      );
+    } catch (err) {
+      console.error('Erreur reset preferences SQLite:', err);
+    }
+
+    const newPlan = generateWeeklyPlan({});
+    setPlansByAccount((prev) => ({
+      ...prev,
+      [activeAccountId]: newPlan,
+    }));
+  };
+
+  const handleApplyPreferencesToPlan = () => {
+    const prefs = preferencesByAccount[activeAccountId] || {};
+    const newPlan = generateWeeklyPlan(prefs);
+    setPlansByAccount((prev) => ({
+      ...prev,
+      [activeAccountId]: newPlan,
+    }));
+  };
+
+  // --- GESTION DES RÉGLAGES (PAR COMPTE) ---
+
+  const handleUpdateSettings = async (newSettings: Partial<UserCustomizationSettings>) => {
+    const currentSettings = settingsByAccount[activeAccountId] || DEFAULT_USER_SETTINGS;
+    const mergedSettings: UserCustomizationSettings = {
+      ...currentSettings,
+      ...newSettings,
+    };
+
+    setSettingsByAccount((prev) => ({
+      ...prev,
+      [activeAccountId]: mergedSettings,
+    }));
+
+    try {
+      await fetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_settings',
+          accountId: activeAccountId,
+          settings: mergedSettings,
+        }),
+      });
+    } catch (err) {
+      console.error('Erreur sauvegarde settings SQLite:', err);
+    }
+  };
+
+  // --- GESTION DES PRIX PERSONNALISÉS ---
+
   const handleUpdateCustomPrice = async (ingredientId: string, price: number | null) => {
     const nextPrices: CustomPricesMap = { ...customPrices };
     if (price === null) {
@@ -154,212 +365,17 @@ export default function Home() {
     } catch (err) {
       console.error('Erreur sauvegarde custom price SQLite:', err);
     }
-
-    if (weeklyPlan) {
-      const newGroceries = generateGroceryList(
-        weeklyPlan,
-        coupleSettings.coupleModeEnabled,
-        nextPrices,
-        userSettings.targetCalories,
-        userSettings.partnerCalories
-      );
-      const checkedMap = new Map(groceryItems.map((i) => [i.id, i.checked]));
-      const merged = newGroceries.map((item) => ({
-        ...item,
-        checked: checkedMap.get(item.id) || false,
-      }));
-      const customItems = groceryItems.filter((i) => i.isCustom);
-      const finalItems = [...merged, ...customItems];
-      setGroceryItems(finalItems);
-      setSplitReport(calculateSplitCost(finalItems, coupleSettings));
-    }
   };
 
-  // Mise à jour des variables métaboliques & budget avec persistance SQLite
-  const handleUpdateSettings = async (newSettings: Partial<UserCustomizationSettings>) => {
-    const mergedSettings: UserCustomizationSettings = {
-      ...userSettings,
-      ...newSettings,
-    };
-    setUserSettings(mergedSettings);
-
-    const updatedCoupleSettings: CoupleSettings = {
-      ...coupleSettings,
-      user1: {
-        ...coupleSettings.user1,
-        targetCalories: mergedSettings.targetCalories,
-        targetProtein: mergedSettings.targetProtein,
-      },
-      user2: {
-        ...coupleSettings.user2,
-        targetCalories: mergedSettings.partnerCalories,
-        targetProtein: mergedSettings.partnerProtein,
-      },
-    };
-    setCoupleSettings(updatedCoupleSettings);
-
-    try {
-      await fetch('/api/preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'update_settings',
-          settings: mergedSettings,
-        }),
-      });
-    } catch (err) {
-      console.error('Erreur sauvegarde settings SQLite:', err);
-    }
-
-    if (weeklyPlan) {
-      const newGroceries = generateGroceryList(
-        weeklyPlan,
-        updatedCoupleSettings.coupleModeEnabled,
-        customPrices,
-        mergedSettings.targetCalories,
-        mergedSettings.partnerCalories
-      );
-      const checkedMap = new Map(groceryItems.map((i) => [i.id, i.checked]));
-      const merged = newGroceries.map((item) => ({
-        ...item,
-        checked: checkedMap.get(item.id) || false,
-      }));
-      const customItems = groceryItems.filter((i) => i.isCustom);
-      const finalItems = [...merged, ...customItems];
-      setGroceryItems(finalItems);
-      setSplitReport(calculateSplitCost(finalItems, updatedCoupleSettings));
-    }
-  };
-
-  // Mise à jour d'une préférence produit (liked / disliked / neutral)
-  const handleUpdatePreference = async (ingredientId: string, status: ProductPreferenceStatus) => {
-    const nextPrefs: ProductPreferencesMap = { ...preferences };
-    if (status === 'neutral') {
-      delete nextPrefs[ingredientId];
-    } else {
-      nextPrefs[ingredientId] = status;
-    }
-    setPreferences(nextPrefs);
-
-    try {
-      await fetch('/api/preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ingredientId, status }),
-      });
-    } catch (err) {
-      console.error('Erreur lors de la sauvegarde SQLite:', err);
-    }
-
-    if (status === 'disliked') {
-      const newPlan = generateWeeklyPlan(nextPrefs);
-      setWeeklyPlan(newPlan);
-      const newGroceries = generateGroceryList(
-        newPlan,
-        coupleSettings.coupleModeEnabled,
-        customPrices,
-        userSettings.targetCalories,
-        userSettings.partnerCalories
-      );
-      const checkedMap = new Map(groceryItems.map((i) => [i.id, i.checked]));
-      const merged = newGroceries.map((item) => ({
-        ...item,
-        checked: checkedMap.get(item.id) || false,
-      }));
-      setGroceryItems(merged);
-      setSplitReport(calculateSplitCost(merged, coupleSettings));
-    }
-  };
-
-  // Réinitialiser toutes les préférences
-  const handleResetAllPreferences = async () => {
-    const keys = Object.keys(preferences);
-    setPreferences({});
-
-    try {
-      await Promise.all(
-        keys.map((id) =>
-          fetch('/api/preferences', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ingredientId: id, status: 'neutral' }),
-          })
-        )
-      );
-    } catch (err) {
-      console.error('Erreur reset preferences SQLite:', err);
-    }
-
-    const newPlan = generateWeeklyPlan({});
-    setWeeklyPlan(newPlan);
-    const newGroceries = generateGroceryList(
-      newPlan,
-      coupleSettings.coupleModeEnabled,
-      customPrices,
-      userSettings.targetCalories,
-      userSettings.partnerCalories
-    );
-    setGroceryItems(newGroceries);
-    setSplitReport(calculateSplitCost(newGroceries, coupleSettings));
-  };
-
-  // Appliquer les préférences au menu
-  const handleApplyPreferencesToPlan = () => {
-    const newPlan = generateWeeklyPlan(preferences);
-    setWeeklyPlan(newPlan);
-    const newGroceries = generateGroceryList(
-      newPlan,
-      coupleSettings.coupleModeEnabled,
-      customPrices,
-      userSettings.targetCalories,
-      userSettings.partnerCalories
-    );
-    const checkedMap = new Map(groceryItems.map((i) => [i.id, i.checked]));
-    const merged = newGroceries.map((item) => ({
-      ...item,
-      checked: checkedMap.get(item.id) || false,
-    }));
-    setGroceryItems(merged);
-    setSplitReport(calculateSplitCost(merged, coupleSettings));
-  };
-
-  const handleToggleCoupleMode = () => {
-    const updatedSettings: CoupleSettings = {
-      ...coupleSettings,
-      coupleModeEnabled: !coupleSettings.coupleModeEnabled,
-    };
-    setCoupleSettings(updatedSettings);
-
-    if (weeklyPlan) {
-      const newGroceries = generateGroceryList(
-        weeklyPlan,
-        updatedSettings.coupleModeEnabled,
-        customPrices,
-        userSettings.targetCalories,
-        userSettings.partnerCalories
-      );
-      const checkedMap = new Map(groceryItems.map((i) => [i.id, i.checked]));
-      const merged = newGroceries.map((item) => ({
-        ...item,
-        checked: checkedMap.get(item.id) || false,
-      }));
-      setGroceryItems(merged);
-      setSplitReport(calculateSplitCost(merged, updatedSettings));
-    }
-  };
+  // --- GESTION DES RECETTES DU PLANIFICATEUR ---
 
   const handleRegenerateAll = () => {
-    const newPlan = generateWeeklyPlan(preferences);
-    setWeeklyPlan(newPlan);
-    const newGroceries = generateGroceryList(
-      newPlan,
-      coupleSettings.coupleModeEnabled,
-      customPrices,
-      userSettings.targetCalories,
-      userSettings.partnerCalories
-    );
-    setGroceryItems(newGroceries);
-    setSplitReport(calculateSplitCost(newGroceries, coupleSettings));
+    const prefs = preferencesByAccount[activeAccountId] || {};
+    const newPlan = generateWeeklyPlan(prefs);
+    setPlansByAccount((prev) => ({
+      ...prev,
+      [activeAccountId]: newPlan,
+    }));
   };
 
   const handleReplaceRecipe = (
@@ -367,34 +383,25 @@ export default function Home() {
     mealType: 'breakfast' | 'dinner' | 'snack',
     newRecipeId: string
   ) => {
-    if (!weeklyPlan) return;
-    const updatedPlan = replaceRecipeInPlan(weeklyPlan, dayIndex, mealType, newRecipeId);
-    setWeeklyPlan(updatedPlan);
-
-    const newGroceries = generateGroceryList(
-      updatedPlan,
-      coupleSettings.coupleModeEnabled,
-      customPrices,
-      userSettings.targetCalories,
-      userSettings.partnerCalories
-    );
-    const checkedMap = new Map(groceryItems.map((i) => [i.id, i.checked]));
-
-    const merged = newGroceries.map((item) => ({
-      ...item,
-      checked: checkedMap.get(item.id) || false,
+    if (!activePlan) return;
+    const updatedPlan = replaceRecipeInPlan(activePlan, dayIndex, mealType, newRecipeId);
+    setPlansByAccount((prev) => ({
+      ...prev,
+      [activeAccountId]: updatedPlan,
     }));
-
-    const customItems = groceryItems.filter((i) => i.isCustom);
-    const finalItems = [...merged, ...customItems];
-    setGroceryItems(finalItems);
-    setSplitReport(calculateSplitCost(finalItems, coupleSettings));
   };
 
+  // --- GESTION DE LA LISTE D'ÉPICERIE (COMMUNE VS INDIVIDUELLE) ---
+
   const handleToggleItem = (id: string) => {
-    setGroceryItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item))
-    );
+    setCheckedItemsMap((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  const handleClearChecked = () => {
+    setCheckedItemsMap({});
   };
 
   const handleAddItem = (
@@ -402,7 +409,8 @@ export default function Home() {
     aisle: MetroAisle,
     packageDescription: string,
     isTaxable = false,
-    price = 0
+    price = 0,
+    forAccount = 'common'
   ) => {
     const newItem: GroceryItem = {
       id: `custom_${Date.now()}`,
@@ -424,23 +432,25 @@ export default function Home() {
       estimatedPriceIGA: price,
       checked: false,
       isCustom: true,
+      forAccount,
+      neededBy: forAccount === 'common' ? accounts.map((a) => a.id) : [forAccount],
     };
-    const updated = [newItem, ...groceryItems];
-    setGroceryItems(updated);
-    setSplitReport(calculateSplitCost(updated, coupleSettings));
+    setCustomManualItems((prev) => [newItem, ...prev]);
   };
 
   const handleRemoveItem = (id: string) => {
-    const updated = groceryItems.filter((item) => item.id !== id);
-    setGroceryItems(updated);
-    setSplitReport(calculateSplitCost(updated, coupleSettings));
+    setCustomManualItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleClearChecked = () => {
-    setGroceryItems((prev) => prev.map((item) => ({ ...item, checked: false })));
+  const handleToggleCoupleMode = () => {
+    setCoupleSettings((prev) => ({
+      ...prev,
+      coupleModeEnabled: !prev.coupleModeEnabled,
+    }));
   };
 
-  if (!weeklyPlan) {
+  // Attente du chargement initial des plans
+  if (Object.keys(plansByAccount).length === 0 || !activePlan) {
     return (
       <div
         className={`min-h-screen flex items-center justify-center transition-colors ${
@@ -449,11 +459,58 @@ export default function Home() {
       >
         <div className="flex items-center gap-3">
           <div className="w-5 h-5 border-2 border-stone-800 dark:border-stone-200 border-t-transparent rounded-full animate-spin" />
-          <span className="font-serif italic text-base">Composition de votre menu nordique & sportif...</span>
+          <span className="font-serif italic text-base">Chargement des profils & menus d'épicerie...</span>
         </div>
       </div>
     );
   }
+
+  // --- CALCUL DES ARTICLES DE LA LISTE D'ÉPICERIE SELON LE SCOPE ---
+
+  // 1. Liste Commune consolidée (Tous les profils réunis avec fusion des paquets)
+  const commonAccountPlans = accounts.map((acc) => ({
+    accountId: acc.id,
+    accountName: acc.name,
+    plan: plansByAccount[acc.id] || activePlan,
+  }));
+
+  const commonGroceryItems = generateCommonGroceryList(commonAccountPlans, customPrices);
+  const commonItemsWithCustom = [
+    ...customManualItems.filter((i) => !i.forAccount || i.forAccount === 'common' || accounts.some(a => a.id === i.forAccount)),
+    ...commonGroceryItems,
+  ].map((item) => ({
+    ...item,
+    checked: checkedItemsMap[item.id] || false,
+  }));
+
+  const commonSplitReport = calculateCommonListSplit(commonItemsWithCustom, accounts);
+
+  // 2. Détermination des articles visibles selon le scope
+  let displayedGroceryItems: GroceryItem[] = [];
+  if (groceryScope === 'common') {
+    displayedGroceryItems = commonItemsWithCustom;
+  } else {
+    const targetAccId = groceryScope;
+    const targetPlan = plansByAccount[targetAccId] || activePlan;
+    const targetSettings = settingsByAccount[targetAccId] || activeSettings;
+    const baseIndividualList = generateGroceryList(
+      targetPlan,
+      false,
+      customPrices,
+      targetSettings.targetCalories,
+      targetSettings.partnerCalories
+    );
+    const manualForTarget = customManualItems.filter(
+      (i) => i.forAccount === targetAccId || i.forAccount === 'common'
+    );
+    displayedGroceryItems = [...manualForTarget, ...baseIndividualList].map((item) => ({
+      ...item,
+      checked: checkedItemsMap[item.id] || false,
+    }));
+  }
+
+  // Calcul du split rétrocompatible pour la vue couple
+  const singleSplitReport: SplitCostReport = calculateSplitCost(displayedGroceryItems, coupleSettings);
 
   return (
     <div
@@ -464,9 +521,14 @@ export default function Home() {
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        groceryCount={groceryItems.length}
+        groceryCount={displayedGroceryItems.length}
         coupleModeEnabled={coupleSettings.coupleModeEnabled}
-        userSettings={userSettings}
+        userSettings={activeSettings}
+        accounts={accounts}
+        activeAccountId={activeAccountId}
+        onSwitchAccount={handleSwitchAccount}
+        onRenameAccount={handleRenameAccount}
+        onCreateAccount={handleCreateAccount}
         theme={theme}
         onToggleTheme={toggleTheme}
       />
@@ -474,9 +536,9 @@ export default function Home() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {activeTab === 'planner' && (
           <WeeklyPlannerView
-            plan={weeklyPlan}
-            preferences={preferences}
-            userSettings={userSettings}
+            plan={activePlan}
+            preferences={activePreferences}
+            userSettings={activeSettings}
             isDark={isDark}
             onRegenerateAll={handleRegenerateAll}
             onReplaceRecipe={handleReplaceRecipe}
@@ -486,17 +548,22 @@ export default function Home() {
 
         {activeTab === 'grocery' && (
           <GroceryListView
-            items={groceryItems}
+            items={displayedGroceryItems}
             coupleSettings={coupleSettings}
-            splitReport={splitReport}
-            preferences={preferences}
-            userSettings={userSettings}
+            splitReport={singleSplitReport}
+            preferences={activePreferences}
+            userSettings={activeSettings}
+            accounts={accounts}
+            activeAccountId={activeAccountId}
+            scope={groceryScope}
+            commonSplitReport={commonSplitReport}
             isDark={isDark}
             onToggleItem={handleToggleItem}
             onAddItem={handleAddItem}
             onRemoveItem={handleRemoveItem}
             onClearChecked={handleClearChecked}
             onToggleCoupleMode={handleToggleCoupleMode}
+            onScopeChange={setGroceryScope}
             onUpdatePreference={handleUpdatePreference}
             onUpdateCustomPrice={handleUpdateCustomPrice}
           />
@@ -504,13 +571,16 @@ export default function Home() {
 
         {activeTab === 'preferences' && (
           <ProductPreferencesView
-            preferences={preferences}
+            preferences={activePreferences}
             customPrices={customPrices}
-            userSettings={userSettings}
+            userSettings={activeSettings}
+            accounts={accounts}
+            activeAccountId={activeAccountId}
             isDark={isDark}
             onUpdatePreference={handleUpdatePreference}
             onUpdateCustomPrice={handleUpdateCustomPrice}
             onUpdateSettings={handleUpdateSettings}
+            onSwitchAccount={handleSwitchAccount}
             onResetAllPreferences={handleResetAllPreferences}
             onApplyPreferencesToPlan={handleApplyPreferencesToPlan}
           />
@@ -518,20 +588,20 @@ export default function Home() {
 
         {activeTab === 'tracker' && (
           <CalorieTrackerView
-            currentDayPlan={weeklyPlan.days[0]}
-            userSettings={userSettings}
+            currentDayPlan={activePlan.days[0]}
+            userSettings={activeSettings}
             isDark={isDark}
           />
         )}
 
         {activeTab === 'prices' && (
-          <DealsAndPricesView groceryItems={groceryItems} isDark={isDark} />
+          <DealsAndPricesView groceryItems={displayedGroceryItems} isDark={isDark} />
         )}
       </main>
 
       <RecipeModal
         recipe={selectedRecipe}
-        preferences={preferences}
+        preferences={activePreferences}
         isDark={isDark}
         onClose={() => setSelectedRecipe(null)}
         onUpdatePreference={handleUpdatePreference}
@@ -545,7 +615,7 @@ export default function Home() {
         }`}
       >
         <p className="font-serif italic text-sm">
-          FoodPlanner QC • Conçu pour Metro au Québec • Nutrition sportive {userSettings.targetCalories} kcal & {userSettings.targetProtein}g P • Base de Données SQLite locale
+          FoodPlanner QC • Profil : {activeAccount.name} ({activeSettings.targetCalories} kcal & {activeSettings.targetProtein}g P) • Base de Données SQLite locale
         </p>
       </footer>
     </div>

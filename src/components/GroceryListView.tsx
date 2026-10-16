@@ -8,9 +8,12 @@ import {
   ProductPreferenceStatus, 
   ProductPreferencesMap, 
   SplitCostReport,
-  UserCustomizationSettings 
+  UserCustomizationSettings,
+  UserAccount,
+  DEFAULT_ACCOUNTS,
+  GroceryViewScope
 } from '@/types';
-import { AISLE_LABELS, calculateReceiptTaxes } from '@/lib/grocery';
+import { AISLE_LABELS, calculateReceiptTaxes, AccountSplitSummary } from '@/lib/grocery';
 import { INGREDIENTS } from '@/data/ingredients';
 import { 
   formatGroceryListAsText, 
@@ -37,6 +40,7 @@ import {
   Target,
   Pencil,
   DollarSign,
+  User,
   X
 } from 'lucide-react';
 
@@ -46,12 +50,21 @@ interface GroceryListViewProps {
   splitReport: SplitCostReport;
   preferences?: ProductPreferencesMap;
   userSettings?: UserCustomizationSettings;
+  accounts?: UserAccount[];
+  activeAccountId?: string;
+  scope?: GroceryViewScope;
+  commonSplitReport?: {
+    totalWithTax: number;
+    accountSplits: Record<string, AccountSplitSummary>;
+    explanation: string;
+  };
   isDark: boolean;
   onToggleItem: (id: string) => void;
-  onAddItem: (name: string, aisle: MetroAisle, packageDescription: string, isTaxable: boolean, price: number) => void;
+  onAddItem: (name: string, aisle: MetroAisle, packageDescription: string, isTaxable: boolean, price: number, forAccount?: string) => void;
   onRemoveItem: (id: string) => void;
   onClearChecked: () => void;
   onToggleCoupleMode: () => void;
+  onScopeChange?: (scope: GroceryViewScope) => void;
   onUpdatePreference?: (ingredientId: string, status: ProductPreferenceStatus) => void;
   onUpdateCustomPrice?: (ingredientId: string, price: number | null) => void;
 }
@@ -62,12 +75,17 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   splitReport,
   preferences = {},
   userSettings,
+  accounts = DEFAULT_ACCOUNTS,
+  activeAccountId = 'ethan',
+  scope = 'common',
+  commonSplitReport,
   isDark,
   onToggleItem,
   onAddItem,
   onRemoveItem,
   onClearChecked,
   onToggleCoupleMode,
+  onScopeChange,
   onUpdatePreference,
   onUpdateCustomPrice,
 }) => {
@@ -86,6 +104,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   const [newItemPack, setNewItemPack] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemTaxable, setNewItemTaxable] = useState(false);
+  const [newItemForAccount, setNewItemForAccount] = useState<string>('common');
   const [filterMode, setFilterMode] = useState<'all' | 'pending' | 'completed'>('all');
   const [isVerifying, setIsVerifying] = useState(false);
   const [lastVerifiedTime, setLastVerifiedTime] = useState<string>("À l'instant");
@@ -141,7 +160,14 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
     e.preventDefault();
     if (!newItemName.trim()) return;
     const parsedPrice = parseFloat(newItemPrice) || 0;
-    onAddItem(newItemName.trim(), newItemAisle, newItemPack.trim() || '1 unité', newItemTaxable, parsedPrice);
+    onAddItem(
+      newItemName.trim(),
+      newItemAisle,
+      newItemPack.trim() || '1 unité',
+      newItemTaxable,
+      parsedPrice,
+      newItemForAccount
+    );
     setNewItemName('');
     setNewItemPack('');
     setNewItemPrice('');
@@ -151,6 +177,73 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
   return (
     <div className="space-y-8">
+      {/* SÉLECTEUR DE LISTE : COMMUNE (PARTAGÉE) VS INDIVIDUELLE */}
+      <div
+        className={`p-2 sm:p-2.5 rounded-3xl border transition-all ${
+          isDark ? 'liquid-glass' : 'liquid-glass-light'
+        }`}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              onClick={() => onScopeChange?.('common')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 ${
+                scope === 'common'
+                  ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-md'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Liste Commune (Partagée)</span>
+              {scope === 'common' && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-950">
+                  {totalItems}
+                </span>
+              )}
+            </button>
+
+            {accounts.map((acc) => {
+              const isSelected = scope === acc.id;
+              return (
+                <button
+                  key={acc.id}
+                  onClick={() => onScopeChange?.(acc.id)}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 ${
+                    isSelected
+                      ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-md'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                      isSelected
+                        ? 'bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-950'
+                        : 'bg-stone-200 text-stone-800 dark:bg-white/10 dark:text-stone-300'
+                    }`}
+                  >
+                    {acc.avatarInitials}
+                  </div>
+                  <span>Liste de {acc.name}</span>
+                  {isSelected && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-950">
+                      {totalItems}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="text-[11px] font-mono text-stone-500 dark:text-stone-400 px-3 hidden md:block">
+            {scope === 'common'
+              ? 'Achats consolidés pour les deux profils avec répartition équitable'
+              : `Panier individuel calculé pour les recettes de ${
+                  accounts.find((a) => a.id === scope)?.name || 'ce profil'
+                }`}
+          </div>
+        </div>
+      </div>
+
       {/* CONTRÔLE QUALITÉ & VÉRIFICATION METRO */}
       <div
         className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-3xl border transition-all ${
@@ -221,7 +314,11 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
             </div>
 
             <h1 className="font-serif text-3xl sm:text-4xl font-normal tracking-tight text-stone-900 dark:text-white">
-              Liste d'Épicerie & <span className="italic">Ticket Exact</span>
+              {scope === 'common' ? (
+                <>Liste d'Épicerie & <span className="italic">Ticket Commun</span></>
+              ) : (
+                <>Liste d'Épicerie de <span className="italic">{accounts.find((a) => a.id === scope)?.name || 'Profil'}</span></>
+              )}
             </h1>
 
             <div className="flex items-baseline gap-3 mt-3">
@@ -264,6 +361,59 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                   </span>
                   <span>{userSettings.goalName}</span>
                 </div>
+              </div>
+            )}
+
+            {/* Ventilation Équitable Commune pour le Ticket Partagé */}
+            {scope === 'common' && commonSplitReport && Object.keys(commonSplitReport.accountSplits).length > 0 && (
+              <div className="mt-4 p-4 rounded-2xl border bg-stone-50/70 dark:bg-black/30 border-stone-200/80 dark:border-white/10 max-w-xl">
+                <div className="flex items-center justify-between mb-3 pb-2 border-b border-stone-200/60 dark:border-white/10">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-stone-600 dark:text-stone-400" />
+                    <span className="font-serif text-sm font-medium text-stone-900 dark:text-white">
+                      Partage Équitable du Panier Commun
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono text-stone-500 dark:text-stone-400">
+                    Au prorata exact des portions
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {Object.values(commonSplitReport.accountSplits).map((split) => (
+                    <div
+                      key={split.accountId}
+                      className={`p-3.5 rounded-xl border flex items-center justify-between ${
+                        isDark ? 'bg-white/[0.02] border-white/10' : 'bg-white border-stone-200 shadow-xs'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-xs text-stone-900 dark:text-white">
+                            Part de {split.accountName}
+                          </span>
+                          <span className="text-[10px] font-mono text-stone-400">
+                            ({split.percentOfTotal}%)
+                          </span>
+                        </div>
+                        <div className="text-[11px] font-mono text-stone-500 dark:text-stone-400 mt-0.5">
+                          {split.itemCount} articles requis
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono text-lg font-light text-stone-950 dark:text-white">
+                          {split.totalWithTax.toFixed(2)} $
+                        </div>
+                        <div className="text-[10px] font-mono text-stone-400">
+                          TTC (taxes incluses)
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-stone-400 mt-2 font-mono italic">
+                  {commonSplitReport.explanation}
+                </p>
               </div>
             )}
 
@@ -538,7 +688,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
           <div className="font-serif text-sm font-medium text-stone-900 dark:text-white">
             Ajouter un article personnel (produit ménager, café, etc.)
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
             <input
               type="text"
               placeholder="Nom de l'article"
@@ -581,6 +731,20 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                 isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
               }`}
             />
+            <select
+              value={newItemForAccount}
+              onChange={(e) => setNewItemForAccount(e.target.value)}
+              className={`px-3 py-2 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-stone-500 ${
+                isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+              }`}
+            >
+              <option value="common">Pour : Tout le monde</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id} className={isDark ? 'bg-stone-900' : 'bg-white'}>
+                  Pour : {a.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex items-center justify-between pt-2">
@@ -729,6 +893,21 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                             {item.isCustomPrice && (
                               <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
                                 <Pencil className="w-2.5 h-2.5" /> Prix Modifié
+                              </span>
+                            )}
+                            {scope === 'common' && item.neededBy && item.neededBy.length > 1 && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-100 text-stone-900 dark:bg-white/10 dark:text-white font-semibold border border-stone-300 dark:border-white/20">
+                                <Users className="w-2.5 h-2.5" /> Commun
+                              </span>
+                            )}
+                            {scope === 'common' && item.neededBy && item.neededBy.length === 1 && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold border border-stone-300 dark:border-stone-700">
+                                <User className="w-2.5 h-2.5" /> Pour {accounts.find((a) => a.id === item.neededBy![0])?.name || item.neededBy[0]}
+                              </span>
+                            )}
+                            {scope === 'common' && item.isCustom && item.forAccount && item.forAccount !== 'common' && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold border border-stone-300 dark:border-stone-700">
+                                <User className="w-2.5 h-2.5" /> Pour {accounts.find((a) => a.id === item.forAccount)?.name || item.forAccount}
                               </span>
                             )}
                           </div>

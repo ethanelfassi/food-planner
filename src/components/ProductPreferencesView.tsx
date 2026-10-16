@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { INGREDIENTS } from '@/data/ingredients';
 import { AISLE_LABELS } from '@/lib/grocery';
 import { 
@@ -8,7 +8,9 @@ import {
   ProductPreferenceStatus, 
   ProductPreferencesMap, 
   UserCustomizationSettings, 
-  DEFAULT_USER_SETTINGS 
+  DEFAULT_USER_SETTINGS,
+  UserAccount,
+  DEFAULT_ACCOUNTS 
 } from '@/types';
 import { 
   Heart, 
@@ -35,10 +37,13 @@ interface ProductPreferencesViewProps {
   preferences: ProductPreferencesMap;
   customPrices?: Record<string, number>;
   userSettings?: UserCustomizationSettings;
+  accounts?: UserAccount[];
+  activeAccountId?: string;
   isDark: boolean;
   onUpdatePreference: (ingredientId: string, status: ProductPreferenceStatus) => void;
   onUpdateCustomPrice?: (ingredientId: string, price: number | null) => void;
   onUpdateSettings?: (settings: Partial<UserCustomizationSettings>) => void;
+  onSwitchAccount?: (accountId: string) => void;
   onResetAllPreferences: () => void;
   onApplyPreferencesToPlan: () => void;
 }
@@ -47,10 +52,13 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
   preferences,
   customPrices = {},
   userSettings = DEFAULT_USER_SETTINGS,
+  accounts = DEFAULT_ACCOUNTS,
+  activeAccountId = 'ethan',
   isDark,
   onUpdatePreference,
   onUpdateCustomPrice,
   onUpdateSettings,
+  onSwitchAccount,
   onResetAllPreferences,
   onApplyPreferencesToPlan,
 }) => {
@@ -63,6 +71,11 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
   // État local pour le formulaire de cibles nutritionnelles & budget
   const [localSettings, setLocalSettings] = useState<UserCustomizationSettings>(userSettings);
   const [isSettingsDirty, setIsSettingsDirty] = useState(false);
+
+  useEffect(() => {
+    setLocalSettings(userSettings);
+    setIsSettingsDirty(false);
+  }, [userSettings]);
 
   // État pour la modale d'édition de prix d'un produit
   const [editingPriceItem, setEditingPriceItem] = useState<{
@@ -284,6 +297,34 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
             <p className="text-sm text-stone-600 dark:text-stone-400 mt-2 max-w-2xl font-sans leading-relaxed">
               Ajustez vos cibles de calories, protéines et budget d'épicerie, ou personnalisez les prix et le statut de chaque aliment du catalogue. Toutes vos données sont sauvegardées localement.
             </p>
+
+            {/* Profil Actif Toggle */}
+            {accounts && accounts.length > 0 && (
+              <div className="flex items-center gap-1.5 mt-3 p-1 rounded-2xl border bg-stone-100/70 dark:bg-white/[0.04] border-stone-200/80 dark:border-white/10 w-fit">
+                <span className="text-[11px] font-mono text-stone-500 px-2 uppercase tracking-wider font-semibold">
+                  Profil :
+                </span>
+                {accounts.map((acc) => {
+                  const isActive = acc.id === activeAccountId;
+                  return (
+                    <button
+                      key={acc.id}
+                      onClick={() => onSwitchAccount?.(acc.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold transition-all ${
+                        isActive
+                          ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-xs'
+                          : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <div className="w-3.5 h-3.5 rounded-full bg-stone-300 dark:bg-white/20 text-stone-900 dark:text-white flex items-center justify-center text-[8px] font-bold">
+                        {acc.avatarInitials}
+                      </div>
+                      <span>{acc.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 self-start lg:self-auto">

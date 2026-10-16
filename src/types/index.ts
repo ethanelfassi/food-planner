@@ -120,6 +120,13 @@ export interface GroceryItem {
   flyerHighlight?: string;
   imageUrl?: string;
   metroProductUrl?: string;
+  neededBy?: string[]; // IDs des comptes ayant besoin de cet article (ex: ['ethan', 'copine'])
+  neededBreakdown?: {
+    accountId: string;
+    accountName: string;
+    quantity: number;
+  }[];
+  forAccount?: string; // Pour les articles ajoutés manuellement ('common' ou accountId)
 }
 
 export interface ReceiptTaxCalculation {
@@ -210,3 +217,29 @@ export const DEFAULT_USER_SETTINGS: UserCustomizationSettings = {
   partnerProtein: 75,
   goalName: 'Prise de masse athlétique',
 };
+
+export const DEFAULT_COPINE_SETTINGS: UserCustomizationSettings = {
+  targetCalories: 1950,
+  targetProtein: 75,
+  targetCarbs: 230,
+  targetFat: 60,
+  targetWeeklyBudget: 100,
+  partnerCalories: 3050,
+  partnerProtein: 165,
+  goalName: 'Alimentation équilibrée & tonique',
+};
+
+export interface UserAccount {
+  id: string; // Ex: 'ethan', 'copine'
+  name: string; // Ex: 'Ethan', 'Copine'
+  avatarInitials: string; // Ex: 'E', 'C'
+  isDefault?: boolean;
+}
+
+export const DEFAULT_ACCOUNTS: UserAccount[] = [
+  { id: 'ethan', name: 'Ethan', avatarInitials: 'E', isDefault: true },
+  { id: 'copine', name: 'Copine', avatarInitials: 'C' },
+];
+
+export type GroceryViewScope = 'common' | string; // 'common' ou accountId
+

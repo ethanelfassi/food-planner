@@ -95,6 +95,25 @@ Ce document répertorie l'ensemble des fonctionnalités de l'application, distin
   - Création des tables `custom_prices` et `app_settings` dans `data/food_planner.sqlite`.
   - Sauvegarde immédiate lors de chaque modification et rechargement automatique transparent au démarrage sans aucune perte de données.
 
+### I. Système Multi-Comptes & Liste d'Épicerie Commune (Partagée)
+- [x] **Comptes et Profils Indépendants en 1 Clic** :
+  - Profils par défaut créés pour **Ethan** et **Copine**, avec possibilité d'ajouter de nouveaux profils ou de les renommer en un clic (sans mot de passe ni friction).
+  - Sélecteur de profil intégré au bandeau d'en-tête (Header) avec badge initiales et menu déroulant fluide.
+- [x] **Objectifs Métaboliques et Préférences Dédiés par Profil** :
+  - Chaque profil possède ses propres cibles de calories, protéines, glucides, lipides et budget hebdomadaire (ex. Ethan : 3 050 kcal / 165g P ; Copine : 1 950 kcal / 75g P).
+  - Chaque profil a son propre catalogue de préférences produits (aliments aimés, neutres, ou exclus).
+- [x] **Planification Hebdomadaire & Tracker Spécifiques à Chaque Compte** :
+  - Menu de recettes composé selon les goûts et le gabarit de la personne sélectionnée.
+  - Suivi calorique du jour synchronisé avec les repas du profil actif.
+- [x] **Liste d'Épicerie Commune (Partagée) & Listes Individuelles** :
+  - Sélecteur de vue instantané : **« Liste Commune (Partagée) »**, **« Liste d'Ethan »**, **« Liste de Copine »**.
+  - **Fusion intelligente des emballages** : Les ingrédients communs sont consolidés en formats réels de vente sans acheter des paquets en double.
+  - **Badges d'attribution sur les fiches produits** : Identification visuelle immédiate des articles `Commun (Ethan & Copine)` ou `Pour [Nom]`.
+  - **Ventilation Équitable du Ticket Partagé** : Calcul au prorata exact des portions consommées par chacun, avec calcul fiscal (TPS/TVQ) et montant net à rembourser.
+  - Ajout d'articles manuels avec attribution au choix : pour tout le monde ou pour un profil spécifique.
+- [x] **Persistance Complète en Base SQLite** :
+  - Tables relationnelles `accounts`, `account_preferences` et `account_settings` dans `food_planner.sqlite`.
+
 ---
 
 ## 🔮 2. Fonctionnalités Prévues pour la Version Finale (Roadmap)
