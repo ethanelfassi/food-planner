@@ -39,9 +39,18 @@ export function calculateSplitCost(
     };
   }
 
-  // Calcul différencié par rayon :
-  // En boucherie/poissonnerie et protéines pures, Ethan consomme environ 68% du total (165g prot vs 75g)
-  // En fruits, légumes et épicerie de base, la répartition est proportionnelle au total calorique (~61% vs 39%)
+  // Calcul dynamique différencié selon les cibles réelles personnalisées :
+  const protTotal = (settings.user1.targetProtein || 165) + (settings.user2.targetProtein || 75);
+  const meatShare1 = Math.min(0.85, Math.max(0.5, (settings.user1.targetProtein || 165) / protTotal));
+  const meatShare2 = 1 - meatShare1;
+
+  const calTotal = (settings.user1.targetCalories || 3050) + (settings.user2.targetCalories || 1950);
+  const calShare1 = Math.min(0.80, Math.max(0.5, (settings.user1.targetCalories || 3050) / calTotal));
+  const calShare2 = 1 - calShare1;
+
+  const dairyShare1 = (meatShare1 + calShare1) / 2;
+  const dairyShare2 = 1 - dairyShare1;
+
   let user1Total = 0;
   let user2Total = 0;
   let meatDairyEthan = 0;
@@ -50,25 +59,22 @@ export function calculateSplitCost(
   for (const item of groceryItems) {
     const cost = item.exactPriceMetro;
     if (item.aisle === 'BOUCHERIE_ET_POISSONNERIE') {
-      // Forte surconsommation sportive
-      const share1 = cost * 0.70;
-      const share2 = cost * 0.30;
+      const share1 = cost * meatShare1;
+      const share2 = cost * meatShare2;
       user1Total += share1;
       user2Total += share2;
       meatDairyEthan += share1;
       meatDairyCopine += share2;
     } else if (item.aisle === 'PRODUITS_LAITIERS_ET_OEUFS') {
-      // Forte consommation d'œufs et yogourt grec
-      const share1 = cost * 0.65;
-      const share2 = cost * 0.35;
+      const share1 = cost * dairyShare1;
+      const share2 = cost * dairyShare2;
       user1Total += share1;
       user2Total += share2;
       meatDairyEthan += share1;
       meatDairyCopine += share2;
     } else {
-      // Épicerie, boulangerie, fruits & légumes
-      const share1 = cost * 0.60;
-      const share2 = cost * 0.40;
+      const share1 = cost * calShare1;
+      const share2 = cost * calShare2;
       user1Total += share1;
       user2Total += share2;
     }
@@ -88,6 +94,6 @@ export function calculateSplitCost(
     user2Percent,
     meatDairyShareUser1: rounded(meatDairyEthan),
     meatDairyShareUser2: rounded(meatDairyCopine),
-    explanation: `Ethan prend en charge ${user1Percent}% de la facture (${user1Rounded} $) car son quota protéique (165g) et calorique (3 050 kcal) concentre la majeure partie du budget boucherie et produits laitiers. Sa copine prend en charge ${user2Percent}% (${user2Rounded} $).`,
+    explanation: `${settings.user1.name} prend en charge ${user1Percent}% de la facture (${user1Rounded} $) car son quota protéique (${settings.user1.targetProtein}g) et calorique (${settings.user1.targetCalories} kcal) concentre la majeure partie du budget boucherie et produits laitiers. Sa copine (${settings.user2.targetProtein}g prot, ${settings.user2.targetCalories} kcal) prend en charge ${user2Percent}% (${user2Rounded} $).`,
   };
 }

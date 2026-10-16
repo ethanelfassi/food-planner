@@ -1,8 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CoupleSettings, GroceryItem, MetroAisle, ProductPreferenceStatus, ProductPreferencesMap, SplitCostReport } from '@/types';
+import { 
+  CoupleSettings, 
+  GroceryItem, 
+  MetroAisle, 
+  ProductPreferenceStatus, 
+  ProductPreferencesMap, 
+  SplitCostReport,
+  UserCustomizationSettings 
+} from '@/types';
 import { AISLE_LABELS, calculateReceiptTaxes } from '@/lib/grocery';
+import { INGREDIENTS } from '@/data/ingredients';
 import { 
   formatGroceryListAsText, 
   generateMailtoUrl, 
@@ -24,7 +33,11 @@ import {
   CheckCheck,
   RefreshCw,
   Heart,
-  Ban
+  Ban,
+  Target,
+  Pencil,
+  DollarSign,
+  X
 } from 'lucide-react';
 
 interface GroceryListViewProps {
@@ -32,6 +45,7 @@ interface GroceryListViewProps {
   coupleSettings: CoupleSettings;
   splitReport: SplitCostReport;
   preferences?: ProductPreferencesMap;
+  userSettings?: UserCustomizationSettings;
   isDark: boolean;
   onToggleItem: (id: string) => void;
   onAddItem: (name: string, aisle: MetroAisle, packageDescription: string, isTaxable: boolean, price: number) => void;
@@ -39,6 +53,7 @@ interface GroceryListViewProps {
   onClearChecked: () => void;
   onToggleCoupleMode: () => void;
   onUpdatePreference?: (ingredientId: string, status: ProductPreferenceStatus) => void;
+  onUpdateCustomPrice?: (ingredientId: string, price: number | null) => void;
 }
 
 export const GroceryListView: React.FC<GroceryListViewProps> = ({
@@ -46,6 +61,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   coupleSettings,
   splitReport,
   preferences = {},
+  userSettings,
   isDark,
   onToggleItem,
   onAddItem,
@@ -53,11 +69,20 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   onClearChecked,
   onToggleCoupleMode,
   onUpdatePreference,
+  onUpdateCustomPrice,
 }) => {
   const [copySuccess, setCopySuccess] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemAisle, setNewItemAisle] = useState<MetroAisle>('EPICERIE');
+  const [editingPriceItem, setEditingPriceItem] = useState<{
+    ingredientId: string;
+    name: string;
+    currentPrice: number;
+    defaultPrice: number;
+    packageDescription: string;
+  } | null>(null);
+  const [customPriceInput, setCustomPriceInput] = useState<string>('');
   const [newItemPack, setNewItemPack] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemTaxable, setNewItemTaxable] = useState(false);
@@ -210,6 +235,37 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                 (Montant exact payable en caisse)
               </span>
             </div>
+
+            {/* Budget Hebdo Tracking */}
+            {userSettings?.targetWeeklyBudget && userSettings.targetWeeklyBudget > 0 && (
+              <div className="mt-3.5 max-w-md p-3 rounded-2xl border border-stone-200/80 dark:border-white/10 bg-stone-50/50 dark:bg-black/20">
+                <div className="flex items-center justify-between text-xs font-mono mb-1.5">
+                  <span className="text-stone-500 dark:text-stone-400 flex items-center gap-1.5">
+                    <Target className="w-3.5 h-3.5 text-stone-600 dark:text-stone-400" />
+                    Budget cible : {userSettings.targetWeeklyBudget.toFixed(0)} $
+                  </span>
+                  <span className="font-semibold text-stone-900 dark:text-white">
+                    {Math.round((receipt.totalWithTax / userSettings.targetWeeklyBudget) * 100)}%
+                  </span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-stone-200 dark:bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full bg-stone-900 dark:bg-white transition-all duration-300 rounded-full"
+                    style={{
+                      width: `${Math.min(Math.round((receipt.totalWithTax / userSettings.targetWeeklyBudget) * 100), 100)}%`,
+                    }}
+                  />
+                </div>
+                <div className="text-[10px] font-mono text-stone-500 dark:text-stone-400 mt-1 flex justify-between">
+                  <span>
+                    {receipt.totalWithTax <= userSettings.targetWeeklyBudget
+                      ? `Reste disponible : ${(userSettings.targetWeeklyBudget - receipt.totalWithTax).toFixed(2)} $`
+                      : `Dépassement : +${(receipt.totalWithTax - userSettings.targetWeeklyBudget).toFixed(2)} $`}
+                  </span>
+                  <span>{userSettings.goalName}</span>
+                </div>
+              </div>
+            )}
 
             {receipt.totalSavingsMoi > 0 && (
               <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-stone-900 text-stone-50 dark:bg-white dark:text-stone-950 border border-stone-800 dark:border-stone-200 text-xs font-mono font-medium shadow-xs">
@@ -670,6 +726,11 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                                 <Ban className="w-2.5 h-2.5" /> Exclu
                               </span>
                             )}
+                            {item.isCustomPrice && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
+                                <Pencil className="w-2.5 h-2.5" /> Prix Modifié
+                              </span>
+                            )}
                           </div>
 
                           <div className="text-xs text-stone-700 dark:text-stone-300 mt-0.5 truncate font-sans">
@@ -768,6 +829,34 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                             </div>
                           )}
 
+                          {/* Bouton Personnaliser le Prix */}
+                          {item.ingredientId && onUpdateCustomPrice && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const defaultIngredient = INGREDIENTS[item.ingredientId!];
+                                setEditingPriceItem({
+                                  ingredientId: item.ingredientId!,
+                                  name: item.name,
+                                  currentPrice: item.exactPriceMetro,
+                                  defaultPrice: defaultIngredient?.packaging.exactPriceMetro ?? item.exactPriceMetro,
+                                  packageDescription: item.packageDescription,
+                                });
+                                setCustomPriceInput(item.exactPriceMetro.toFixed(2));
+                              }}
+                              className={`p-1.5 rounded-xl border transition-all active:scale-90 ${
+                                item.isCustomPrice
+                                  ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white shadow-xs'
+                                  : isDark
+                                  ? 'bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border-white/10'
+                                  : 'bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 border-stone-200'
+                              }`}
+                              title={item.isCustomPrice ? 'Prix personnalisé actif (cliquer pour modifier)' : 'Définir un prix personnalisé pour cet article'}
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          )}
+
                           {item.metroProductUrl && (
                             <a
                               href={item.metroProductUrl}
@@ -805,6 +894,102 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Modal Édition Prix Personnalisé */}
+      {editingPriceItem && onUpdateCustomPrice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div
+            className={`w-full max-w-md rounded-3xl p-6 border shadow-2xl space-y-4 ${
+              isDark ? 'liquid-glass bg-stone-950/90 text-white border-white/10' : 'liquid-glass-light bg-white/95 text-stone-900 border-stone-200'
+            }`}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-white/10">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-stone-400 font-semibold">
+                  Personnalisation du Prix
+                </span>
+                <h3 className="font-serif text-lg font-medium">{editingPriceItem.name}</h3>
+              </div>
+              <button
+                onClick={() => setEditingPriceItem(null)}
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-900 dark:hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 rounded-2xl bg-stone-100 dark:bg-white/5 border border-stone-200 dark:border-white/10 flex items-center justify-between font-mono">
+                <span className="text-stone-500">Format d'emballage :</span>
+                <span className="font-semibold text-stone-900 dark:text-white">{editingPriceItem.packageDescription}</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-stone-100 dark:bg-white/5 border border-stone-200 dark:border-white/10 flex items-center justify-between font-mono">
+                <span className="text-stone-500">Prix Metro officiel :</span>
+                <span className="font-semibold text-stone-900 dark:text-white">{editingPriceItem.defaultPrice.toFixed(2)} $</span>
+              </div>
+
+              <div>
+                <label className="block text-stone-500 dark:text-stone-400 font-mono text-[11px] mb-1.5 uppercase tracking-wider">
+                  Votre Prix Payé au Paquet ($ CAD)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={customPriceInput}
+                    onChange={(e) => setCustomPriceInput(e.target.value)}
+                    placeholder="ex: 12.99"
+                    className={`w-full px-4 py-2.5 rounded-xl font-mono text-base border focus:outline-none focus:ring-1 focus:ring-stone-400 ${
+                      isDark ? 'bg-black/50 border-white/20 text-white' : 'bg-white border-stone-300 text-stone-900'
+                    }`}
+                    autoFocus
+                  />
+                  <span className="absolute right-4 top-3 font-mono text-xs text-stone-400">$ CAD</span>
+                </div>
+                <p className="text-[11px] text-stone-400 mt-1">
+                  Ce montant remplacera le prix officiel et recalculera automatiquement le total du ticket et le prix aux 100g.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdateCustomPrice(editingPriceItem.ingredientId, null);
+                  setEditingPriceItem(null);
+                }}
+                className="text-xs text-stone-500 hover:text-stone-900 dark:hover:text-white font-mono underline underline-offset-4"
+              >
+                Rétablir prix Metro
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingPriceItem(null)}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider text-stone-500 hover:text-stone-900 dark:hover:text-white"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const val = parseFloat(customPriceInput);
+                    if (!isNaN(val) && val >= 0) {
+                      onUpdateCustomPrice(editingPriceItem.ingredientId, val);
+                    }
+                    setEditingPriceItem(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold bg-stone-900 text-white dark:bg-white dark:text-stone-950 active:scale-95 transition-all shadow-xs"
+                >
+                  Enregistrer le prix
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

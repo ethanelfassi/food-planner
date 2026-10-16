@@ -11,9 +11,17 @@ export const AISLE_LABELS: Record<MetroAisle, { title: string; order: number; ic
   DIVERS: { title: 'Articles divers & Maison', order: 7, icon: 'Package' },
 };
 
-export function generateGroceryList(weeklyPlan: WeeklyPlan, coupleModeEnabled = false): GroceryItem[] {
+export function generateGroceryList(
+  weeklyPlan: WeeklyPlan,
+  coupleModeEnabled = false,
+  customPrices: Record<string, number> = {},
+  user1Calories = 3050,
+  partnerCalories = 1950
+): GroceryItem[] {
   const aggregated: Record<string, number> = {};
-  const coupleFactor = coupleModeEnabled ? 1.6 : 1.0;
+  const coupleFactor = coupleModeEnabled
+    ? Math.max(1.2, Math.min(2.0, 1 + partnerCalories / (user1Calories || 3050)))
+    : 1.0;
 
   // Parcourir chaque jour
   for (const day of weeklyPlan.days) {
@@ -44,11 +52,25 @@ export function generateGroceryList(weeklyPlan: WeeklyPlan, coupleModeEnabled = 
       packageDescription += ` (${Math.round(neededQuantity)} requis)`;
     }
 
+    const hasCustomPrice = customPrices[ingredientId] !== undefined && customPrices[ingredientId] > 0;
+    const exactUnitCost = hasCustomPrice ? customPrices[ingredientId] : pack.exactPriceMetro;
     const regUnitCost = pack.regularPriceMetro;
-    const exactUnitCost = pack.exactPriceMetro; // Intègre déjà le prix promo / Membre Moi
+
     const totalRegular = Math.round(packageCount * regUnitCost * 100) / 100;
     const totalExact = Math.round(packageCount * exactUnitCost * 100) / 100;
     const savings = Math.max(0, Math.round((totalRegular - totalExact) * 100) / 100);
+
+    let unitPricePer100g = pack.unitPricePer100g;
+    let unitPriceLabel = pack.unitPriceLabel;
+    if (hasCustomPrice && pack.amount > 0) {
+      if (pack.unit === 'g' || pack.unit === 'ml') {
+        unitPricePer100g = Math.round(((exactUnitCost / pack.amount) * 100) * 100) / 100;
+        unitPriceLabel = `${unitPricePer100g.toFixed(2)} $ / 100${pack.unit}`;
+      } else {
+        unitPricePer100g = Math.round((exactUnitCost / pack.amount) * 100) / 100;
+        unitPriceLabel = `${unitPricePer100g.toFixed(2)} $ / unité`;
+      }
+    }
 
     const maxiUnitCost = pack.priceMaxi;
     const superCUnitCost = pack.priceSuperC;
@@ -65,11 +87,13 @@ export function generateGroceryList(weeklyPlan: WeeklyPlan, coupleModeEnabled = 
       packageCount,
       regularPriceMetro: totalRegular,
       exactPriceMetro: totalExact,
-      unitPriceLabel: pack.unitPriceLabel,
-      pricePer100g: pack.unitPricePer100g,
+      unitPriceLabel,
+      pricePer100g: unitPricePer100g,
       isTaxable: pack.isTaxable,
-      isMoiMemberPrice: pack.isMoiMemberPrice,
-      moiPriceLabel: pack.moiPriceLabel,
+      isMoiMemberPrice: pack.isMoiMemberPrice && !hasCustomPrice,
+      moiPriceLabel: hasCustomPrice ? `Prix personnalisé : ${exactUnitCost.toFixed(2)}$` : pack.moiPriceLabel,
+      isCustomPrice: hasCustomPrice,
+      customPricePerPackage: hasCustomPrice ? exactUnitCost : undefined,
       savingsAmount: savings,
       estimatedPriceMaxi: Math.round(packageCount * maxiUnitCost * 100) / 100,
       estimatedPriceSuperC: Math.round(packageCount * superCUnitCost * 100) / 100,

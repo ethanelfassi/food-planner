@@ -2,12 +2,14 @@
 
 import React from 'react';
 import { Calendar, ShoppingBag, Activity, Store, Sun, Moon, Users, SlidersHorizontal } from 'lucide-react';
+import { UserCustomizationSettings } from '@/types';
 
 interface HeaderProps {
   activeTab: 'planner' | 'grocery' | 'prices' | 'tracker' | 'preferences';
   setActiveTab: (tab: 'planner' | 'grocery' | 'prices' | 'tracker' | 'preferences') => void;
   groceryCount: number;
   coupleModeEnabled: boolean;
+  userSettings?: UserCustomizationSettings;
   preferencesCount?: { liked: number; disliked: number };
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
@@ -18,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   groceryCount,
   coupleModeEnabled,
+  userSettings,
   theme,
   onToggleTheme,
 }) => {
@@ -76,31 +79,37 @@ export const Header: React.FC<HeaderProps> = ({
                   isDark ? 'text-stone-400' : 'text-stone-500'
                 }`}
               >
-                Prise de masse athlétique • Repas du soir doublés • Metro Québec
+                {userSettings?.goalName || 'Prise de masse athlétique'} • Repas du soir doublés • Metro Québec
               </p>
             </div>
           </div>
 
           {/* Anneau / Pill Macros Style Apple Fitness Monochrome */}
-          <div
-            className={`hidden lg:flex items-center gap-3 px-3.5 py-1.5 rounded-full border transition-all ${
+          <button
+            onClick={() => setActiveTab('preferences')}
+            className={`hidden lg:flex items-center gap-3 px-3.5 py-1.5 rounded-full border transition-all hover:scale-[1.02] cursor-pointer ${
               isDark
-                ? 'bg-white/[0.03] border-white/10 text-stone-200'
-                : 'bg-stone-100/80 border-stone-200/90 text-stone-800 shadow-xs'
+                ? 'bg-white/[0.03] hover:bg-white/[0.06] border-white/10 text-stone-200'
+                : 'bg-stone-100/80 hover:bg-stone-200/80 border-stone-200/90 text-stone-800 shadow-xs'
             }`}
+            title="Cliquez pour ajuster vos cibles caloriques et protéiques"
           >
             <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums">
               <span className="w-1.5 h-1.5 rounded-full bg-stone-900 dark:bg-stone-300" />
               <span className={isDark ? 'text-stone-400' : 'text-stone-500'}>Cible :</span>
-              <span className="font-semibold text-stone-900 dark:text-stone-100">3 050 kcal</span>
+              <span className="font-semibold text-stone-900 dark:text-stone-100">
+                {userSettings?.targetCalories ?? 3050} kcal
+              </span>
             </div>
             <div className={`h-3 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-200'}`} />
             <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums">
               <span className="w-1.5 h-1.5 rounded-full bg-stone-600 dark:bg-stone-400" />
               <span className={isDark ? 'text-stone-400' : 'text-stone-500'}>Protéines :</span>
-              <span className="font-semibold text-stone-900 dark:text-stone-100">165 g</span>
+              <span className="font-semibold text-stone-900 dark:text-stone-100">
+                {userSettings?.targetProtein ?? 165} g
+              </span>
             </div>
-          </div>
+          </button>
 
           {/* Navigation & Theme Toggle */}
           <div className="flex items-center gap-2">

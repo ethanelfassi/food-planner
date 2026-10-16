@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { DayPlan } from '@/types';
+import { DayPlan, UserCustomizationSettings } from '@/types';
 import { Flame, Dumbbell, Plus, Check, Circle, Trophy, AlertCircle, Apple } from 'lucide-react';
 
 interface CalorieTrackerViewProps {
   currentDayPlan: DayPlan;
+  userSettings?: UserCustomizationSettings;
   isDark: boolean;
 }
 
@@ -16,7 +17,7 @@ interface CustomEntry {
   protein: number;
 }
 
-export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentDayPlan, isDark }) => {
+export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentDayPlan, userSettings, isDark }) => {
   const [eatenMeals, setEatenMeals] = useState<Record<string, boolean>>({
     breakfast: true,
     lunch: true,
@@ -73,8 +74,8 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
     consumedProtein += extra.protein;
   }
 
-  const targetCalories = 3050;
-  const targetProtein = 165;
+  const targetCalories = userSettings?.targetCalories ?? 3050;
+  const targetProtein = userSettings?.targetProtein ?? 165;
   const calPercent = Math.min(100, Math.round((consumedCalories / targetCalories) * 100));
   const protPercent = Math.min(100, Math.round((consumedProtein / targetProtein) * 100));
 

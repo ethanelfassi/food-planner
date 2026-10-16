@@ -3,7 +3,13 @@
 import React, { useState } from 'react';
 import { INGREDIENTS } from '@/data/ingredients';
 import { AISLE_LABELS } from '@/lib/grocery';
-import { MetroAisle, ProductPreferenceStatus, ProductPreferencesMap } from '@/types';
+import { 
+  MetroAisle, 
+  ProductPreferenceStatus, 
+  ProductPreferencesMap, 
+  UserCustomizationSettings, 
+  DEFAULT_USER_SETTINGS 
+} from '@/types';
 import { 
   Heart, 
   Ban, 
@@ -13,28 +19,60 @@ import {
   ExternalLink, 
   RefreshCw,
   RotateCcw,
-  Check
+  Check,
+  SlidersHorizontal,
+  ShoppingBag,
+  DollarSign,
+  Pencil,
+  Flame,
+  Dumbbell,
+  Users,
+  Target,
+  X
 } from 'lucide-react';
 
 interface ProductPreferencesViewProps {
   preferences: ProductPreferencesMap;
+  customPrices?: Record<string, number>;
+  userSettings?: UserCustomizationSettings;
   isDark: boolean;
   onUpdatePreference: (ingredientId: string, status: ProductPreferenceStatus) => void;
+  onUpdateCustomPrice?: (ingredientId: string, price: number | null) => void;
+  onUpdateSettings?: (settings: Partial<UserCustomizationSettings>) => void;
   onResetAllPreferences: () => void;
   onApplyPreferencesToPlan: () => void;
 }
 
 export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
   preferences,
+  customPrices = {},
+  userSettings = DEFAULT_USER_SETTINGS,
   isDark,
   onUpdatePreference,
+  onUpdateCustomPrice,
+  onUpdateSettings,
   onResetAllPreferences,
   onApplyPreferencesToPlan,
 }) => {
+  const [activeSubTab, setActiveSubTab] = useState<'catalog' | 'settings'>('catalog');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAisle, setSelectedAisle] = useState<string>('all');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'liked' | 'disliked' | 'neutral'>('all');
   const [saveToast, setSaveToast] = useState<string | null>(null);
+
+  // État local pour le formulaire de cibles nutritionnelles & budget
+  const [localSettings, setLocalSettings] = useState<UserCustomizationSettings>(userSettings);
+  const [isSettingsDirty, setIsSettingsDirty] = useState(false);
+
+  // État pour la modale d'édition de prix d'un produit
+  const [editingPriceItem, setEditingPriceItem] = useState<{
+    id: string;
+    name: string;
+    defaultPrice: number;
+    currentPrice: number;
+    unitLabel: string;
+  } | null>(null);
+  const [customPriceInput, setCustomPriceInput] = useState<string>('');
 
   const allIngredients = Object.values(INGREDIENTS);
 
@@ -42,20 +80,18 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
   const likedCount = allIngredients.filter((i) => preferences[i.id] === 'liked').length;
   const dislikedCount = allIngredients.filter((i) => preferences[i.id] === 'disliked').length;
   const neutralCount = allIngredients.length - likedCount - dislikedCount;
+  const customPricesCount = Object.keys(customPrices).length;
 
-  // Filtrage
+  // Filtrage du catalogue
   const filteredIngredients = allIngredients.filter((item) => {
-    // 1. Recherche texte
     const matchesSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.packaging.label.toLowerCase().includes(searchQuery.toLowerCase());
 
     if (!matchesSearch) return false;
 
-    // 2. Rayon
     if (selectedAisle !== 'all' && item.aisle !== selectedAisle) return false;
 
-    // 3. Statut
     const currentStatus = preferences[item.id] || 'neutral';
     if (selectedFilter !== 'all' && currentStatus !== selectedFilter) return false;
 
@@ -66,12 +102,61 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
     onUpdatePreference(id, newStatus);
     const label =
       newStatus === 'liked'
-        ? `"${name}" ajouté à vos produits favoris (sauvegardé en BDD)`
+        ? `"${name}" ajouté à vos favoris (sauvegardé dans SQLite)`
         : newStatus === 'disliked'
-        ? `"${name}" exclu de vos achats et banni des recettes (sauvegardé en BDD)`
+        ? `"${name}" exclu des achats et recettes (sauvegardé dans SQLite)`
         : `"${name}" réinitialisé à neutre`;
     setSaveToast(label);
     setTimeout(() => setSaveToast(null), 3000);
+  };
+
+  const handleOpenPriceModal = (item: (typeof allIngredients)[0]) => {
+    const activePrice = customPrices[item.id] !== undefined ? customPrices[item.id] : item.packaging.exactPriceMetro;
+    setEditingPriceItem({
+      id: item.id,
+      name: item.name,
+      defaultPrice: item.packaging.exactPriceMetro,
+      currentPrice: activePrice,
+      unitLabel: item.packaging.label,
+    });
+    setCustomPriceInput(activePrice.toFixed(2));
+  };
+
+  const handleSaveCustomPrice = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!editingPriceItem || !onUpdateCustomPrice) return;
+
+    const parsed = parseFloat(customPriceInput.replace(',', '.'));
+    if (!isNaN(parsed) && parsed > 0) {
+      onUpdateCustomPrice(editingPriceItem.id, Math.round(parsed * 100) / 100);
+      setSaveToast(`Prix personnalisé pour "${editingPriceItem.name}" fixé à ${parsed.toFixed(2)} $ CAD`);
+    } else {
+      onUpdateCustomPrice(editingPriceItem.id, null);
+      setSaveToast(`Prix de "${editingPriceItem.name}" rétabli au tarif Metro`);
+    }
+    setEditingPriceItem(null);
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
+  const handleResetCustomPrice = (ingredientId: string, name: string) => {
+    if (!onUpdateCustomPrice) return;
+    onUpdateCustomPrice(ingredientId, null);
+    setSaveToast(`Tarif Metro d'origine rétabli pour "${name}"`);
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
+  const handleSaveSettings = () => {
+    if (onUpdateSettings) {
+      onUpdateSettings(localSettings);
+      setIsSettingsDirty(false);
+      setSaveToast('Cibles métaboliques et budget enregistrés dans SQLite');
+      setTimeout(() => setSaveToast(null), 3000);
+    }
+  };
+
+  const handleResetSettingsToDefault = () => {
+    setLocalSettings(DEFAULT_USER_SETTINGS);
+    setIsSettingsDirty(true);
   };
 
   const cardGlassClass = isDark ? 'liquid-glass' : 'liquid-glass-light';
@@ -88,7 +173,97 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
         </div>
       )}
 
-      {/* En-tête Éditorial */}
+      {/* Modale d'édition de prix d'un produit */}
+      {editingPriceItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-150">
+          <div className={`rounded-3xl max-w-md w-full p-6 shadow-2xl border space-y-4 ${cardGlassClass}`}>
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-stone-700 dark:text-stone-300" />
+                <h3 className="font-serif text-lg font-medium text-stone-900 dark:text-white">
+                  Prix Personnalisé
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditingPriceItem(null)}
+                className="p-1 rounded-xl text-stone-400 hover:text-stone-900 dark:hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div>
+              <div className="font-serif text-base font-normal text-stone-900 dark:text-white">
+                {editingPriceItem.name}
+              </div>
+              <div className="text-xs text-stone-500 dark:text-stone-400 font-sans mt-0.5">
+                Format standard : {editingPriceItem.unitLabel} • Tarif Metro officiel :{' '}
+                <span className="font-mono font-semibold text-stone-800 dark:text-stone-200">
+                  {editingPriceItem.defaultPrice.toFixed(2)} $ CAD
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveCustomPrice} className="space-y-4">
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-stone-600 dark:text-stone-400 mb-1.5 font-semibold">
+                  Votre prix réel payé en magasin ($ CAD)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.10"
+                    max="999.00"
+                    value={customPriceInput}
+                    onChange={(e) => setCustomPriceInput(e.target.value)}
+                    autoFocus
+                    className={`w-full pl-4 pr-12 py-2.5 rounded-2xl text-base font-mono tabular-nums border focus:outline-none focus:ring-1 focus:ring-stone-500 ${
+                      isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
+                    }`}
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-mono text-xs text-stone-400">
+                    $ CAD
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleResetCustomPrice(editingPriceItem.id, editingPriceItem.name);
+                    setEditingPriceItem(null);
+                  }}
+                  className="text-xs font-mono text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors"
+                >
+                  Rétablir tarif Metro
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingPriceItem(null)}
+                    className="px-3.5 py-2 text-xs font-mono uppercase tracking-wider text-stone-400 hover:text-stone-900 dark:hover:text-white"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    className={`px-4 py-2 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold transition-all shadow-xs ${
+                      isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
+                    }`}
+                  >
+                    Enregistrer
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* En-tête Éditorial & Switch d'Onglets */}
       <div className={`rounded-3xl p-6 sm:p-8 transition-all border ${cardGlassClass}`}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
@@ -103,15 +278,15 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
             </div>
 
             <h1 className="font-serif text-3xl sm:text-4xl font-normal tracking-tight text-stone-900 dark:text-white">
-              Gestionnaire de <span className="italic font-light">Préférences Produits</span>
+              Personnalisation & <span className="italic font-light">Préférences</span>
             </h1>
 
             <p className="text-sm text-stone-600 dark:text-stone-400 mt-2 max-w-2xl font-sans leading-relaxed">
-              Choisissez précisément les produits que vous aimez acheter et ceux que vous refusez d'acheter. Les recettes intégrant vos produits exclus sont <strong>strictement bannies</strong>, tandis que vos favoris sont priorisés. Tout est persisté dans votre base de données locale.
+              Ajustez vos cibles de calories, protéines et budget d'épicerie, ou personnalisez les prix et le statut de chaque aliment du catalogue. Toutes vos données sont sauvegardées localement.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 self-start lg:self-auto">
             <button
               onClick={onApplyPreferencesToPlan}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-mono uppercase tracking-wider transition-all border active:scale-95 font-semibold ${
@@ -123,335 +298,667 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Actualiser le menu</span>
             </button>
-
-            {(likedCount > 0 || dislikedCount > 0) && (
-              <button
-                onClick={onResetAllPreferences}
-                className="flex items-center gap-1.5 px-3 py-2.5 rounded-2xl text-xs font-mono uppercase tracking-wider text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors"
-                title="Réinitialiser toutes les préférences à neutre"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Réinitialiser</span>
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Baromètre de Préférences */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 pt-6 border-t border-stone-200/60 dark:border-white/10">
+        {/* Navigation Secondaire : Cibles vs Catalogue */}
+        <div className="flex items-center gap-2 mt-8 pt-6 border-t border-stone-200/60 dark:border-white/10 font-mono text-xs">
           <button
-            onClick={() => setSelectedFilter('all')}
-            className={`p-3.5 rounded-2xl border text-left transition-all ${
-              selectedFilter === 'all'
+            onClick={() => setActiveSubTab('catalog')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+              activeSubTab === 'catalog'
                 ? isDark
-                  ? 'bg-white/10 border-white/20'
-                  : 'bg-stone-100 border-stone-300'
-                : isDark
-                ? 'bg-white/[0.02] border-white/5'
-                : 'bg-white border-stone-200'
-            }`}
-          >
-            <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 font-semibold">
-              Total Catalogue
-            </div>
-            <div className="font-mono tabular-nums text-2xl font-light text-stone-900 dark:text-white mt-0.5">
-              {allIngredients.length}
-            </div>
-          </button>
-
-          <button
-            onClick={() => setSelectedFilter('liked')}
-            className={`p-3.5 rounded-2xl border text-left transition-all ${
-              selectedFilter === 'liked'
-                ? isDark
-                  ? 'bg-white/15 border-white/30 ring-1 ring-white/20'
-                  : 'bg-stone-900 text-white border-stone-900 shadow-sm'
-                : isDark
-                ? 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'
-                : 'bg-white border-stone-200 shadow-xs hover:border-stone-300'
-            }`}
-          >
-            <div
-              className={`text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 font-semibold ${
-                selectedFilter === 'liked' && !isDark
-                  ? 'text-stone-200'
-                  : 'text-stone-600 dark:text-stone-400'
-              }`}
-            >
-              <Heart
-                className={`w-3 h-3 ${
-                  selectedFilter === 'liked' && !isDark
-                    ? 'text-white fill-white'
-                    : 'text-stone-900 dark:text-stone-100 fill-stone-900 dark:fill-stone-100'
-                }`}
-              />{' '}
-              J'aime acheter
-            </div>
-            <div
-              className={`font-mono tabular-nums text-2xl font-medium mt-0.5 ${
-                selectedFilter === 'liked' && !isDark
-                  ? 'text-white'
-                  : 'text-stone-950 dark:text-white'
-              }`}
-            >
-              {likedCount}
-            </div>
-          </button>
-
-          <button
-            onClick={() => setSelectedFilter('disliked')}
-            className={`p-3.5 rounded-2xl border text-left transition-all ${
-              selectedFilter === 'disliked'
-                ? isDark
-                  ? 'bg-white/15 border-white/30 ring-1 ring-white/20'
-                  : 'bg-stone-900 text-white border-stone-900 shadow-sm'
-                : isDark
-                ? 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'
-                : 'bg-white border-stone-200 shadow-xs hover:border-stone-300'
-            }`}
-          >
-            <div
-              className={`text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 font-semibold ${
-                selectedFilter === 'disliked' && !isDark
-                  ? 'text-stone-200'
-                  : 'text-stone-600 dark:text-stone-400'
-              }`}
-            >
-              <Ban
-                className={`w-3 h-3 ${
-                  selectedFilter === 'disliked' && !isDark
-                    ? 'text-white'
-                    : 'text-stone-700 dark:text-stone-300'
-                }`}
-              />{' '}
-              Ne pas acheter
-            </div>
-            <div
-              className={`font-mono tabular-nums text-2xl font-medium mt-0.5 ${
-                selectedFilter === 'disliked' && !isDark
-                  ? 'text-white'
-                  : 'text-stone-950 dark:text-white'
-              }`}
-            >
-              {dislikedCount}
-            </div>
-          </button>
-
-          <button
-            onClick={() => setSelectedFilter('neutral')}
-            className={`p-3.5 rounded-2xl border text-left transition-all ${
-              selectedFilter === 'neutral'
-                ? isDark
-                  ? 'bg-white/10 border-white/20'
-                  : 'bg-stone-100 border-stone-300'
-                : isDark
-                ? 'bg-white/[0.02] border-white/5'
-                : 'bg-white border-stone-200'
-            }`}
-          >
-            <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 font-semibold">
-              Non spécifiés
-            </div>
-            <div className="font-mono tabular-nums text-2xl font-light text-stone-600 dark:text-stone-300 mt-0.5">
-              {neutralCount}
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Barre de Recherche et Rayons */}
-      <div
-        className={`p-4 rounded-3xl border space-y-3 ${
-          isDark ? 'bg-white/[0.02] border-white/10' : 'bg-white border-stone-200 shadow-xs'
-        }`}
-      >
-        <div className="relative">
-          <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Rechercher un produit... (ex: bœuf haché, avoine, saumon, yogourt, cheddar)"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className={`w-full pl-10 pr-4 py-2.5 rounded-2xl text-xs border focus:outline-none focus:ring-1 focus:ring-stone-500 ${
-              isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
-            }`}
-          />
-        </div>
-
-        {/* Filtres par Rayons */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-mono scrollbar-none">
-          <button
-            onClick={() => setSelectedAisle('all')}
-            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all ${
-              selectedAisle === 'all'
-                ? isDark
-                  ? 'bg-white text-stone-950 font-bold'
-                  : 'bg-stone-900 text-stone-50 font-bold'
+                  ? 'bg-white text-stone-950 font-bold shadow-sm'
+                  : 'bg-stone-900 text-stone-50 font-bold shadow-sm'
                 : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
-            Tous les rayons
+            <ShoppingBag className="w-3.5 h-3.5" />
+            <span>Catalogue & Prix ({allIngredients.length})</span>
+            {customPricesCount > 0 && (
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-semibold">
+                {customPricesCount} prix édité{customPricesCount > 1 ? 's' : ''}
+              </span>
+            )}
           </button>
-          {Object.entries(AISLE_LABELS).map(([key, meta]) => (
-            <button
-              key={key}
-              onClick={() => setSelectedAisle(key)}
-              className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all ${
-                selectedAisle === key
-                  ? isDark
-                    ? 'bg-white text-stone-950 font-bold'
-                    : 'bg-stone-900 text-stone-50 font-bold'
-                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
-              }`}
-            >
-              {meta.title}
-            </button>
-          ))}
+
+          <button
+            onClick={() => setActiveSubTab('settings')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+              activeSubTab === 'settings'
+                ? isDark
+                  ? 'bg-white text-stone-950 font-bold shadow-sm'
+                  : 'bg-stone-900 text-stone-50 font-bold shadow-sm'
+                : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
+            }`}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Variables Métaboliques & Budget</span>
+          </button>
         </div>
       </div>
 
-      {/* Grille des Produits du Catalogue */}
-      {filteredIngredients.length === 0 ? (
-        <div className={`text-center py-12 rounded-3xl border ${cardGlassClass}`}>
-          <Ban className="w-8 h-8 text-stone-400 mx-auto mb-2 opacity-60" />
-          <p className="text-stone-500 text-xs font-mono uppercase tracking-wider">
-            Aucun produit ne correspond à ces critères
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {filteredIngredients.map((item) => {
-            const currentStatus = preferences[item.id] || 'neutral';
-            const isLiked = currentStatus === 'liked';
-            const isDisliked = currentStatus === 'disliked';
+      {/* VUE 1 : VARIABLES MÉTABOLIQUES & BUDGET */}
+      {activeSubTab === 'settings' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          <div className={`rounded-3xl p-6 sm:p-8 border transition-all space-y-6 ${cardGlassClass}`}>
+            <div className="flex items-center justify-between pb-4 border-b border-stone-200/60 dark:border-white/10">
+              <div>
+                <h2 className="font-serif text-xl font-normal text-stone-900 dark:text-white">
+                  Variables Personnelles <span className="italic font-light">(Ethan • Sportif)</span>
+                </h2>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                  Configurez vos cibles caloriques et macro-nutritionnelles. Ces valeurs pilotent l'anneau du Tracker et le calibrage des portions.
+                </p>
+              </div>
 
-            return (
-              <div
-                key={item.id}
-                className={`p-4 rounded-3xl border transition-all flex flex-col justify-between ${
-                  isLiked
+              <span className="text-[10px] font-mono uppercase tracking-widest px-2.5 py-1 rounded-full bg-stone-100 dark:bg-white/10 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-white/10 font-semibold">
+                Profil Actif
+              </span>
+            </div>
+
+            {/* Objectif principal */}
+            <div>
+              <label className="block text-xs font-mono uppercase tracking-wider text-stone-600 dark:text-stone-400 mb-2 font-semibold">
+                Objectif Actuel
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  'Prise de masse athlétique',
+                  'Maintien & Recomposition',
+                  'Sèche & Définition musculaire',
+                ].map((goal) => (
+                  <button
+                    key={goal}
+                    type="button"
+                    onClick={() => {
+                      setLocalSettings((prev) => ({ ...prev, goalName: goal }));
+                      setIsSettingsDirty(true);
+                    }}
+                    className={`px-3.5 py-2.5 rounded-2xl text-xs font-mono text-left transition-all border ${
+                      localSettings.goalName === goal
+                        ? isDark
+                          ? 'bg-white text-stone-950 font-bold border-white'
+                          : 'bg-stone-900 text-stone-50 font-bold border-stone-900 shadow-sm'
+                        : isDark
+                        ? 'bg-white/[0.02] border-white/10 text-stone-400 hover:text-white'
+                        : 'bg-white border-stone-200 text-stone-700 hover:border-stone-300'
+                    }`}
+                  >
+                    {goal}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Sliders & Inputs Calories / Protéines Ethan */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
+              {/* Calories */}
+              <div className={`p-5 rounded-2xl border ${isDark ? 'bg-black/20 border-white/5' : 'bg-stone-50 border-stone-200'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-mono uppercase tracking-wider text-stone-600 dark:text-stone-400 font-semibold flex items-center gap-1.5">
+                    <Flame className="w-3.5 h-3.5 text-stone-700 dark:text-stone-300" /> Cible Calories Journalières
+                  </span>
+                  <span className="font-mono tabular-nums text-lg font-semibold text-stone-950 dark:text-white">
+                    {localSettings.targetCalories} kcal
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="2200"
+                  max="4200"
+                  step="50"
+                  value={localSettings.targetCalories}
+                  onChange={(e) => {
+                    setLocalSettings((prev) => ({ ...prev, targetCalories: Number(e.target.value) }));
+                    setIsSettingsDirty(true);
+                  }}
+                  className="w-full accent-stone-900 dark:accent-white"
+                />
+                <div className="flex justify-between text-[10px] font-mono text-stone-400 mt-1">
+                  <span>2 200 kcal</span>
+                  <span>3 050 kcal (Recommandé)</span>
+                  <span>4 200 kcal</span>
+                </div>
+              </div>
+
+              {/* Protéines */}
+              <div className={`p-5 rounded-2xl border ${isDark ? 'bg-black/20 border-white/5' : 'bg-stone-50 border-stone-200'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-mono uppercase tracking-wider text-stone-600 dark:text-stone-400 font-semibold flex items-center gap-1.5">
+                    <Dumbbell className="w-3.5 h-3.5 text-stone-700 dark:text-stone-300" /> Cible Protéines Journalières
+                  </span>
+                  <span className="font-mono tabular-nums text-lg font-semibold text-stone-950 dark:text-white">
+                    {localSettings.targetProtein} g
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="120"
+                  max="240"
+                  step="5"
+                  value={localSettings.targetProtein}
+                  onChange={(e) => {
+                    setLocalSettings((prev) => ({ ...prev, targetProtein: Number(e.target.value) }));
+                    setIsSettingsDirty(true);
+                  }}
+                  className="w-full accent-stone-900 dark:accent-white"
+                />
+                <div className="flex justify-between text-[10px] font-mono text-stone-400 mt-1">
+                  <span>120 g</span>
+                  <span>165 g (Recommandé)</span>
+                  <span>240 g</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Glucides & Lipides */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-stone-500 mb-1">
+                  Glucides Cible (g/j)
+                </label>
+                <input
+                  type="number"
+                  value={localSettings.targetCarbs}
+                  onChange={(e) => {
+                    setLocalSettings((prev) => ({ ...prev, targetCarbs: Number(e.target.value) || 0 }));
+                    setIsSettingsDirty(true);
+                  }}
+                  className={`w-full px-3.5 py-2 rounded-xl text-xs font-mono tabular-nums border ${
+                    isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-stone-500 mb-1">
+                  Lipides Cible (g/j)
+                </label>
+                <input
+                  type="number"
+                  value={localSettings.targetFat}
+                  onChange={(e) => {
+                    setLocalSettings((prev) => ({ ...prev, targetFat: Number(e.target.value) || 0 }));
+                    setIsSettingsDirty(true);
+                  }}
+                  className={`w-full px-3.5 py-2 rounded-xl text-xs font-mono tabular-nums border ${
+                    isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+                  }`}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section Budget & Couple */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Budget Hebdomadaire */}
+            <div className={`rounded-3xl p-6 sm:p-7 border space-y-4 ${cardGlassClass}`}>
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-stone-700 dark:text-stone-300" />
+                <h3 className="font-serif text-lg font-medium text-stone-900 dark:text-white">
+                  Budget d'Épicerie Cible
+                </h3>
+              </div>
+              <p className="text-xs text-stone-500 dark:text-stone-400 font-sans">
+                Définissez votre plafond hebdomadaire pour les courses chez Metro. Une jauge d'alerte s'affichera sur votre ticket de caisse.
+              </p>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5 text-xs font-mono">
+                  <span className="text-stone-600 dark:text-stone-400">Plafond Semaine :</span>
+                  <span className="font-bold text-stone-950 dark:text-white text-base">
+                    {localSettings.targetWeeklyBudget} $ CAD
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="80"
+                  max="250"
+                  step="5"
+                  value={localSettings.targetWeeklyBudget}
+                  onChange={(e) => {
+                    setLocalSettings((prev) => ({ ...prev, targetWeeklyBudget: Number(e.target.value) }));
+                    setIsSettingsDirty(true);
+                  }}
+                  className="w-full accent-stone-900 dark:accent-white"
+                />
+                <div className="flex justify-between text-[10px] font-mono text-stone-400 mt-1">
+                  <span>80 $</span>
+                  <span>135 $ (Moyenne)</span>
+                  <span>250 $</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Profil Copine / Mode Couple */}
+            <div className={`rounded-3xl p-6 sm:p-7 border space-y-4 ${cardGlassClass}`}>
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-stone-700 dark:text-stone-300" />
+                <h3 className="font-serif text-lg font-medium text-stone-900 dark:text-white">
+                  Variables Partenaire <span className="italic font-light">(Copine)</span>
+                </h3>
+              </div>
+              <p className="text-xs text-stone-500 dark:text-stone-400 font-sans">
+                Ajustez les besoins de votre copine. Ces cibles déterminent la pondération mathématique exacte du partage des coûts d'épicerie.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-[11px] font-mono uppercase text-stone-500 mb-1">Calories (kcal/j)</label>
+                  <input
+                    type="number"
+                    value={localSettings.partnerCalories}
+                    onChange={(e) => {
+                      setLocalSettings((prev) => ({ ...prev, partnerCalories: Number(e.target.value) || 0 }));
+                      setIsSettingsDirty(true);
+                    }}
+                    className={`w-full px-3 py-2 rounded-xl text-xs font-mono tabular-nums border ${
+                      isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-mono uppercase text-stone-500 mb-1">Protéines (g/j)</label>
+                  <input
+                    type="number"
+                    value={localSettings.partnerProtein}
+                    onChange={(e) => {
+                      setLocalSettings((prev) => ({ ...prev, partnerProtein: Number(e.target.value) || 0 }));
+                      setIsSettingsDirty(true);
+                    }}
+                    className={`w-full px-3 py-2 rounded-xl text-xs font-mono tabular-nums border ${
+                      isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+                    }`}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Barre d'action / Enregistrement */}
+          <div className="flex items-center justify-between pt-2">
+            <button
+              onClick={handleResetSettingsToDefault}
+              className="text-xs font-mono uppercase tracking-wider text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Valeurs recommandées par défaut</span>
+            </button>
+
+            <button
+              onClick={handleSaveSettings}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-xs font-mono uppercase tracking-wider transition-all border font-semibold active:scale-95 shadow-md ${
+                isDark ? 'bg-white text-stone-950 hover:bg-stone-200 border-white' : 'bg-stone-900 text-white hover:bg-stone-800 border-stone-900'
+              }`}
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>Enregistrer dans SQLite</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* VUE 2 : CATALOGUE & PRIX DES PRODUITS */}
+      {activeSubTab === 'catalog' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          {/* Baromètre de Préférences */}
+          <div className={`p-5 rounded-3xl border ${cardGlassClass}`}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <button
+                onClick={() => setSelectedFilter('all')}
+                className={`p-3.5 rounded-2xl border text-left transition-all ${
+                  selectedFilter === 'all'
                     ? isDark
-                      ? 'bg-white/[0.06] border-white/30 ring-1 ring-white/10'
-                      : 'bg-white border-stone-800 ring-1 ring-stone-800 shadow-xs'
-                    : isDisliked
-                    ? 'opacity-60 grayscale bg-stone-100/50 dark:bg-black/30 border-stone-300/60 dark:border-white/5'
+                      ? 'bg-white/15 border-white/30 ring-1 ring-white/20'
+                      : 'bg-stone-900 text-white border-stone-900 shadow-sm'
                     : isDark
-                    ? 'bg-white/[0.02] border-white/5 hover:border-white/15'
-                    : 'bg-white border-stone-200/90 hover:border-stone-300 shadow-xs'
+                    ? 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'
+                    : 'bg-white border-stone-200 hover:border-stone-300'
                 }`}
               >
-                <div>
-                  <div className="flex items-start gap-3">
-                    {/* Photo du produit */}
-                    {item.imageUrl && (
-                      <div
-                        className={`w-14 h-14 rounded-2xl overflow-hidden shrink-0 border relative ${
-                          isDark ? 'border-white/10 bg-black/40' : 'border-stone-200 bg-stone-100'
-                        }`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={item.imageUrl}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      </div>
-                    )}
+                <div
+                  className={`text-[10px] font-mono uppercase tracking-wider font-semibold ${
+                    selectedFilter === 'all' && !isDark ? 'text-stone-300' : 'text-stone-500 dark:text-stone-400'
+                  }`}
+                >
+                  Total Catalogue
+                </div>
+                <div
+                  className={`font-mono tabular-nums text-2xl font-light mt-0.5 ${
+                    selectedFilter === 'all' && !isDark ? 'text-white' : 'text-stone-900 dark:text-white'
+                  }`}
+                >
+                  {allIngredients.length}
+                </div>
+              </button>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400">
-                          {AISLE_LABELS[item.aisle]?.title || item.aisle}
-                        </span>
-                        {item.packaging.isMoiMemberPrice && (
-                          <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20 font-semibold">
-                            Moi
-                          </span>
+              <button
+                onClick={() => setSelectedFilter('liked')}
+                className={`p-3.5 rounded-2xl border text-left transition-all ${
+                  selectedFilter === 'liked'
+                    ? isDark
+                      ? 'bg-white/15 border-white/30 ring-1 ring-white/20'
+                      : 'bg-stone-900 text-white border-stone-900 shadow-sm'
+                    : isDark
+                    ? 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'
+                    : 'bg-white border-stone-200 shadow-xs hover:border-stone-300'
+                }`}
+              >
+                <div
+                  className={`text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 font-semibold ${
+                    selectedFilter === 'liked' && !isDark ? 'text-stone-200' : 'text-stone-600 dark:text-stone-400'
+                  }`}
+                >
+                  <Heart
+                    className={`w-3 h-3 ${
+                      selectedFilter === 'liked' && !isDark ? 'text-white fill-white' : 'text-stone-900 dark:text-stone-100 fill-stone-900 dark:fill-stone-100'
+                    }`}
+                  />{' '}
+                  J'aime acheter
+                </div>
+                <div
+                  className={`font-mono tabular-nums text-2xl font-medium mt-0.5 ${
+                    selectedFilter === 'liked' && !isDark ? 'text-white' : 'text-stone-950 dark:text-white'
+                  }`}
+                >
+                  {likedCount}
+                </div>
+              </button>
+
+              <button
+                onClick={() => setSelectedFilter('disliked')}
+                className={`p-3.5 rounded-2xl border text-left transition-all ${
+                  selectedFilter === 'disliked'
+                    ? isDark
+                      ? 'bg-white/15 border-white/30 ring-1 ring-white/20'
+                      : 'bg-stone-900 text-white border-stone-900 shadow-sm'
+                    : isDark
+                    ? 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'
+                    : 'bg-white border-stone-200 shadow-xs hover:border-stone-300'
+                }`}
+              >
+                <div
+                  className={`text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 font-semibold ${
+                    selectedFilter === 'disliked' && !isDark ? 'text-stone-200' : 'text-stone-600 dark:text-stone-400'
+                  }`}
+                >
+                  <Ban
+                    className={`w-3 h-3 ${
+                      selectedFilter === 'disliked' && !isDark ? 'text-white' : 'text-stone-700 dark:text-stone-300'
+                    }`}
+                  />{' '}
+                  Ne pas acheter
+                </div>
+                <div
+                  className={`font-mono tabular-nums text-2xl font-medium mt-0.5 ${
+                    selectedFilter === 'disliked' && !isDark ? 'text-white' : 'text-stone-950 dark:text-white'
+                  }`}
+                >
+                  {dislikedCount}
+                </div>
+              </button>
+
+              <button
+                onClick={() => setSelectedFilter('neutral')}
+                className={`p-3.5 rounded-2xl border text-left transition-all ${
+                  selectedFilter === 'neutral'
+                    ? isDark
+                      ? 'bg-white/15 border-white/30 ring-1 ring-white/20'
+                      : 'bg-stone-900 text-white border-stone-900 shadow-sm'
+                    : isDark
+                    ? 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'
+                    : 'bg-white border-stone-200 hover:border-stone-300'
+                }`}
+              >
+                <div
+                  className={`text-[10px] font-mono uppercase tracking-wider font-semibold ${
+                    selectedFilter === 'neutral' && !isDark ? 'text-stone-300' : 'text-stone-500 dark:text-stone-400'
+                  }`}
+                >
+                  Non spécifiés
+                </div>
+                <div
+                  className={`font-mono tabular-nums text-2xl font-light mt-0.5 ${
+                    selectedFilter === 'neutral' && !isDark ? 'text-white' : 'text-stone-600 dark:text-stone-300'
+                  }`}
+                >
+                  {neutralCount}
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Barre de Recherche et Rayons */}
+          <div
+            className={`p-4 rounded-3xl border space-y-3 ${
+              isDark ? 'bg-white/[0.02] border-white/10' : 'bg-white border-stone-200 shadow-xs'
+            }`}
+          >
+            <div className="relative">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Rechercher un produit... (ex: champignons, crème, dinde, bœuf, gruau)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full pl-10 pr-4 py-2.5 rounded-2xl text-xs border focus:outline-none focus:ring-1 focus:ring-stone-500 ${
+                  isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
+                }`}
+              />
+            </div>
+
+            {/* Filtres par Rayons */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-mono scrollbar-none">
+              <button
+                onClick={() => setSelectedAisle('all')}
+                className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all ${
+                  selectedAisle === 'all'
+                    ? isDark
+                      ? 'bg-white text-stone-950 font-bold'
+                      : 'bg-stone-900 text-stone-50 font-bold'
+                    : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
+                }`}
+              >
+                Tous les rayons
+              </button>
+              {Object.entries(AISLE_LABELS).map(([key, meta]) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedAisle(key)}
+                  className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all ${
+                    selectedAisle === key
+                      ? isDark
+                        ? 'bg-white text-stone-950 font-bold'
+                        : 'bg-stone-900 text-stone-50 font-bold'
+                      : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
+                  }`}
+                >
+                  {meta.title}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Grille des Produits du Catalogue avec Édition de Prix */}
+          {filteredIngredients.length === 0 ? (
+            <div className={`text-center py-12 rounded-3xl border ${cardGlassClass}`}>
+              <Ban className="w-8 h-8 text-stone-400 mx-auto mb-2 opacity-60" />
+              <p className="text-stone-500 text-xs font-mono uppercase tracking-wider">
+                Aucun produit ne correspond à ces critères
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {filteredIngredients.map((item) => {
+                const currentStatus = preferences[item.id] || 'neutral';
+                const isLiked = currentStatus === 'liked';
+                const isDisliked = currentStatus === 'disliked';
+                const hasCustomPrice = customPrices[item.id] !== undefined && customPrices[item.id] > 0;
+                const activePrice = hasCustomPrice ? customPrices[item.id] : item.packaging.exactPriceMetro;
+
+                // Calcul du prix unitaire avec prix personnalisé
+                let unitPriceLabel = item.packaging.unitPriceLabel;
+                if (hasCustomPrice && item.packaging.amount > 0) {
+                  if (item.packaging.unit === 'g' || item.packaging.unit === 'ml') {
+                    const rate = ((activePrice / item.packaging.amount) * 100).toFixed(2);
+                    unitPriceLabel = `${rate} $ / 100${item.packaging.unit}`;
+                  } else {
+                    const rate = (activePrice / item.packaging.amount).toFixed(2);
+                    unitPriceLabel = `${rate} $ / unité`;
+                  }
+                }
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`p-4 rounded-3xl border transition-all flex flex-col justify-between ${
+                      isLiked
+                        ? isDark
+                          ? 'bg-white/[0.06] border-white/30 ring-1 ring-white/10'
+                          : 'bg-white border-stone-800 ring-1 ring-stone-800 shadow-xs'
+                        : isDisliked
+                        ? 'opacity-60 grayscale bg-stone-100/50 dark:bg-black/30 border-stone-300/60 dark:border-white/5'
+                        : isDark
+                        ? 'bg-white/[0.02] border-white/5 hover:border-white/15'
+                        : 'bg-white border-stone-200/90 hover:border-stone-300 shadow-xs'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-start gap-3">
+                        {item.imageUrl && (
+                          <div
+                            className={`w-14 h-14 rounded-2xl overflow-hidden shrink-0 border relative ${
+                              isDark ? 'border-white/10 bg-black/40' : 'border-stone-200 bg-stone-100'
+                            }`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.imageUrl}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </div>
                         )}
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400">
+                              {AISLE_LABELS[item.aisle]?.title || item.aisle}
+                            </span>
+                            {item.packaging.isMoiMemberPrice && !hasCustomPrice && (
+                              <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20 font-semibold">
+                                Moi
+                              </span>
+                            )}
+                            {hasCustomPrice && (
+                              <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded-md bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold flex items-center gap-0.5">
+                                <Pencil className="w-2.5 h-2.5" /> Prix Custom
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 className="font-serif text-sm font-medium text-stone-900 dark:text-white mt-0.5 leading-snug">
+                            {item.name}
+                          </h3>
+
+                          <div className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 font-sans">
+                            {item.packaging.label}
+                          </div>
+
+                          {/* Prix et déclencheur d'édition */}
+                          <div className="flex items-baseline gap-2 mt-1.5 font-mono text-xs">
+                            <button
+                              onClick={() => handleOpenPriceModal(item)}
+                              className="font-semibold text-stone-950 dark:text-white hover:underline flex items-center gap-1 text-left"
+                              title="Cliquer pour modifier votre prix réel d'achat pour ce produit"
+                            >
+                              <span>{activePrice.toFixed(2)} $</span>
+                              <Pencil className="w-2.5 h-2.5 text-stone-400 opacity-60" />
+                            </button>
+
+                            {unitPriceLabel && (
+                              <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                                ({unitPriceLabel})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sélecteur de Préférence 3-États & Actions */}
+                    <div className="mt-4 pt-3 border-t border-stone-200/50 dark:border-white/10 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1">
+                        {/* Bouton J'aime */}
+                        <button
+                          onClick={() =>
+                            handleSelectPreference(item.id, isLiked ? 'neutral' : 'liked', item.name)
+                          }
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
+                            isLiked
+                              ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold shadow-xs'
+                              : isDark
+                              ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
+                              : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
+                          }`}
+                          title={isLiked ? 'Retirer des favoris' : 'Marquer comme produit aimé'}
+                        >
+                          <Heart
+                            className={`w-3.5 h-3.5 ${
+                              isLiked ? 'fill-current text-white dark:text-stone-950' : 'text-stone-500'
+                            }`}
+                          />
+                          <span>J'aime</span>
+                        </button>
+
+                        {/* Bouton Ne pas acheter */}
+                        <button
+                          onClick={() =>
+                            handleSelectPreference(item.id, isDisliked ? 'neutral' : 'disliked', item.name)
+                          }
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
+                            isDisliked
+                              ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold shadow-xs'
+                              : isDark
+                              ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
+                              : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
+                          }`}
+                          title={isDisliked ? 'Réautoriser ce produit' : 'Bannir ce produit de vos achats et recettes'}
+                        >
+                          <Ban className={`w-3.5 h-3.5 ${isDisliked ? 'text-white dark:text-stone-950' : 'text-stone-500'}`} />
+                          <span>Exclure</span>
+                        </button>
                       </div>
 
-                      <h3 className="font-serif text-sm font-medium text-stone-900 dark:text-white mt-0.5 leading-snug">
-                        {item.name}
-                      </h3>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleOpenPriceModal(item)}
+                          className="p-1.5 text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors"
+                          title="Modifier le prix d'achat de cet article"
+                        >
+                          <DollarSign className="w-3.5 h-3.5" />
+                        </button>
 
-                      <div className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 font-sans">
-                        {item.packaging.label}
-                      </div>
-
-                      <div className="flex items-baseline gap-2 mt-1.5 font-mono text-xs">
-                        <span className="font-semibold text-stone-950 dark:text-white">
-                          {item.packaging.exactPriceMetro.toFixed(2)} $
-                        </span>
-                        {item.packaging.unitPriceLabel && (
-                          <span className="text-[11px] text-stone-500 dark:text-stone-400">
-                            ({item.packaging.unitPriceLabel})
-                          </span>
+                        {item.metroProductUrl && (
+                          <a
+                            href={item.metroProductUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors"
+                            title="Fiche officielle Metro.ca"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
                         )}
                       </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Sélecteur de Préférence 3-États */}
-                <div className="mt-4 pt-3 border-t border-stone-200/50 dark:border-white/10 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1">
-                    {/* Bouton J'aime */}
-                    <button
-                      onClick={() =>
-                        handleSelectPreference(item.id, isLiked ? 'neutral' : 'liked', item.name)
-                      }
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
-                        isLiked
-                          ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold shadow-xs'
-                          : isDark
-                          ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
-                          : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
-                      }`}
-                      title={isLiked ? 'Retirer des favoris' : 'Marquer comme produit aimé'}
-                    >
-                      <Heart
-                        className={`w-3.5 h-3.5 ${
-                          isLiked ? 'fill-current text-white dark:text-stone-950' : 'text-stone-500'
-                        }`}
-                      />
-                      <span>J'aime</span>
-                    </button>
-
-                    {/* Bouton Ne pas acheter */}
-                    <button
-                      onClick={() =>
-                        handleSelectPreference(item.id, isDisliked ? 'neutral' : 'disliked', item.name)
-                      }
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
-                        isDisliked
-                          ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold shadow-xs'
-                          : isDark
-                          ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
-                          : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
-                      }`}
-                      title={isDisliked ? 'Réautoriser ce produit' : 'Bannir ce produit de vos achats et recettes'}
-                    >
-                      <Ban className={`w-3.5 h-3.5 ${isDisliked ? 'text-white dark:text-stone-950' : 'text-stone-500'}`} />
-                      <span>Exclure</span>
-                    </button>
-                  </div>
-
-                  {item.metroProductUrl && (
-                    <a
-                      href={item.metroProductUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors"
-                      title="Fiche officielle Metro.ca"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

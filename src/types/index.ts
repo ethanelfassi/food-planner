@@ -115,6 +115,8 @@ export interface GroceryItem {
   estimatedPriceIGA: number;
   checked: boolean;
   isCustom?: boolean;
+  isCustomPrice?: boolean;
+  customPricePerPackage?: number;
   flyerHighlight?: string;
   imageUrl?: string;
   metroProductUrl?: string;
@@ -184,3 +186,27 @@ export interface ProductPreference {
   status: ProductPreferenceStatus;
   updatedAt: string;
 }
+
+export type CustomPricesMap = Record<string, number>; // ingredientId -> custom price ($ CAD)
+
+export interface UserCustomizationSettings {
+  targetCalories: number; // Ex: 3050 kcal
+  targetProtein: number; // Ex: 165 g
+  targetCarbs: number; // Ex: 390 g
+  targetFat: number; // Ex: 90 g
+  targetWeeklyBudget: number; // Ex: 135 $ CAD
+  partnerCalories: number; // Ex: 1950 kcal
+  partnerProtein: number; // Ex: 75 g
+  goalName: string; // Ex: 'Prise de masse athlétique'
+}
+
+export const DEFAULT_USER_SETTINGS: UserCustomizationSettings = {
+  targetCalories: 3050,
+  targetProtein: 165,
+  targetCarbs: 390,
+  targetFat: 90,
+  targetWeeklyBudget: 135,
+  partnerCalories: 1950,
+  partnerProtein: 75,
+  goalName: 'Prise de masse athlétique',
+};

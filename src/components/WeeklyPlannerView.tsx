@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ProductPreferencesMap, Recipe, WeeklyPlan } from '@/types';
+import { ProductPreferencesMap, Recipe, WeeklyPlan, UserCustomizationSettings } from '@/types';
 import { RECIPES } from '@/data/recipes';
 import { calculateRecipeScore } from '@/lib/planner';
 import { 
@@ -21,6 +21,7 @@ import {
 interface WeeklyPlannerViewProps {
   plan: WeeklyPlan;
   preferences?: ProductPreferencesMap;
+  userSettings?: UserCustomizationSettings;
   isDark: boolean;
   onRegenerateAll: () => void;
   onReplaceRecipe: (dayIndex: number, mealType: 'breakfast' | 'dinner' | 'snack', newRecipeId: string) => void;
@@ -30,6 +31,7 @@ interface WeeklyPlannerViewProps {
 export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
   plan,
   preferences = {},
+  userSettings,
   isDark,
   onRegenerateAll,
   onReplaceRecipe,
@@ -81,7 +83,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
               </span>
               <span className="text-stone-400 text-xs">•</span>
               <span className="text-xs text-stone-500 dark:text-stone-400 font-sans">
-                Prise de masse 75 kg
+                {userSettings?.goalName || 'Prise de masse'} • Cible {userSettings?.targetCalories ?? 3050} kcal
               </span>
             </div>
 
@@ -108,7 +110,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                   <Flame className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Énergie
                 </div>
                 <div className="font-mono tabular-nums text-xl sm:text-2xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyCalories} <span className="text-xs text-stone-500 font-sans font-normal">kcal/j</span>
+                  {plan.avgDailyCalories} <span className="text-xs text-stone-500 font-sans font-normal">/ {userSettings?.targetCalories ?? 3050} kcal</span>
                 </div>
               </div>
 
@@ -119,7 +121,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                   <Dumbbell className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Protéines
                 </div>
                 <div className="font-mono tabular-nums text-xl sm:text-2xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyProtein} <span className="text-xs text-stone-500 font-sans font-normal">g/j</span>
+                  {plan.avgDailyProtein} <span className="text-xs text-stone-500 font-sans font-normal">/ {userSettings?.targetProtein ?? 165} g</span>
                 </div>
               </div>
             </div>

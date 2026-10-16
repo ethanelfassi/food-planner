@@ -75,6 +75,26 @@ Ce document répertorie l'ensemble des fonctionnalités de l'application, distin
   - **Priorisation des favoris** : Bonus de score algorithmique (+15 points par ingrédient aimé) pour composer les semaines avec les produits préférés de l'utilisateur.
   - **Régénération dynamique automatique** : Dès qu'un ingrédient est banni, le menu hebdomadaire et la liste de courses sont recalculés instantanément pour éliminer l'article indésirable sans rechargement.
 
+### H. Personnalisation Totale des Variables Métaboliques, des Prix & du Budget Hebdomadaire
+- [x] **Contrôle Intégral des Variables Métaboliques & Macro-Nutriments** :
+  - Sliders interactifs et entrées numériques précises pour ajuster les calories quotidiennes (ex. 1 800 à 4 500 kcal), les protéines (50 à 250 g), les glucides et les lipides.
+  - Sélection d'objectif sportif en 1 clic : *Prise de masse athlétique*, *Prise de masse propre*, *Maintien sportif & performance*, ou *Sèche & affûtage*.
+  - Répercussion dynamique instantanée dans le bandeau d'en-tête (Header), le Planificateur Hebdomadaire et le Tracker de Calories.
+- [x] **Personnalisation du Métabolisme Partenaire (Mode Couple Dynamique)** :
+  - Ajustement des cibles caloriques et protéiques de la conjointe / du colocataire.
+  - Recalcul dynamique du coefficient d'approvisionnement des courses et ventilation équitable de la boucherie et des produits laitiers basée sur les ratios protéiques réels.
+- [x] **Budget Hebdomadaire Cible & Jauge de Dépassement** :
+  - Fixation d'un plafond budgétaire hebdomadaire pour l'épicerie (ex. 135 $ CAD).
+  - Barre de progression monochromatique scandinave intégrée au ticket de caisse officiel Metro : pourcentage engagé, reste disponible ou dépassement calculé en temps réel.
+- [x] **Surcharge et Personnalisation des Prix d'Épicerie au Produit Près** :
+  - Possibilité de remplacer le prix officiel Metro d'un article par son propre prix d'achat réel (ex. rabais flash en succursale, achat club ou boucher local).
+  - Bouton de modification rapide `✏️` disponible dans le catalogue des préférences et directement sur chaque carte d'article de la liste d'épicerie.
+  - Modal dédié permettant d'entrer son tarif au paquet et recalcul automatique immédiat du prix au 100g, des taxes et du total final.
+  - Bouton « Rétablir prix Metro » en 1 clic pour réinitialiser le tarif officiel.
+- [x] **Persistance 100% Locale en Base de Données SQLite** :
+  - Création des tables `custom_prices` et `app_settings` dans `data/food_planner.sqlite`.
+  - Sauvegarde immédiate lors de chaque modification et rechargement automatique transparent au démarrage sans aucune perte de données.
+
 ---
 
 ## 🔮 2. Fonctionnalités Prévues pour la Version Finale (Roadmap)
