@@ -174,3 +174,13 @@ export interface DailyLoggedItem {
   fat: number;
   consumed: boolean;
 }
+
+export type ProductPreferenceStatus = 'liked' | 'disliked' | 'neutral';
+
+export type ProductPreferencesMap = Record<string, ProductPreferenceStatus>;
+
+export interface ProductPreference {
+  ingredientId: string;
+  status: ProductPreferenceStatus;
+  updatedAt: string;
+}

@@ -1,17 +1,25 @@
 'use client';
 
 import React from 'react';
-import { Recipe } from '@/types';
+import { ProductPreferenceStatus, ProductPreferencesMap, Recipe } from '@/types';
 import { INGREDIENTS } from '@/data/ingredients';
-import { X, Clock, Flame, Dumbbell, Sparkles } from 'lucide-react';
+import { X, Clock, Flame, Dumbbell, Sparkles, Heart, Ban } from 'lucide-react';
 
 interface RecipeModalProps {
   recipe: Recipe | null;
+  preferences?: ProductPreferencesMap;
   isDark: boolean;
   onClose: () => void;
+  onUpdatePreference?: (ingredientId: string, status: ProductPreferenceStatus) => void;
 }
 
-export const RecipeModal: React.FC<RecipeModalProps> = ({ recipe, isDark, onClose }) => {
+export const RecipeModal: React.FC<RecipeModalProps> = ({ 
+  recipe, 
+  preferences = {}, 
+  isDark, 
+  onClose,
+  onUpdatePreference 
+}) => {
   if (!recipe) return null;
 
   return (
@@ -113,16 +121,62 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({ recipe, isDark, onClos
                     }`}
                   >
                     <div>
-                      <span className="font-medium text-stone-900 dark:text-stone-200">
-                        {ingMeta ? ingMeta.name : item.ingredientId}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-medium text-stone-900 dark:text-stone-200">
+                          {ingMeta ? ingMeta.name : item.ingredientId}
+                        </span>
+                        {preferences[item.ingredientId] === 'liked' && (
+                          <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
+                            Favori
+                          </span>
+                        )}
+                        {preferences[item.ingredientId] === 'disliked' && (
+                          <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold">
+                            Exclu
+                          </span>
+                        )}
+                      </div>
                       {item.notes && (
                         <p className="text-xs text-stone-600 dark:text-stone-400 italic mt-0.5">{item.notes}</p>
                       )}
                     </div>
-                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-lg bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20 shrink-0 ml-2">
-                      {item.quantity} {item.unit}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-lg bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20">
+                        {item.quantity} {item.unit}
+                      </span>
+                      {onUpdatePreference && (
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            onClick={() => {
+                              const cur = preferences[item.ingredientId] || 'neutral';
+                              onUpdatePreference(item.ingredientId, cur === 'liked' ? 'neutral' : 'liked');
+                            }}
+                            className={`p-1 rounded-lg border transition-all ${
+                              preferences[item.ingredientId] === 'liked'
+                                ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white'
+                                : 'text-stone-400 hover:text-stone-900 dark:hover:text-white border-transparent'
+                            }`}
+                            title="Aimer ce produit"
+                          >
+                            <Heart className={`w-3 h-3 ${preferences[item.ingredientId] === 'liked' ? 'fill-current' : ''}`} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const cur = preferences[item.ingredientId] || 'neutral';
+                              onUpdatePreference(item.ingredientId, cur === 'disliked' ? 'neutral' : 'disliked');
+                            }}
+                            className={`p-1 rounded-lg border transition-all ${
+                              preferences[item.ingredientId] === 'disliked'
+                                ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white'
+                                : 'text-stone-400 hover:text-stone-900 dark:hover:text-white border-transparent'
+                            }`}
+                            title="Exclure ce produit"
+                          >
+                            <Ban className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </li>
                 );
               })}

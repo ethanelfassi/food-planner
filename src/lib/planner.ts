@@ -1,4 +1,4 @@
-import { DayPlan, Recipe, WeeklyPlan } from '@/types';
+import { DayPlan, ProductPreferencesMap, Recipe, WeeklyPlan } from '@/types';
 import { RECIPES } from '@/data/recipes';
 import { INGREDIENTS } from '@/data/ingredients';
 
@@ -12,46 +12,79 @@ const DAY_NAMES = [
   'Dimanche',
 ];
 
-// Fonction pour calculer le score de promotion d'une recette
-function calculateRecipePromoScore(recipe: Recipe): number {
+// Calcule le score promotionnel et l'impact des préférences produit
+export function calculateRecipeScore(
+  recipe: Recipe,
+  preferences: ProductPreferencesMap = {}
+): {
+  isExcluded: boolean;
+  score: number;
+  likedCount: number;
+} {
+  let isExcluded = false;
   let score = 0;
+  let likedCount = 0;
+
   for (const item of recipe.ingredients) {
+    const pref = preferences[item.ingredientId];
+    if (pref === 'disliked') {
+      isExcluded = true;
+    } else if (pref === 'liked') {
+      score += 15; // Fort bonus pour chaque ingrédient favori
+      likedCount++;
+    }
+
     const ing = INGREDIENTS[item.ingredientId];
     if (ing) {
-      if (ing.packaging.isMoiMemberPrice) score += 3; // Priorité Prix Membre Moi
+      if (ing.packaging.isMoiMemberPrice) score += 4; // Priorité Prix Membre Moi
       if (ing.flyerDeal?.store === 'Metro') score += 2; // Promo circulaire
     }
   }
-  return score;
+
+  return { isExcluded, score, likedCount };
 }
 
-// Trier et marquer les recettes
-const scoredRecipes = RECIPES.map((r) => ({
-  ...r,
-  promoScore: calculateRecipePromoScore(r),
-  hasPromoOrMoiDeal: calculateRecipePromoScore(r) > 0,
-}));
-
-const breakfasts = scoredRecipes.filter((r) => r.mealType === 'dejeuner');
-const dinners = scoredRecipes.filter((r) => r.mealType === 'souper');
-const snacks = scoredRecipes.filter((r) => r.mealType === 'collation');
-
-export function generateWeeklyPlan(): WeeklyPlan {
+export function generateWeeklyPlan(preferences: ProductPreferencesMap = {}): WeeklyPlan {
   const days: DayPlan[] = [];
 
-  // Favoriser les promos et les prix Membre Moi :
-  // Trier les soupers par score de promotion décroissant, avec une légère composante de variété
-  const sortedDinners = [...dinners].sort((a, b) => b.promoScore - a.promoScore);
+  // Évaluer et filtrer les recettes selon les préférences
+  const scoredRecipes = RECIPES.map((r) => {
+    const { isExcluded, score, likedCount } = calculateRecipeScore(r, preferences);
+    return {
+      ...r,
+      isExcluded,
+      recipeScore: score,
+      likedCount,
+      hasPromoOrMoiDeal: score > 0,
+    };
+  });
 
-  // Placer en priorité les meilleures aubaines de la semaine (bœuf haché Membre Moi, poulet club Membre Moi, saumon circulaire)
+  // Filtrer les candidats autorisés (non exclus)
+  let validBreakfasts = scoredRecipes.filter((r) => r.mealType === 'dejeuner' && !r.isExcluded);
+  let validDinners = scoredRecipes.filter((r) => r.mealType === 'souper' && !r.isExcluded);
+  let validSnacks = scoredRecipes.filter((r) => r.mealType === 'collation' && !r.isExcluded);
+
+  // Filets de sécurité si l'utilisateur a tout exclu : fallback gracieux
+  if (validBreakfasts.length === 0) {
+    validBreakfasts = scoredRecipes.filter((r) => r.mealType === 'dejeuner');
+  }
+  if (validDinners.length === 0) {
+    validDinners = scoredRecipes.filter((r) => r.mealType === 'souper');
+  }
+  if (validSnacks.length === 0) {
+    validSnacks = scoredRecipes.filter((r) => r.mealType === 'collation');
+  }
+
+  // Trier par score décroissant (produits aimés + promos en premier)
+  const sortedBreakfasts = [...validBreakfasts].sort((a, b) => b.recipeScore - a.recipeScore);
+  const sortedDinners = [...validDinners].sort((a, b) => b.recipeScore - a.recipeScore);
+  const sortedSnacks = [...validSnacks].sort((a, b) => b.recipeScore - a.recipeScore);
+
+  // Construire la sélection des soupers avec variété
   const dinnerSelection: Recipe[] = [];
   for (let i = 0; i < 7; i++) {
     dinnerSelection.push(sortedDinners[i % sortedDinners.length]);
   }
-
-  // De même pour déjeuners et collations
-  const sortedBreakfasts = [...breakfasts].sort((a, b) => b.promoScore - a.promoScore);
-  const sortedSnacks = [...snacks].sort((a, b) => b.promoScore - a.promoScore);
 
   for (let i = 0; i < 7; i++) {
     const dayName = DAY_NAMES[i];
@@ -59,7 +92,7 @@ export function generateWeeklyPlan(): WeeklyPlan {
     const snack = sortedSnacks[i % sortedSnacks.length];
     const dinner = dinnerSelection[i];
 
-    // Le midi : portion de la veille au soir !
+    // Le midi : portion de la veille au soir
     const lunch = i === 0 ? dinnerSelection[dinnerSelection.length - 1] : dinnerSelection[i - 1];
 
     const dailyCalories =

@@ -56,6 +56,25 @@ Ce document répertorie l'ensemble des fonctionnalités de l'application, distin
 - [x] **Téléchargement .txt autonome** : Fichier texte léger ouvrable sans connexion réseau au supermarché.
 - [x] **Envoi par courriel en 1 clic** : Génération de lien `mailto:` pré-rempli avec ventilation fiscale.
 
+### G. Base de Données Locale SQLite & Gestion des Préférences d'Achat (J'aime / Ne pas acheter)
+- [x] **Moteur de Base de Données Embarqué SQLite (`node:sqlite`)** :
+  - Utilisation du moteur natif haute performance `node:sqlite` (`DatabaseSync` de Node.js 24).
+  - Stockage local et autonome dans `data/food_planner.sqlite` (zéro dépendance externe C++, zéro cloud requis, idéal pour hébergement local / serveur maison).
+  - Structure relationnelle avec table `product_preferences` (ingrédient, statut `liked` | `disliked` | `neutral`, horodatage) et `custom_products`.
+- [x] **Catalogue & Onglet Dédié « Préférences »** :
+  - Visualisation de l'ensemble du catalogue d'ingrédients avec recherche textuelle instantanée et filtre par rayon physique.
+  - Sélecteur 3 états ergonomique pour chaque produit : **« J'aime »** (Favori), **« Neutre »**, ou **« Exclure »** (Bannir des recettes et de l'épicerie).
+  - Compteurs dynamiques en temps réel (Total, Produits aimés, Produits exclus, Non spécifiés).
+  - Témoin visuel de synchronisation SQLite avec notification toast discrète à chaque sauvegarde.
+- [x] **Contrôles Rapides Directs dans l'Épicerie et les Fiches Recettes** :
+  - Boutons d'action rapides (Cœur / Interdit) directement sur chaque carte d'article de la liste d'épicerie pour marquer ou exclure un ingrédient en un clic.
+  - Badges visuels élégants `★ Favori` et `🚫 Exclu`.
+  - Contrôles de préférence intégrés dans le modal des détails de chaque recette.
+- [x] **Moteur d'Algorithme & Planificateur Réactif** :
+  - **Exclusion stricte** : Toute recette contenant ne serait-ce qu'un seul ingrédient marqué « Exclure / Ne pas acheter » est automatiquement éliminée des propositions et de la semaine.
+  - **Priorisation des favoris** : Bonus de score algorithmique (+15 points par ingrédient aimé) pour composer les semaines avec les produits préférés de l'utilisateur.
+  - **Régénération dynamique automatique** : Dès qu'un ingrédient est banni, le menu hebdomadaire et la liste de courses sont recalculés instantanément pour éliminer l'article indésirable sans rechargement.
+
 ---
 
 ## 🔮 2. Fonctionnalités Prévues pour la Version Finale (Roadmap)

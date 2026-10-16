@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CoupleSettings, GroceryItem, MetroAisle, SplitCostReport } from '@/types';
+import { CoupleSettings, GroceryItem, MetroAisle, ProductPreferenceStatus, ProductPreferencesMap, SplitCostReport } from '@/types';
 import { AISLE_LABELS, calculateReceiptTaxes } from '@/lib/grocery';
 import { 
   formatGroceryListAsText, 
@@ -22,31 +22,37 @@ import {
   Crown,
   ShieldCheck,
   CheckCheck,
-  RefreshCw
+  RefreshCw,
+  Heart,
+  Ban
 } from 'lucide-react';
 
 interface GroceryListViewProps {
   items: GroceryItem[];
   coupleSettings: CoupleSettings;
   splitReport: SplitCostReport;
+  preferences?: ProductPreferencesMap;
   isDark: boolean;
   onToggleItem: (id: string) => void;
   onAddItem: (name: string, aisle: MetroAisle, packageDescription: string, isTaxable: boolean, price: number) => void;
   onRemoveItem: (id: string) => void;
   onClearChecked: () => void;
   onToggleCoupleMode: () => void;
+  onUpdatePreference?: (ingredientId: string, status: ProductPreferenceStatus) => void;
 }
 
 export const GroceryListView: React.FC<GroceryListViewProps> = ({
   items,
   coupleSettings,
   splitReport,
+  preferences = {},
   isDark,
   onToggleItem,
   onAddItem,
   onRemoveItem,
   onClearChecked,
   onToggleCoupleMode,
+  onUpdatePreference,
 }) => {
   const [copySuccess, setCopySuccess] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -642,14 +648,28 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
                         {/* Informations Produit */}
                         <div className="min-w-0 pr-2">
-                          <div
-                            className={`text-sm font-medium truncate ${
-                              item.checked
-                                ? 'line-through text-stone-400'
-                                : 'text-stone-900 dark:text-white'
-                            }`}
-                          >
-                            {item.name}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={`text-sm font-medium truncate ${
+                                item.checked
+                                  ? 'line-through text-stone-400'
+                                  : 'text-stone-900 dark:text-white'
+                              }`}
+                            >
+                              {item.name}
+                            </span>
+
+                            {item.ingredientId && preferences[item.ingredientId] === 'liked' && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
+                                <Heart className="w-2.5 h-2.5 fill-current" /> Favori
+                              </span>
+                            )}
+
+                            {item.ingredientId && preferences[item.ingredientId] === 'disliked' && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-300 dark:border-stone-700 font-semibold">
+                                <Ban className="w-2.5 h-2.5" /> Exclu
+                              </span>
+                            )}
                           </div>
 
                           <div className="text-xs text-stone-700 dark:text-stone-300 mt-0.5 truncate font-sans">
@@ -681,7 +701,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Prix Exact & Lien Canonique Direct Metro.ca */}
+                      {/* Prix Exact & Actions */}
                       <div className="text-right shrink-0 ml-2 flex flex-col items-end justify-between self-stretch">
                         <div>
                           <div className="font-mono tabular-nums text-sm font-semibold text-stone-950 dark:text-white">
@@ -694,35 +714,78 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                           )}
                         </div>
 
-                        {item.metroProductUrl && (
-                          <a
-                            href={item.metroProductUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-1 rounded-xl border transition-all mt-2 active:scale-95 ${
-                              isDark
-                                ? 'bg-white/5 hover:bg-white/15 text-stone-200 border-white/10'
-                                : 'bg-stone-100 hover:bg-stone-200 text-stone-900 border-stone-300 shadow-xs'
-                            }`}
-                            title="Consulter le produit en direct sur Metro.ca"
-                          >
-                            <span>Fiche Metro</span>
-                            <ExternalLink className="w-2.5 h-2.5 opacity-70" />
-                          </a>
-                        )}
+                        <div className="flex items-center gap-1.5 mt-2">
+                          {/* Boutons Préférences Rapides J'aime / Exclure */}
+                          {item.ingredientId && onUpdatePreference && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const current = preferences[item.ingredientId!] || 'neutral';
+                                  onUpdatePreference(item.ingredientId!, current === 'liked' ? 'neutral' : 'liked');
+                                }}
+                                className={`p-1.5 rounded-xl border transition-all active:scale-90 ${
+                                  preferences[item.ingredientId] === 'liked'
+                                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white'
+                                    : isDark
+                                    ? 'bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border-white/10'
+                                    : 'bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 border-stone-200'
+                                }`}
+                                title={preferences[item.ingredientId] === 'liked' ? 'Produit favori (cliquer pour retirer)' : 'Aimer ce produit'}
+                              >
+                                <Heart className={`w-3 h-3 ${preferences[item.ingredientId] === 'liked' ? 'fill-current' : ''}`} />
+                              </button>
 
-                        {item.isCustom && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRemoveItem(item.id);
-                            }}
-                            className="text-stone-400 hover:text-rose-500 p-1 transition-colors mt-1"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const current = preferences[item.ingredientId!] || 'neutral';
+                                  onUpdatePreference(item.ingredientId!, current === 'disliked' ? 'neutral' : 'disliked');
+                                }}
+                                className={`p-1.5 rounded-xl border transition-all active:scale-90 ${
+                                  preferences[item.ingredientId] === 'disliked'
+                                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white'
+                                    : isDark
+                                    ? 'bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border-white/10'
+                                    : 'bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 border-stone-200'
+                                }`}
+                                title={preferences[item.ingredientId] === 'disliked' ? 'Produit exclu (cliquer pour réautoriser)' : 'Exclure ce produit (ne plus acheter)'}
+                              >
+                                <Ban className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+
+                          {item.metroProductUrl && (
+                            <a
+                              href={item.metroProductUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-1 rounded-xl border transition-all active:scale-95 ${
+                                isDark
+                                  ? 'bg-white/5 hover:bg-white/15 text-stone-200 border-white/10'
+                                  : 'bg-stone-100 hover:bg-stone-200 text-stone-900 border-stone-300 shadow-xs'
+                              }`}
+                              title="Consulter le produit en direct sur Metro.ca"
+                            >
+                              <span>Fiche</span>
+                              <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                            </a>
+                          )}
+
+                          {item.isCustom && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRemoveItem(item.id);
+                              }}
+                              className="text-stone-400 hover:text-rose-500 p-1 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

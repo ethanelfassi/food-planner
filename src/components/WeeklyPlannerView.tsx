@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Recipe, WeeklyPlan } from '@/types';
+import { ProductPreferencesMap, Recipe, WeeklyPlan } from '@/types';
 import { RECIPES } from '@/data/recipes';
+import { calculateRecipeScore } from '@/lib/planner';
 import { 
   RefreshCw, 
   Sun, 
@@ -13,11 +14,13 @@ import {
   Check, 
   Sparkles,
   Flame,
-  Dumbbell
+  Dumbbell,
+  Heart
 } from 'lucide-react';
 
 interface WeeklyPlannerViewProps {
   plan: WeeklyPlan;
+  preferences?: ProductPreferencesMap;
   isDark: boolean;
   onRegenerateAll: () => void;
   onReplaceRecipe: (dayIndex: number, mealType: 'breakfast' | 'dinner' | 'snack', newRecipeId: string) => void;
@@ -26,6 +29,7 @@ interface WeeklyPlannerViewProps {
 
 export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
   plan,
+  preferences = {},
   isDark,
   onRegenerateAll,
   onReplaceRecipe,
@@ -41,10 +45,19 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
 
   const availableReplacements = swapMealState
     ? RECIPES.filter((r) => {
-        if (swapMealState.mealType === 'breakfast') return r.mealType === 'dejeuner';
-        if (swapMealState.mealType === 'dinner') return r.mealType === 'souper';
-        if (swapMealState.mealType === 'snack') return r.mealType === 'collation';
-        return false;
+        // 1. Filtrer par type de repas
+        if (swapMealState.mealType === 'breakfast' && r.mealType !== 'dejeuner') return false;
+        if (swapMealState.mealType === 'dinner' && r.mealType !== 'souper') return false;
+        if (swapMealState.mealType === 'snack' && r.mealType !== 'collation') return false;
+
+        // 2. Bannir si la recette contient un ingrédient exclu
+        const { isExcluded } = calculateRecipeScore(r, preferences);
+        return !isExcluded;
+      }).sort((a, b) => {
+        // Prioriser les recettes avec des ingrédients aimés et des promos
+        const scoreA = calculateRecipeScore(a, preferences).score;
+        const scoreB = calculateRecipeScore(b, preferences).score;
+        return scoreB - scoreA;
       })
     : [];
 
@@ -403,8 +416,15 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                   }`}
                 >
                   <div>
-                    <div className="font-serif font-medium text-sm text-stone-900 dark:text-white">
-                      {rec.title}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-serif font-medium text-sm text-stone-900 dark:text-white">
+                        {rec.title}
+                      </span>
+                      {calculateRecipeScore(rec, preferences).likedCount > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
+                          <Heart className="w-2.5 h-2.5 fill-current" /> Favori
+                        </span>
+                      )}
                     </div>
                     <div className="font-mono tabular-nums text-xs text-stone-500 dark:text-stone-400 mt-0.5">
                       {rec.caloriesPerServing} kcal • {rec.proteinPerServing}g protéines

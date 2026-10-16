@@ -1,7 +1,16 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CoupleSettings, GroceryItem, MetroAisle, Recipe, SplitCostReport, WeeklyPlan } from '@/types';
+import { 
+  CoupleSettings, 
+  GroceryItem, 
+  MetroAisle, 
+  ProductPreferenceStatus, 
+  ProductPreferencesMap, 
+  Recipe, 
+  SplitCostReport, 
+  WeeklyPlan 
+} from '@/types';
 import { generateWeeklyPlan, replaceRecipeInPlan } from '@/lib/planner';
 import { generateGroceryList } from '@/lib/grocery';
 import { DEFAULT_COUPLE_SETTINGS, calculateSplitCost } from '@/lib/couple-split';
@@ -10,14 +19,16 @@ import { WeeklyPlannerView } from '@/components/WeeklyPlannerView';
 import { GroceryListView } from '@/components/GroceryListView';
 import { DealsAndPricesView } from '@/components/DealsAndPricesView';
 import { CalorieTrackerView } from '@/components/CalorieTrackerView';
+import { ProductPreferencesView } from '@/components/ProductPreferencesView';
 import { RecipeModal } from '@/components/RecipeModal';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'planner' | 'grocery' | 'prices' | 'tracker'>('planner');
+  const [activeTab, setActiveTab] = useState<'planner' | 'grocery' | 'prices' | 'tracker' | 'preferences'>('planner');
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan | null>(null);
   const [groceryItems, setGroceryItems] = useState<GroceryItem[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [coupleSettings, setCoupleSettings] = useState<CoupleSettings>(DEFAULT_COUPLE_SETTINGS);
+  const [preferences, setPreferences] = useState<ProductPreferencesMap>({});
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [splitReport, setSplitReport] = useState<SplitCostReport>({
     totalMetroCost: 0,
@@ -32,7 +43,7 @@ export default function Home() {
 
   const isDark = theme === 'dark';
 
-  // Initialisation complète au montage
+  // Initialisation complète au montage avec chargement de la base SQLite
   useEffect(() => {
     // 1. Thème
     const saved = typeof window !== 'undefined' ? (localStorage.getItem('fp_theme') as 'dark' | 'light' | null) : null;
@@ -44,12 +55,29 @@ export default function Home() {
       document.documentElement.classList.remove('dark');
     }
 
-    // 2. Menu et liste d'épicerie
-    const plan = generateWeeklyPlan();
-    setWeeklyPlan(plan);
-    const groceries = generateGroceryList(plan, coupleSettings.coupleModeEnabled);
-    setGroceryItems(groceries);
-    setSplitReport(calculateSplitCost(groceries, coupleSettings));
+    // 2. Charger les préférences depuis la base SQLite (/api/preferences)
+    const initAppData = async () => {
+      let loadedPrefs: ProductPreferencesMap = {};
+      try {
+        const res = await fetch('/api/preferences');
+        if (res.ok) {
+          const data = await res.json();
+          loadedPrefs = data.preferences || {};
+          setPreferences(loadedPrefs);
+        }
+      } catch (err) {
+        console.warn('Impossible de joindre /api/preferences, fallback local:', err);
+      }
+
+      // 3. Générer le menu hebdomadaire en tenant compte des préférences enregistrées
+      const plan = generateWeeklyPlan(loadedPrefs);
+      setWeeklyPlan(plan);
+      const groceries = generateGroceryList(plan, coupleSettings.coupleModeEnabled);
+      setGroceryItems(groceries);
+      setSplitReport(calculateSplitCost(groceries, coupleSettings));
+    };
+
+    initAppData();
   }, []);
 
   const toggleTheme = () => {
@@ -67,6 +95,86 @@ export default function Home() {
     });
   };
 
+  // Mise à jour d'une préférence avec persistance SQLite immédiate
+  const handleUpdatePreference = async (ingredientId: string, status: ProductPreferenceStatus) => {
+    // 1. Optimistic Update dans le state React
+    const nextPrefs: ProductPreferencesMap = { ...preferences };
+    if (status === 'neutral') {
+      delete nextPrefs[ingredientId];
+    } else {
+      nextPrefs[ingredientId] = status;
+    }
+    setPreferences(nextPrefs);
+
+    // 2. Persistance dans la base de données SQLite (/api/preferences)
+    try {
+      await fetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ingredientId, status }),
+      });
+    } catch (err) {
+      console.error('Erreur lors de la sauvegarde SQLite:', err);
+    }
+
+    // 3. Si l'aliment est banni (disliked) et présent dans le menu actuel, réajuster immédiatement
+    if (status === 'disliked') {
+      const newPlan = generateWeeklyPlan(nextPrefs);
+      setWeeklyPlan(newPlan);
+      const newGroceries = generateGroceryList(newPlan, coupleSettings.coupleModeEnabled);
+      // Maintenir les éléments déjà cochés
+      const checkedMap = new Map(groceryItems.map((i) => [i.id, i.checked]));
+      const merged = newGroceries.map((item) => ({
+        ...item,
+        checked: checkedMap.get(item.id) || false,
+      }));
+      setGroceryItems(merged);
+      setSplitReport(calculateSplitCost(merged, coupleSettings));
+    }
+  };
+
+  // Réinitialiser toutes les préférences
+  const handleResetAllPreferences = async () => {
+    const keys = Object.keys(preferences);
+    setPreferences({});
+
+    // Mettre à jour en BDD
+    try {
+      await Promise.all(
+        keys.map((id) =>
+          fetch('/api/preferences', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ingredientId: id, status: 'neutral' }),
+          })
+        )
+      );
+    } catch (err) {
+      console.error('Erreur reset preferences SQLite:', err);
+    }
+
+    // Régénérer
+    const newPlan = generateWeeklyPlan({});
+    setWeeklyPlan(newPlan);
+    const newGroceries = generateGroceryList(newPlan, coupleSettings.coupleModeEnabled);
+    setGroceryItems(newGroceries);
+    setSplitReport(calculateSplitCost(newGroceries, coupleSettings));
+  };
+
+  // Appliquer les préférences au menu
+  const handleApplyPreferencesToPlan = () => {
+    const newPlan = generateWeeklyPlan(preferences);
+    setWeeklyPlan(newPlan);
+    const newGroceries = generateGroceryList(newPlan, coupleSettings.coupleModeEnabled);
+    const checkedMap = new Map(groceryItems.map((i) => [i.id, i.checked]));
+    const merged = newGroceries.map((item) => ({
+      ...item,
+      checked: checkedMap.get(item.id) || false,
+    }));
+    setGroceryItems(merged);
+    setSplitReport(calculateSplitCost(merged, coupleSettings));
+  };
+
   const handleToggleCoupleMode = () => {
     const updatedSettings: CoupleSettings = {
       ...coupleSettings,
@@ -76,7 +184,6 @@ export default function Home() {
 
     if (weeklyPlan) {
       const newGroceries = generateGroceryList(weeklyPlan, updatedSettings.coupleModeEnabled);
-      // Maintenir les éléments cochés
       const checkedMap = new Map(groceryItems.map((i) => [i.id, i.checked]));
       const merged = newGroceries.map((item) => ({
         ...item,
@@ -88,7 +195,7 @@ export default function Home() {
   };
 
   const handleRegenerateAll = () => {
-    const newPlan = generateWeeklyPlan();
+    const newPlan = generateWeeklyPlan(preferences);
     setWeeklyPlan(newPlan);
     const newGroceries = generateGroceryList(newPlan, coupleSettings.coupleModeEnabled);
     setGroceryItems(newGroceries);
@@ -104,7 +211,6 @@ export default function Home() {
     const updatedPlan = replaceRecipeInPlan(weeklyPlan, dayIndex, mealType, newRecipeId);
     setWeeklyPlan(updatedPlan);
 
-    // Mettre à jour la liste d'épicerie en préservant l'état des cases déjà cochées
     const newGroceries = generateGroceryList(updatedPlan, coupleSettings.coupleModeEnabled);
     const checkedMap = new Map(groceryItems.map((i) => [i.id, i.checked]));
 
@@ -113,7 +219,6 @@ export default function Home() {
       checked: checkedMap.get(item.id) || false,
     }));
 
-    // Conserver aussi les articles manuels ajoutés
     const customItems = groceryItems.filter((i) => i.isCustom);
     const finalItems = [...merged, ...customItems];
     setGroceryItems(finalItems);
@@ -203,6 +308,7 @@ export default function Home() {
         {activeTab === 'planner' && (
           <WeeklyPlannerView
             plan={weeklyPlan}
+            preferences={preferences}
             isDark={isDark}
             onRegenerateAll={handleRegenerateAll}
             onReplaceRecipe={handleReplaceRecipe}
@@ -215,12 +321,24 @@ export default function Home() {
             items={groceryItems}
             coupleSettings={coupleSettings}
             splitReport={splitReport}
+            preferences={preferences}
             isDark={isDark}
             onToggleItem={handleToggleItem}
             onAddItem={handleAddItem}
             onRemoveItem={handleRemoveItem}
             onClearChecked={handleClearChecked}
             onToggleCoupleMode={handleToggleCoupleMode}
+            onUpdatePreference={handleUpdatePreference}
+          />
+        )}
+
+        {activeTab === 'preferences' && (
+          <ProductPreferencesView
+            preferences={preferences}
+            isDark={isDark}
+            onUpdatePreference={handleUpdatePreference}
+            onResetAllPreferences={handleResetAllPreferences}
+            onApplyPreferencesToPlan={handleApplyPreferencesToPlan}
           />
         )}
 
@@ -235,8 +353,10 @@ export default function Home() {
 
       <RecipeModal
         recipe={selectedRecipe}
+        preferences={preferences}
         isDark={isDark}
         onClose={() => setSelectedRecipe(null)}
+        onUpdatePreference={handleUpdatePreference}
       />
 
       <footer
@@ -247,7 +367,7 @@ export default function Home() {
         }`}
       >
         <p className="font-serif italic text-sm">
-          FoodPlanner QC • Conçu pour Metro au Québec • Nutrition sportive 3,050 kcal & 165g P • Répartition équitable couple
+          FoodPlanner QC • Conçu pour Metro au Québec • Nutrition sportive 3,050 kcal & 165g P • Base de Données SQLite locale
         </p>
       </footer>
     </div>

@@ -1,13 +1,14 @@
 'use client';
 
 import React from 'react';
-import { Calendar, ShoppingBag, Activity, Store, Sun, Moon, Users } from 'lucide-react';
+import { Calendar, ShoppingBag, Activity, Store, Sun, Moon, Users, SlidersHorizontal } from 'lucide-react';
 
 interface HeaderProps {
-  activeTab: 'planner' | 'grocery' | 'prices' | 'tracker';
-  setActiveTab: (tab: 'planner' | 'grocery' | 'prices' | 'tracker') => void;
+  activeTab: 'planner' | 'grocery' | 'prices' | 'tracker' | 'preferences';
+  setActiveTab: (tab: 'planner' | 'grocery' | 'prices' | 'tracker' | 'preferences') => void;
   groceryCount: number;
   coupleModeEnabled: boolean;
+  preferencesCount?: { liked: number; disliked: number };
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
 }
@@ -188,6 +189,22 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Store className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Circulaires</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('preferences')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+                  activeTab === 'preferences'
+                    ? isDark
+                      ? 'bg-white text-stone-950 font-semibold shadow-md'
+                      : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
+                    : isDark
+                    ? 'text-stone-400 hover:text-white'
+                    : 'text-stone-700 hover:text-stone-950 font-medium'
+                }`}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Préférences</span>
               </button>
             </nav>
 
