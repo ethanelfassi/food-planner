@@ -25,13 +25,13 @@ Ce document répertorie l'ensemble des fonctionnalités de l'application, distin
   - Ticket de caisse exact indiquant le sous-total détaxé, le sous-total taxable, la TPS, la TVQ et le montant final à payer à la caisse.
 - [x] **Tri par rayons physiques de supermarché** : Organisation dans l'ordre de circulation d'un Metro québécois (Fruits & Légumes $\rightarrow$ Boulangerie $\rightarrow$ Boucherie/Poissonnerie $\rightarrow$ Produits laitiers $\rightarrow$ Épicerie & Féculents $\rightarrow$ Surgelés).
 - [x] **Contrôle Qualité & Liens Metro.ca Vérifiés (Zéro 404)** : Liens officiels vers l'épicerie en ligne Metro.ca (`metro.ca/epicerie-en-ligne/recherche?filter=...`) garantissant l'accès direct et infaillible à la fiche produit en stock dans la région de l'utilisateur, avec photo, prix exact et bouton d'ajout au panier sans page introuvable ni erreur de catégorie.
-- [x] **Design Haute Horlogerie & Interface Hybride (Éditorial Nordic + Apple Fitness)** :
+- [x] **Design Haute Horlogerie & Interface Hybride (Architecture Scandinave + Pure Monochrome)** :
   - **Typographie éditoriale** : Titrage serif raffiné inspiré des revues culinaires scandinaves (*Newsreader serif*).
-  - **Ergonomie sportive Apple Fitness+** : Anneaux de progression, pillules de macros denses, typographie monospace tubulaire pour les chiffres d'épicerie et les calories.
-  - **Palette Muted Organique & Contraste Élevé** : Éradication totale des teintes violettes ou néon artificielles. Palette naturelle inspirée du bois, du lin et du pin (vert forêt profond, ambre cognac noble pour les offres Moi et le mode couple).
-  - **Lisibilité Haute Précision en Mode Jour** : Textes foncés contrastés (#1C1917, #374151) éliminant tout gris illisible sur fond chaud.
-  - **Liquid Glass & Glassmorphism** : Effets de verre dépoli ultra-fin (`backdrop-blur-2xl`, bordures spéculaires et ombres subtiles).
-  - **Mode Jour / Nuit en 1 clic** : Bascule instantanée entre *Linge naturel écru & papier chaud* (#FAF8F5) et *Noir obsidienne velouté* (#0B0C0E).
+  - **Ergonomie sportive & financière Apple** : Jauges de progression, pillules de métabolisme denses, typographie monospace tubulaire pour les chiffres d'épicerie et les calories.
+  - **Éradication Totale des Couleurs Flashy / Verts / Jaunes / Néons** : Palette purement architecturale monochrome & titane (graphite `#111827`, titanium `#18181B`, ardoise `#71717A`, albâtre `#F7F7F6` et blanc pur). Zéro vert, jaune, ambre ou néon artificiel.
+  - **Mode Jour Parfait (Pristine Alabaster Gallery)** : Fond albâtre propre (`#F7F7F6`, suppression du ton lin chaud/jaunâtre), cartes blanches immaculées avec bordures ultra-fines (`#E5E5E5`), contrastes noirs profonds garantissant une lisibilité absolue.
+  - **Liquid Glass & Glassmorphism Épuré** : Effets de verre dépoli haute définition (`backdrop-blur-2xl`, bordures spéculaires et ombres feutrées).
+  - **Mode Jour / Nuit en 1 clic** : Bascule instantanée réactive avec persistance `localStorage` entre *Albâtre Galerie Scandinave* (`#F7F7F6`) et *Obsidienne Verre Liquide* (`#0B0C0E`).
 - [x] **Ajout d'articles personnels avec statut de taxe** : Saisie d'articles hors-recettes (produits ménagers, café, essuie-tout) avec attribution de rayon, prix et case à cocher pour la taxation.
 - [x] **Checklist interactive en magasin** : Cases à cocher avec filtres (*Tous*, *À acheter*, *Cochés*) et réinitialisation en un clic.
 

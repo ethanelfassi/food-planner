@@ -173,11 +173,11 @@ export default function Home() {
     return (
       <div
         className={`min-h-screen flex items-center justify-center transition-colors ${
-          isDark ? 'bg-[#0B0C0E] text-stone-300' : 'bg-[#FAF8F5] text-stone-700'
+          isDark ? 'bg-[#0B0C0E] text-stone-300' : 'bg-[#F7F7F6] text-stone-800'
         }`}
       >
         <div className="flex items-center gap-3">
-          <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-stone-800 dark:border-stone-200 border-t-transparent rounded-full animate-spin" />
           <span className="font-serif italic text-base">Composition de votre menu nordique & sportif...</span>
         </div>
       </div>
@@ -187,7 +187,7 @@ export default function Home() {
   return (
     <div
       className={`min-h-screen flex flex-col font-sans transition-colors duration-300 ${
-        isDark ? 'bg-[#0B0C0E] text-stone-100' : 'bg-[#FAF8F5] text-stone-900'
+        isDark ? 'bg-[#0B0C0E] text-stone-100' : 'bg-[#F7F7F6] text-stone-900'
       }`}
     >
       <Header
@@ -242,8 +242,8 @@ export default function Home() {
       <footer
         className={`border-t py-8 text-center text-xs transition-colors ${
           isDark
-            ? 'border-white/[0.08] bg-[#0B0C0E] text-stone-400'
-            : 'border-stone-200 bg-[#FAF8F5] text-stone-500'
+            ? 'border-white/[0.08] bg-[#0B0C0E] text-stone-500'
+            : 'border-stone-200 bg-white/70 text-stone-500'
         }`}
       >
         <p className="font-serif italic text-sm">

@@ -26,8 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
     <header
       className={`sticky top-0 z-40 transition-colors duration-300 border-b ${
         isDark
-          ? 'bg-[#0B0C0E]/75 border-white/[0.08] text-white shadow-2xl shadow-black/40'
-          : 'bg-[#F7F5F0]/80 border-stone-200/80 text-stone-900 shadow-sm'
+          ? 'bg-[#0B0C0E]/80 border-white/[0.08] text-white shadow-2xl shadow-black/40'
+          : 'bg-white/80 border-stone-200/90 text-stone-900 shadow-xs'
       } backdrop-blur-2xl`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -38,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${
                 isDark
                   ? 'bg-gradient-to-b from-white/10 to-white/[0.02] border border-white/15 shadow-inner'
-                  : 'bg-stone-900 text-stone-50 shadow-md'
+                  : 'bg-stone-950 text-white shadow-xs'
               }`}
             >
               <span className="font-serif italic font-semibold text-lg">fp</span>
@@ -46,14 +46,14 @@ export const Header: React.FC<HeaderProps> = ({
 
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-serif tracking-tight text-xl font-normal text-stone-900 dark:text-stone-100">
-                  FoodPlanner <span className="italic font-light text-stone-500 dark:text-stone-400">QC</span>
+                <span className="font-serif tracking-tight text-xl font-normal text-stone-950 dark:text-stone-100">
+                  FoodPlanner <span className="italic font-light text-stone-400">QC</span>
                 </span>
                 <span
-                  className={`text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded-full border ${
+                  className={`text-[10px] uppercase font-mono tracking-widest px-2.5 py-0.5 rounded-full border ${
                     isDark
-                      ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/30'
-                      : 'bg-emerald-50 text-emerald-900 border-emerald-300 font-semibold'
+                      ? 'bg-white/5 text-stone-300 border-white/10'
+                      : 'bg-stone-100 text-stone-800 border-stone-200 font-medium'
                   }`}
                 >
                   Metro QC
@@ -62,8 +62,8 @@ export const Header: React.FC<HeaderProps> = ({
                   <span
                     className={`text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded-full border flex items-center gap-1 ${
                       isDark
-                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/25'
-                        : 'bg-amber-50 text-amber-900 border-amber-300 font-semibold'
+                        ? 'bg-white/5 text-stone-300 border-white/10'
+                        : 'bg-stone-100 text-stone-800 border-stone-200 font-medium'
                     }`}
                   >
                     <Users className="w-2.5 h-2.5" /> Couple
@@ -72,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <p
                 className={`text-[11px] tracking-wide hidden sm:block ${
-                  isDark ? 'text-stone-400' : 'text-stone-600'
+                  isDark ? 'text-stone-400' : 'text-stone-500'
                 }`}
               >
                 Prise de masse athlétique • Repas du soir doublés • Metro Québec
@@ -80,23 +80,23 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Anneau / Pill Macros Style Apple Fitness */}
+          {/* Anneau / Pill Macros Style Apple Fitness Monochrome */}
           <div
             className={`hidden lg:flex items-center gap-3 px-3.5 py-1.5 rounded-full border transition-all ${
               isDark
                 ? 'bg-white/[0.03] border-white/10 text-stone-200'
-                : 'bg-stone-100 border-stone-300 text-stone-800 shadow-xs'
+                : 'bg-stone-100/80 border-stone-200/90 text-stone-800 shadow-xs'
             }`}
           >
             <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums">
-              <span className="w-2 h-2 rounded-full bg-amber-600 dark:bg-amber-400" />
-              <span className={isDark ? 'text-stone-400' : 'text-stone-600'}>Cible :</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-stone-900 dark:bg-stone-300" />
+              <span className={isDark ? 'text-stone-400' : 'text-stone-500'}>Cible :</span>
               <span className="font-semibold text-stone-900 dark:text-stone-100">3 050 kcal</span>
             </div>
-            <div className={`h-3 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-300'}`} />
+            <div className={`h-3 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-200'}`} />
             <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums">
-              <span className="w-2 h-2 rounded-full bg-emerald-700 dark:bg-emerald-400" />
-              <span className={isDark ? 'text-stone-400' : 'text-stone-600'}>Protéines :</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-stone-600 dark:bg-stone-400" />
+              <span className={isDark ? 'text-stone-400' : 'text-stone-500'}>Protéines :</span>
               <span className="font-semibold text-stone-900 dark:text-stone-100">165 g</span>
             </div>
           </div>
@@ -195,12 +195,12 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onToggleTheme}
               aria-label="Basculer le thème Jour/Nuit"
-              className={`p-2 rounded-2xl border transition-all ${
+              className={`p-2.5 rounded-2xl border transition-all ${
                 isDark
-                  ? 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-amber-300'
-                  : 'bg-white hover:bg-stone-100 border-stone-200 text-stone-700 shadow-sm'
+                  ? 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-stone-200'
+                  : 'bg-white hover:bg-stone-50 border-stone-200 text-stone-800 shadow-xs'
               }`}
-              title={isDark ? 'Activer le mode Jour (Nordic Cream)' : 'Activer le mode Nuit (Obsidian Glass)'}
+              title={isDark ? 'Activer le mode Jour (Scandinavian Minimal)' : 'Activer le mode Nuit (Obsidian Glass)'}
             >
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>

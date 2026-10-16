@@ -63,7 +63,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="font-mono text-[11px] uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+              <span className="font-mono text-[11px] uppercase tracking-widest text-stone-700 dark:text-stone-300 font-semibold">
                 Menu Personnalisé • Québec
               </span>
               <span className="text-stone-400 text-xs">•</span>
@@ -81,32 +81,32 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
             </p>
           </div>
 
-          {/* Synthèse Métabolique Apple Fitness style */}
+          {/* Synthèse Métabolique Minimaliste */}
           <div className="flex items-center gap-4 self-start lg:self-auto">
             <div
               className={`flex items-center gap-5 p-4 rounded-2xl border ${
                 isDark
                   ? 'bg-black/30 border-white/10'
-                  : 'bg-white/80 border-stone-200/80 shadow-sm'
+                  : 'bg-white border-stone-200 shadow-xs'
               }`}
             >
               <div>
-                <div className="text-[11px] font-mono uppercase tracking-wider text-stone-400 flex items-center gap-1">
-                  <Flame className="w-3 h-3 text-amber-500" /> Énergie
+                <div className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
+                  <Flame className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Énergie
                 </div>
-                <div className="font-mono tabular-nums text-xl sm:text-2xl font-light mt-0.5 text-stone-900 dark:text-white">
-                  {plan.avgDailyCalories} <span className="text-xs text-stone-400 font-sans">kcal/j</span>
+                <div className="font-mono tabular-nums text-xl sm:text-2xl font-medium mt-0.5 text-stone-950 dark:text-white">
+                  {plan.avgDailyCalories} <span className="text-xs text-stone-500 font-sans font-normal">kcal/j</span>
                 </div>
               </div>
 
               <div className={`h-8 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-200'}`} />
 
               <div>
-                <div className="text-[11px] font-mono uppercase tracking-wider text-stone-400 flex items-center gap-1">
-                  <Dumbbell className="w-3 h-3 text-emerald-500" /> Protéines
+                <div className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
+                  <Dumbbell className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Protéines
                 </div>
-                <div className="font-mono tabular-nums text-xl sm:text-2xl font-light mt-0.5 text-stone-900 dark:text-white">
-                  {plan.avgDailyProtein} <span className="text-xs text-stone-400 font-sans">g/j</span>
+                <div className="font-mono tabular-nums text-xl sm:text-2xl font-medium mt-0.5 text-stone-950 dark:text-white">
+                  {plan.avgDailyProtein} <span className="text-xs text-stone-500 font-sans font-normal">g/j</span>
                 </div>
               </div>
             </div>
@@ -116,11 +116,11 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
               className={`p-3.5 rounded-2xl border transition-all active:scale-95 ${
                 isDark
                   ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
-                  : 'bg-stone-900 hover:bg-stone-800 text-stone-50 border-stone-900 shadow-sm'
+                  : 'bg-stone-900 hover:bg-stone-800 text-stone-50 border-stone-900 shadow-xs'
               }`}
               title="Régénérer le menu de la semaine"
             >
-              <RefreshCw className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+              <RefreshCw className="w-4 h-4 text-stone-400 dark:text-stone-200" />
             </button>
           </div>
         </div>
@@ -140,7 +140,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                       : 'bg-stone-900 text-stone-50 font-bold shadow-lg shadow-stone-900/10'
                     : isDark
                     ? 'bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 text-stone-400'
-                    : 'bg-stone-100/60 hover:bg-stone-200/70 border border-stone-200/60 text-stone-600'
+                    : 'bg-stone-100 hover:bg-stone-200 border border-stone-200 text-stone-700'
                 }`}
               >
                 <span className="font-mono text-[10px] sm:text-xs uppercase tracking-wider">
@@ -152,14 +152,14 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                       ? isDark
                         ? 'text-stone-950'
                         : 'text-stone-50'
-                      : 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-stone-900 dark:text-stone-200'
                   }`}
                 >
                   {day.dailyProtein}g
                 </span>
                 <span
                   className={`text-[9px] font-mono tabular-nums hidden sm:block ${
-                    isSelected ? 'opacity-70' : 'text-stone-400'
+                    isSelected ? 'opacity-70' : 'text-stone-500'
                   }`}
                 >
                   {day.dailyCalories}
@@ -195,21 +195,21 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
-                  <Coffee className="w-3 h-3 text-amber-500" /> Déjeuner (~750 kcal)
+                <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
+                  <Coffee className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Déjeuner (~750 kcal)
                 </span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'breakfast' });
                   }}
-                  className="text-xs text-stone-400 hover:text-emerald-500 transition-colors px-2 py-0.5 rounded-lg"
+                  className="text-xs text-stone-500 hover:text-stone-950 dark:hover:text-stone-200 transition-colors px-2 py-0.5 rounded-lg"
                 >
                   Changer ▾
                 </button>
               </div>
 
-              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-emerald-800 dark:group-hover:text-emerald-300 transition-colors">
+              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
                 {currentDay.breakfast.title}
               </h3>
               <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 line-clamp-2 font-sans">
@@ -219,10 +219,10 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
 
             <div className="mt-5 pt-3 border-t border-stone-200 dark:border-white/10 flex items-center justify-between text-xs">
               <div className="flex items-center gap-3 font-mono tabular-nums">
-                <span className="font-semibold text-amber-900 dark:text-amber-300">
+                <span className="font-medium text-stone-700 dark:text-stone-300">
                   {currentDay.breakfast.caloriesPerServing} kcal
                 </span>
-                <span className="font-semibold text-emerald-900 dark:text-emerald-400">
+                <span className="font-semibold text-stone-950 dark:text-white">
                   {currentDay.breakfast.proteinPerServing}g prot
                 </span>
               </div>
@@ -242,12 +242,12 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                 <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
                   <Sun className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Dîner (Midi)
                 </span>
-                <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30 font-semibold">
+                <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20 font-semibold">
                   Portion de la veille
                 </span>
               </div>
 
-              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-emerald-800 dark:group-hover:text-emerald-300 transition-colors">
+              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
                 {currentDay.lunch.title}
               </h3>
               <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 font-sans">
@@ -257,10 +257,10 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
 
             <div className="mt-5 pt-3 border-t border-stone-200 dark:border-white/10 flex items-center justify-between text-xs">
               <div className="flex items-center gap-3 font-mono tabular-nums">
-                <span className="font-semibold text-amber-900 dark:text-amber-300">
+                <span className="font-medium text-stone-700 dark:text-stone-300">
                   {currentDay.lunch.caloriesPerServing} kcal
                 </span>
-                <span className="font-semibold text-emerald-900 dark:text-emerald-400">
+                <span className="font-semibold text-stone-950 dark:text-white">
                   {currentDay.lunch.proteinPerServing}g prot
                 </span>
               </div>
@@ -296,7 +296,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
               </div>
 
               <div className="flex items-center gap-2 mb-1.5">
-                <span className="font-mono text-[10px] uppercase tracking-wider text-emerald-950 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-500/30 px-2 py-0.5 rounded-md font-semibold">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-white/10 border border-stone-300 dark:border-white/20 px-2 py-0.5 rounded-md font-semibold">
                   2 portions à préparer
                 </span>
                 <span className="text-xs text-stone-600 dark:text-stone-400 font-mono">
@@ -304,7 +304,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                 </span>
               </div>
 
-              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-emerald-800 dark:group-hover:text-emerald-300 transition-colors">
+              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
                 {currentDay.dinner.title}
               </h3>
               <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 line-clamp-2 font-sans">
@@ -314,10 +314,10 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
 
             <div className="mt-5 pt-3 border-t border-stone-200 dark:border-white/10 flex items-center justify-between text-xs">
               <div className="flex items-center gap-3 font-mono tabular-nums">
-                <span className="font-semibold text-amber-900 dark:text-amber-300">
+                <span className="font-medium text-stone-700 dark:text-stone-300">
                   {currentDay.dinner.caloriesPerServing} kcal
                 </span>
-                <span className="font-semibold text-emerald-900 dark:text-emerald-400">
+                <span className="font-semibold text-stone-950 dark:text-white">
                   {currentDay.dinner.proteinPerServing}g prot
                 </span>
               </div>
@@ -335,7 +335,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
             <div>
               <div className="flex items-center justify-between mb-3">
                 <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
-                  <Zap className="w-3 h-3 text-amber-700 dark:text-amber-400" /> Collation Sportive (~450 kcal)
+                  <Zap className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Collation Sportive (~450 kcal)
                 </span>
                 <button
                   onClick={(e) => {
@@ -348,7 +348,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                 </button>
               </div>
 
-              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-emerald-800 dark:group-hover:text-emerald-300 transition-colors">
+              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
                 {currentDay.snack.title}
               </h3>
               <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 font-sans">
@@ -358,10 +358,10 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
 
             <div className="mt-5 pt-3 border-t border-stone-200 dark:border-white/10 flex items-center justify-between text-xs">
               <div className="flex items-center gap-3 font-mono tabular-nums">
-                <span className="font-semibold text-amber-900 dark:text-amber-300">
+                <span className="font-medium text-stone-700 dark:text-stone-300">
                   {currentDay.snack.caloriesPerServing} kcal
                 </span>
-                <span className="font-semibold text-emerald-900 dark:text-emerald-400">
+                <span className="font-semibold text-stone-950 dark:text-white">
                   {currentDay.snack.proteinPerServing}g prot
                 </span>
               </div>
@@ -406,11 +406,11 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                     <div className="font-serif font-medium text-sm text-stone-900 dark:text-white">
                       {rec.title}
                     </div>
-                    <div className="font-mono tabular-nums text-xs text-stone-400 mt-0.5">
+                    <div className="font-mono tabular-nums text-xs text-stone-500 dark:text-stone-400 mt-0.5">
                       {rec.caloriesPerServing} kcal • {rec.proteinPerServing}g protéines
                     </div>
                   </div>
-                  <Check className="w-4 h-4 text-emerald-500 opacity-60" />
+                  <Check className="w-4 h-4 text-stone-700 dark:text-stone-300 opacity-80" />
                 </button>
               ))}
             </div>
@@ -418,7 +418,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
             <div className="mt-5 pt-3 border-t border-stone-200/60 dark:border-white/10 flex justify-end">
               <button
                 onClick={() => setSwapMealState(null)}
-                className="px-4 py-2 text-xs font-mono uppercase tracking-wider text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors"
+                className="px-4 py-2 text-xs font-mono uppercase tracking-wider text-stone-600 hover:text-stone-950 dark:text-stone-400 dark:hover:text-white transition-colors"
               >
                 Fermer
               </button>

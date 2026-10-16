@@ -26,7 +26,7 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
       {/* En-tête */}
       <div className={`rounded-3xl p-6 sm:p-8 transition-all border ${cardGlassClass}`}>
         <div className="flex items-center gap-2 mb-2">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-stone-700 dark:text-stone-300 font-semibold">
             Intelligence de Marché • Québec
           </span>
           <span className="text-stone-400 text-xs">•</span>
@@ -47,24 +47,24 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
           <div
             className={`mt-6 p-4 rounded-2xl border flex items-center justify-between ${
               isDark
-                ? 'bg-amber-950/20 border-amber-500/30'
-                : 'bg-amber-50 border-amber-300 shadow-xs'
+                ? 'bg-white/[0.03] border-white/10'
+                : 'bg-white border-stone-200 shadow-xs'
             }`}
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-300 flex items-center justify-center font-bold">
-                <Crown className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <div className="w-9 h-9 rounded-xl bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-white flex items-center justify-center font-bold border border-stone-200 dark:border-white/10">
+                <Crown className="w-5 h-5 text-stone-700 dark:text-stone-300" />
               </div>
               <div>
-                <div className="text-xs font-mono uppercase tracking-wider text-amber-950 dark:text-amber-200 font-bold">
+                <div className="text-xs font-mono uppercase tracking-wider text-stone-900 dark:text-stone-100 font-bold">
                   Rabais total Membre Moi appliqué
                 </div>
-                <div className="text-xs text-stone-700 dark:text-stone-300 font-sans">
+                <div className="text-xs text-stone-600 dark:text-stone-400 font-sans">
                   Économie de <strong>{receipt.totalSavingsMoi.toFixed(2)} $ CAD</strong> cette semaine avec votre carte Moi.
                 </div>
               </div>
             </div>
-            <div className="font-mono tabular-nums text-xl font-medium text-amber-900 dark:text-amber-300">
+            <div className="font-mono tabular-nums text-xl font-medium text-stone-950 dark:text-white">
               -{receipt.totalSavingsMoi.toFixed(2)} $
             </div>
           </div>
@@ -83,8 +83,8 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
               className={`rounded-3xl p-6 border transition-all flex flex-col justify-between ${
                 isMetro
                   ? isDark
-                    ? 'liquid-glass border-emerald-500/40 ring-1 ring-emerald-500/20'
-                    : 'liquid-glass-light border-emerald-700/40 ring-1 ring-emerald-700/20 shadow-md'
+                    ? 'liquid-glass border-white/40 ring-1 ring-white/20'
+                    : 'liquid-glass-light border-stone-900 ring-1 ring-stone-900 shadow-md'
                   : cardGlassClass
               }`}
             >
@@ -94,7 +94,7 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
                     <div
                       className={`w-8 h-8 rounded-xl flex items-center justify-center font-serif text-sm font-semibold ${
                         isMetro
-                          ? 'bg-emerald-600 text-white'
+                          ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950'
                           : isDark
                           ? 'bg-white/10 text-stone-300'
                           : 'bg-stone-200 text-stone-800'
@@ -113,7 +113,7 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
                   </div>
 
                   {isMetro && (
-                    <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                    <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 border border-stone-800 dark:border-white font-semibold">
                       Votre choix
                     </span>
                   )}
@@ -132,11 +132,11 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
 
               <div className="pt-4 border-t border-stone-200/50 dark:border-white/10 text-xs font-mono">
                 {isMetro ? (
-                  <div className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <div className="text-stone-800 dark:text-stone-200 flex items-center gap-1.5 font-medium">
                     <Sparkles className="w-3.5 h-3.5" /> Référence (Prix Moi inclus)
                   </div>
                 ) : store.differenceWithMetro < 0 ? (
-                  <div className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <div className="text-stone-950 dark:text-white font-medium flex items-center gap-1">
                     <TrendingDown className="w-3.5 h-3.5" />
                     Économie : {Math.abs(store.differenceWithMetro).toFixed(2)} $ ({savings}%)
                   </div>
@@ -156,12 +156,12 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
         <div className={`rounded-3xl p-6 sm:p-8 transition-all border ${cardGlassClass}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Crown className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <Crown className="w-5 h-5 text-stone-700 dark:text-stone-300" />
               <h2 className="font-serif text-xl font-normal text-stone-900 dark:text-white">
                 Offres Exclusives Membre Moi Présentes dans votre Panier
               </h2>
             </div>
-            <span className="font-mono text-xs font-semibold text-amber-900 dark:text-amber-300">
+            <span className="font-mono text-xs font-semibold text-stone-700 dark:text-stone-300">
               {moiItems.length} aubaines
             </span>
           </div>
@@ -173,18 +173,18 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
                 className={`p-4 rounded-2xl border flex items-center justify-between ${
                   isDark
                     ? 'bg-white/[0.02] border-white/5'
-                    : 'bg-white border-stone-300'
+                    : 'bg-white border-stone-200 shadow-xs'
                 }`}
               >
                 <div>
                   <div className="font-medium text-sm text-stone-900 dark:text-white">{item.name}</div>
                   <div className="font-mono text-xs text-stone-600 dark:text-stone-400 mt-0.5">
-                    {item.packageDescription} • <span className="text-emerald-900 dark:text-emerald-400 font-medium">{item.unitPriceLabel}</span>
+                    {item.packageDescription} • <span className="text-stone-900 dark:text-stone-200 font-medium">{item.unitPriceLabel}</span>
                   </div>
                 </div>
 
                 <div className="text-right shrink-0 ml-2 font-mono">
-                  <div className="text-xs font-semibold text-amber-950 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/10 px-2.5 py-0.5 rounded-lg border border-amber-300 dark:border-amber-500/25">
+                  <div className="text-xs font-semibold text-stone-900 dark:text-white bg-stone-100 dark:bg-white/10 px-2.5 py-0.5 rounded-lg border border-stone-300 dark:border-white/20">
                     {item.exactPriceMetro.toFixed(2)} $
                   </div>
                   {item.savingsAmount > 0 && (
@@ -204,12 +204,12 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
         <div className={`rounded-3xl p-6 sm:p-8 transition-all border ${cardGlassClass}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Flame className="w-5 h-5 text-amber-500" />
+              <Flame className="w-5 h-5 text-stone-700 dark:text-stone-300" />
               <h2 className="font-serif text-xl font-normal text-stone-900 dark:text-white">
                 Articles en Circulaire Régulière (Metro)
               </h2>
             </div>
-            <span className="font-mono text-xs text-stone-400">
+            <span className="font-mono text-xs text-stone-500 dark:text-stone-400">
               {circularItems.length} rabais
             </span>
           </div>
@@ -221,18 +221,18 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
                 className={`p-4 rounded-2xl border flex items-center justify-between ${
                   isDark
                     ? 'bg-white/[0.02] border-white/5'
-                    : 'bg-white/80 border-stone-200'
+                    : 'bg-white border-stone-200 shadow-xs'
                 }`}
               >
                 <div>
                   <div className="font-medium text-sm text-stone-900 dark:text-white">{item.name}</div>
-                  <div className="font-mono text-xs text-stone-400 mt-0.5">
-                    {item.packageDescription} • <span className="text-emerald-600 dark:text-emerald-400">{item.unitPriceLabel}</span>
+                  <div className="font-mono text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                    {item.packageDescription} • <span className="text-stone-900 dark:text-stone-200 font-medium">{item.unitPriceLabel}</span>
                   </div>
                 </div>
 
                 <div className="text-right shrink-0 ml-2">
-                  <span className="font-mono text-xs text-amber-600 dark:text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
+                  <span className="font-mono text-xs text-stone-900 dark:text-white bg-stone-100 dark:bg-white/10 px-2 py-0.5 rounded-lg border border-stone-300 dark:border-white/20 font-medium">
                     {item.flyerHighlight}
                   </span>
                 </div>
@@ -248,8 +248,8 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
           isDark ? 'bg-white/[0.02] border-white/5' : 'bg-stone-100/70 border-stone-200'
         }`}
       >
-        <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-        <div className="space-y-1 text-xs text-stone-500 dark:text-stone-400 leading-relaxed font-sans">
+        <ShieldCheck className="w-5 h-5 text-stone-700 dark:text-stone-300 shrink-0 mt-0.5" />
+        <div className="space-y-1 text-xs text-stone-600 dark:text-stone-400 leading-relaxed font-sans">
           <h4 className="font-serif text-sm font-medium text-stone-900 dark:text-white">
             Note sur la Dé-taxation Alimentaire au Québec
           </h4>
