@@ -733,7 +733,13 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                                 }`}
                                 title={preferences[item.ingredientId] === 'liked' ? 'Produit favori (cliquer pour retirer)' : 'Aimer ce produit'}
                               >
-                                <Heart className={`w-3 h-3 ${preferences[item.ingredientId] === 'liked' ? 'fill-current' : ''}`} />
+                                <Heart
+                                  className={`w-3 h-3 ${
+                                    preferences[item.ingredientId] === 'liked'
+                                      ? 'fill-current text-white dark:text-stone-950'
+                                      : 'text-stone-600 dark:text-stone-400'
+                                  }`}
+                                />
                               </button>
 
                               <button
@@ -744,14 +750,20 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                                 }}
                                 className={`p-1.5 rounded-xl border transition-all active:scale-90 ${
                                   preferences[item.ingredientId] === 'disliked'
-                                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white'
+                                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white shadow-xs'
                                     : isDark
                                     ? 'bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border-white/10'
                                     : 'bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 border-stone-200'
                                 }`}
                                 title={preferences[item.ingredientId] === 'disliked' ? 'Produit exclu (cliquer pour réautoriser)' : 'Exclure ce produit (ne plus acheter)'}
                               >
-                                <Ban className="w-3 h-3" />
+                                <Ban
+                                  className={`w-3 h-3 ${
+                                    preferences[item.ingredientId] === 'disliked'
+                                      ? 'text-white dark:text-stone-950'
+                                      : 'text-stone-600 dark:text-stone-400'
+                                  }`}
+                                />
                               </button>
                             </div>
                           )}

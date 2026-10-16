@@ -165,16 +165,35 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
               selectedFilter === 'liked'
                 ? isDark
                   ? 'bg-white/15 border-white/30 ring-1 ring-white/20'
-                  : 'bg-stone-900 text-white border-stone-900'
+                  : 'bg-stone-900 text-white border-stone-900 shadow-sm'
                 : isDark
-                ? 'bg-white/[0.02] border-white/5'
-                : 'bg-white border-stone-200 shadow-xs'
+                ? 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'
+                : 'bg-white border-stone-200 shadow-xs hover:border-stone-300'
             }`}
           >
-            <div className="text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 font-semibold text-stone-600 dark:text-stone-400">
-              <Heart className="w-3 h-3 text-stone-900 dark:text-stone-100 fill-stone-900 dark:fill-stone-100" /> J'aime acheter
+            <div
+              className={`text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 font-semibold ${
+                selectedFilter === 'liked' && !isDark
+                  ? 'text-stone-200'
+                  : 'text-stone-600 dark:text-stone-400'
+              }`}
+            >
+              <Heart
+                className={`w-3 h-3 ${
+                  selectedFilter === 'liked' && !isDark
+                    ? 'text-white fill-white'
+                    : 'text-stone-900 dark:text-stone-100 fill-stone-900 dark:fill-stone-100'
+                }`}
+              />{' '}
+              J'aime acheter
             </div>
-            <div className="font-mono tabular-nums text-2xl font-medium mt-0.5 text-stone-950 dark:text-white">
+            <div
+              className={`font-mono tabular-nums text-2xl font-medium mt-0.5 ${
+                selectedFilter === 'liked' && !isDark
+                  ? 'text-white'
+                  : 'text-stone-950 dark:text-white'
+              }`}
+            >
               {likedCount}
             </div>
           </button>
@@ -185,16 +204,35 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
               selectedFilter === 'disliked'
                 ? isDark
                   ? 'bg-white/15 border-white/30 ring-1 ring-white/20'
-                  : 'bg-stone-900 text-white border-stone-900'
+                  : 'bg-stone-900 text-white border-stone-900 shadow-sm'
                 : isDark
-                ? 'bg-white/[0.02] border-white/5'
-                : 'bg-white border-stone-200 shadow-xs'
+                ? 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'
+                : 'bg-white border-stone-200 shadow-xs hover:border-stone-300'
             }`}
           >
-            <div className="text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 font-semibold text-stone-600 dark:text-stone-400">
-              <Ban className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Ne pas acheter
+            <div
+              className={`text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 font-semibold ${
+                selectedFilter === 'disliked' && !isDark
+                  ? 'text-stone-200'
+                  : 'text-stone-600 dark:text-stone-400'
+              }`}
+            >
+              <Ban
+                className={`w-3 h-3 ${
+                  selectedFilter === 'disliked' && !isDark
+                    ? 'text-white'
+                    : 'text-stone-700 dark:text-stone-300'
+                }`}
+              />{' '}
+              Ne pas acheter
             </div>
-            <div className="font-mono tabular-nums text-2xl font-medium mt-0.5 text-stone-950 dark:text-white">
+            <div
+              className={`font-mono tabular-nums text-2xl font-medium mt-0.5 ${
+                selectedFilter === 'disliked' && !isDark
+                  ? 'text-white'
+                  : 'text-stone-950 dark:text-white'
+              }`}
+            >
               {dislikedCount}
             </div>
           </button>
@@ -394,7 +432,7 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
                       }`}
                       title={isDisliked ? 'Réautoriser ce produit' : 'Bannir ce produit de vos achats et recettes'}
                     >
-                      <Ban className="w-3.5 h-3.5" />
+                      <Ban className={`w-3.5 h-3.5 ${isDisliked ? 'text-white dark:text-stone-950' : 'text-stone-500'}`} />
                       <span>Exclure</span>
                     </button>
                   </div>

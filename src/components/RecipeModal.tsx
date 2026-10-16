@@ -158,7 +158,13 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                             }`}
                             title="Aimer ce produit"
                           >
-                            <Heart className={`w-3 h-3 ${preferences[item.ingredientId] === 'liked' ? 'fill-current' : ''}`} />
+                            <Heart
+                              className={`w-3 h-3 ${
+                                preferences[item.ingredientId] === 'liked'
+                                  ? 'fill-current text-white dark:text-stone-950'
+                                  : ''
+                              }`}
+                            />
                           </button>
                           <button
                             onClick={() => {
@@ -167,12 +173,18 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                             }}
                             className={`p-1 rounded-lg border transition-all ${
                               preferences[item.ingredientId] === 'disliked'
-                                ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white'
+                                ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white shadow-xs'
                                 : 'text-stone-400 hover:text-stone-900 dark:hover:text-white border-transparent'
                             }`}
                             title="Exclure ce produit"
                           >
-                            <Ban className="w-3 h-3" />
+                            <Ban
+                              className={`w-3 h-3 ${
+                                preferences[item.ingredientId] === 'disliked'
+                                  ? 'text-white dark:text-stone-950'
+                                  : ''
+                              }`}
+                            />
                           </button>
                         </div>
                       )}

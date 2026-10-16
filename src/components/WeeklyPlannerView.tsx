@@ -133,7 +133,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
               }`}
               title="Régénérer le menu de la semaine"
             >
-              <RefreshCw className="w-4 h-4 text-stone-400 dark:text-stone-200" />
+              <RefreshCw className="w-4 h-4 text-stone-100 dark:text-stone-200" />
             </button>
           </div>
         </div>
