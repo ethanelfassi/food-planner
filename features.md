@@ -24,7 +24,12 @@ Ce document répertorie l'ensemble des fonctionnalités de l'application, distin
   - Application stricte des taxes de **14,975 %** sur les produits taxables (articles de maison, produits ménagers).
   - Ticket de caisse exact indiquant le sous-total détaxé, le sous-total taxable, la TPS, la TVQ et le montant final à payer à la caisse.
 - [x] **Tri par rayons physiques de supermarché** : Organisation dans l'ordre de circulation d'un Metro québécois (Fruits & Légumes $\rightarrow$ Boulangerie $\rightarrow$ Boucherie/Poissonnerie $\rightarrow$ Produits laitiers $\rightarrow$ Épicerie & Féculents $\rightarrow$ Surgelés).
-- [x] **Photos de produits & Liens officiels Metro.ca** : Chaque article affiche sa photo de référence et un lien direct vers la page de recherche officielle Metro.ca pour vérifier en temps réel le prix, le packaging et les disponibilités en magasin.
+- [x] **Photos de produits & Liens directs canoniques Metro.ca** : Chaque article affiche sa photo de référence et un lien direct vers la fiche produit officielle Metro.ca (ex. `metro.ca/epicerie-en-ligne/allees/.../p/[sku]`) pour vérifier en temps réel le prix, le format et les disponibilités en magasin sans passer par une recherche intermédiaire.
+- [x] **Design Haute Horlogerie & Interface Hybride (Éditorial Nordic + Apple Fitness)** :
+  - **Typographie éditoriale** : Titrage serif raffiné inspiré des revues culinaires scandinaves (*Newsreader serif*).
+  - **Ergonomie sportive Apple Fitness+** : Anneaux de progression, pillules de macros denses, typographie monospace tubulaire pour les chiffres d'épicerie et les calories.
+  - **Liquid Glass & Glassmorphism** : Effets de verre dépoli ultra-fin (`backdrop-blur-2xl`, bordures spéculaires et ombres subtiles).
+  - **Mode Jour / Nuit en 1 clic** : Bascule instantanée entre *Linge naturel écru & papier chaud* (#FAF8F5) et *Noir obsidienne velouté* (#0B0C0E).
 - [x] **Ajout d'articles personnels avec statut de taxe** : Saisie d'articles hors-recettes (produits ménagers, café, essuie-tout) avec attribution de rayon, prix et case à cocher pour la taxation.
 - [x] **Checklist interactive en magasin** : Cases à cocher avec filtres (*Tous*, *À acheter*, *Cochés*) et réinitialisation en un clic.
 

@@ -4,57 +4,68 @@ import React from 'react';
 import { GroceryItem } from '@/types';
 import { calculateStorePriceComparison } from '@/lib/price-comparator';
 import { calculateReceiptTaxes } from '@/lib/grocery';
-import { Store, TrendingDown, Flame, Crown, Sparkles, AlertCircle, ShieldCheck } from 'lucide-react';
+import { TrendingDown, Flame, Crown, Sparkles, ShieldCheck } from 'lucide-react';
 
 interface DealsAndPricesViewProps {
   groceryItems: GroceryItem[];
+  isDark: boolean;
 }
 
-export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryItems }) => {
+export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryItems, isDark }) => {
   const priceComparison = calculateStorePriceComparison(groceryItems);
   const receipt = calculateReceiptTaxes(groceryItems);
   const metroTotal = priceComparison.find((p) => p.storeName === 'Metro')?.totalEstimated || 0;
 
-  // Récupérer les ingrédients en promo ou Membre Moi
   const moiItems = groceryItems.filter((i) => i.isMoiMemberPrice);
   const circularItems = groceryItems.filter((i) => i.flyerHighlight && !i.isMoiMemberPrice);
 
+  const cardGlassClass = isDark ? 'liquid-glass' : 'liquid-glass-light';
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* En-tête */}
-      <div className="bg-slate-900 border border-slate-700/60 rounded-2xl p-4 sm:p-6 shadow-xl">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs uppercase font-bold tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-0.5 rounded-full border border-amber-400/20">
-            Économies & Intelligence de Marché QC
+      <div className={`rounded-3xl p-6 sm:p-8 transition-all border ${cardGlassClass}`}>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+            Intelligence de Marché • Québec
           </span>
-          <span className="text-xs text-slate-400">Programme Moi & Circulaires</span>
+          <span className="text-stone-400 text-xs">•</span>
+          <span className="text-xs text-stone-500 dark:text-stone-400 font-sans">
+            Circulaires du Jeudi & Programme Moi
+          </span>
         </div>
-        <h1 className="text-xl sm:text-2xl font-black text-white">
-          Comparateur de Panier & Offres Membre Moi
+
+        <h1 className="font-serif text-3xl sm:text-4xl font-normal tracking-tight text-stone-900 dark:text-white">
+          Comparateur & <span className="italic">Programme Moi</span>
         </h1>
-        <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-3xl">
-          Votre planificateur a automatiquement favorisé les recettes intégrant les <strong>Prix Membre Moi</strong> et les rabais de circulaire de la semaine pour minimiser votre facture à la caisse de Metro.
+
+        <p className="text-sm text-stone-600 dark:text-stone-300 mt-2 max-w-2xl font-sans leading-relaxed">
+          Le planificateur favorise les recettes combinant les rabais de circulaire et les tarifs Membre Moi de Metro pour vous garantir le panier le plus avantageux.
         </p>
 
         {receipt.totalSavingsMoi > 0 && (
-          <div className="mt-4 p-3 bg-gradient-to-r from-purple-950/60 via-purple-900/40 to-slate-900 border border-purple-500/40 rounded-xl flex items-center justify-between">
+          <div
+            className={`mt-6 p-4 rounded-2xl border flex items-center justify-between ${
+              isDark
+                ? 'bg-purple-950/20 border-purple-500/30'
+                : 'bg-purple-50/70 border-purple-200'
+            }`}
+          >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-amber-400/20 text-amber-300 flex items-center justify-center font-bold">
-                <Crown className="w-5 h-5 text-amber-400" />
+              <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-300 flex items-center justify-center font-bold">
+                <Crown className="w-5 h-5 text-amber-500" />
               </div>
               <div>
-                <div className="text-xs font-bold text-amber-200">
+                <div className="text-xs font-mono uppercase tracking-wider text-purple-900 dark:text-purple-200 font-bold">
                   Rabais total Membre Moi appliqué
                 </div>
-                <div className="text-xs text-slate-300">
-                  Vous économisez <strong>{receipt.totalSavingsMoi.toFixed(2)} $ CAD</strong> cette semaine grâce à votre compte Moi.
+                <div className="text-xs text-stone-500 dark:text-stone-400 font-sans">
+                  Économie de <strong>{receipt.totalSavingsMoi.toFixed(2)} $ CAD</strong> cette semaine avec votre carte Moi.
                 </div>
               </div>
             </div>
-            <div className="text-right">
-              <span className="text-lg font-black text-amber-300">
-                -{receipt.totalSavingsMoi.toFixed(2)} $
-              </span>
+            <div className="font-mono tabular-nums text-xl font-light text-purple-700 dark:text-purple-300">
+              -{receipt.totalSavingsMoi.toFixed(2)} $
             </div>
           </div>
         )}
@@ -69,56 +80,69 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
           return (
             <div
               key={store.storeName}
-              className={`rounded-2xl p-5 border transition-all flex flex-col justify-between ${
+              className={`rounded-3xl p-6 border transition-all flex flex-col justify-between ${
                 isMetro
-                  ? 'bg-gradient-to-b from-emerald-950/40 to-slate-900 border-emerald-500/60 shadow-lg ring-1 ring-emerald-500/30'
-                  : 'bg-slate-900/80 border-slate-800'
+                  ? isDark
+                    ? 'liquid-glass border-emerald-500/40 ring-1 ring-emerald-500/20'
+                    : 'liquid-glass-light border-emerald-700/40 ring-1 ring-emerald-700/20 shadow-md'
+                  : cardGlassClass
               }`}
             >
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
-                      isMetro ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300'
-                    }`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center font-serif text-sm font-semibold ${
+                        isMetro
+                          ? 'bg-emerald-600 text-white'
+                          : isDark
+                          ? 'bg-white/10 text-stone-300'
+                          : 'bg-stone-200 text-stone-800'
+                      }`}
+                    >
                       {store.storeName[0]}
                     </div>
                     <div>
-                      <h2 className="font-bold text-white text-base">{store.storeName}</h2>
-                      <span className="text-[11px] text-slate-400 block">{store.bannerType}</span>
+                      <h2 className="font-serif text-base font-medium text-stone-900 dark:text-white">
+                        {store.storeName}
+                      </h2>
+                      <span className="font-mono text-[10px] text-stone-400 block uppercase tracking-wider">
+                        {store.bannerType}
+                      </span>
                     </div>
                   </div>
 
                   {isMetro && (
-                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                    <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
                       Votre choix
                     </span>
                   )}
                 </div>
 
-                <div className="my-4">
-                  <div className="text-2xl sm:text-3xl font-extrabold text-white">
-                    {store.totalEstimated.toFixed(2)} <span className="text-sm font-semibold text-slate-400">$ CAD</span>
+                <div className="my-5">
+                  <div className="font-mono tabular-nums text-3xl font-light text-stone-900 dark:text-white">
+                    {store.totalEstimated.toFixed(2)}{' '}
+                    <span className="text-sm text-stone-400 font-normal">$ CAD</span>
                   </div>
-                  <div className="text-xs text-slate-400 mt-0.5">
+                  <div className="text-[11px] text-stone-400 mt-1 font-sans">
                     Estimation du panier complet (7 jours)
                   </div>
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-800/80">
+              <div className="pt-4 border-t border-stone-200/50 dark:border-white/10 text-xs font-mono">
                 {isMetro ? (
-                  <div className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5" /> Supermarché de référence (Prix Moi inclus)
+                  <div className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" /> Référence (Prix Moi inclus)
                   </div>
                 ) : store.differenceWithMetro < 0 ? (
-                  <div className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
+                  <div className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                     <TrendingDown className="w-3.5 h-3.5" />
-                    Économie potentielle : {Math.abs(store.differenceWithMetro).toFixed(2)} $ ({savings}%)
+                    Économie : {Math.abs(store.differenceWithMetro).toFixed(2)} $ ({savings}%)
                   </div>
                 ) : (
-                  <div className="text-xs text-slate-400">
-                    +{store.differenceWithMetro.toFixed(2)} $ par rapport à Metro
+                  <div className="text-stone-400">
+                    +{store.differenceWithMetro.toFixed(2)} $ vs Metro
                   </div>
                 )}
               </div>
@@ -129,43 +153,43 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
 
       {/* Détail des Rabais Membre Moi Détectés */}
       {moiItems.length > 0 && (
-        <div className="bg-gradient-to-br from-slate-900 to-purple-950/40 border border-purple-500/30 rounded-2xl p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
+        <div className={`rounded-3xl p-6 sm:p-8 transition-all border ${cardGlassClass}`}>
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Crown className="w-5 h-5 text-amber-400" />
-              <h2 className="text-lg font-bold text-white">
-                Offres Exclusives Membre Moi Présentes dans votre Menu
+              <Crown className="w-5 h-5 text-amber-500" />
+              <h2 className="font-serif text-xl font-normal text-stone-900 dark:text-white">
+                Offres Exclusives Membre Moi Présentes dans votre Panier
               </h2>
             </div>
-            <span className="text-xs font-semibold text-amber-300 bg-purple-900/60 px-2.5 py-1 rounded-full border border-purple-500/30">
-              {moiItems.length} aubaines Moi
+            <span className="font-mono text-xs text-purple-700 dark:text-purple-300">
+              {moiItems.length} aubaines
             </span>
           </div>
-
-          <p className="text-xs text-slate-300">
-            Ces produits bénéficient d'un tarif préférentiel exclusif sur présentation de la carte ou de l'application Metro Moi :
-          </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {moiItems.map((item) => (
               <div
                 key={item.id}
-                className="bg-slate-900/80 border border-purple-500/30 rounded-xl p-3.5 flex items-center justify-between"
+                className={`p-4 rounded-2xl border flex items-center justify-between ${
+                  isDark
+                    ? 'bg-white/[0.02] border-white/5'
+                    : 'bg-white/80 border-stone-200'
+                }`}
               >
                 <div>
-                  <div className="font-semibold text-sm text-white">{item.name}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">
-                    {item.packageDescription} • <span className="text-emerald-400 font-medium">{item.unitPriceLabel}</span>
+                  <div className="font-medium text-sm text-stone-900 dark:text-white">{item.name}</div>
+                  <div className="font-mono text-xs text-stone-400 mt-0.5">
+                    {item.packageDescription} • <span className="text-emerald-600 dark:text-emerald-400">{item.unitPriceLabel}</span>
                   </div>
                 </div>
 
-                <div className="text-right shrink-0 ml-2">
-                  <div className="text-xs font-bold text-amber-300 bg-gradient-to-r from-purple-900 to-purple-800 px-2.5 py-1 rounded-lg border border-purple-500/40">
-                    {item.exactPriceMetro.toFixed(2)} $ CAD
+                <div className="text-right shrink-0 ml-2 font-mono">
+                  <div className="text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded-lg border border-purple-500/20">
+                    {item.exactPriceMetro.toFixed(2)} $
                   </div>
                   {item.savingsAmount > 0 && (
-                    <div className="text-[10px] text-slate-400 line-through mt-0.5">
-                      Rég. {item.regularPriceMetro.toFixed(2)} $
+                    <div className="text-[10px] text-stone-400 line-through mt-0.5">
+                      {item.regularPriceMetro.toFixed(2)} $
                     </div>
                   )}
                 </div>
@@ -175,17 +199,17 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
         </div>
       )}
 
-      {/* Détail des Rabais Circulaires Standards */}
+      {/* Détail Circulaires */}
       {circularItems.length > 0 && (
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
+        <div className={`rounded-3xl p-6 sm:p-8 transition-all border ${cardGlassClass}`}>
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Flame className="w-5 h-5 text-amber-400" />
-              <h2 className="text-lg font-bold text-white">
+              <Flame className="w-5 h-5 text-amber-500" />
+              <h2 className="font-serif text-xl font-normal text-stone-900 dark:text-white">
                 Articles en Circulaire Régulière (Metro)
               </h2>
             </div>
-            <span className="text-xs text-slate-400">
+            <span className="font-mono text-xs text-stone-400">
               {circularItems.length} rabais
             </span>
           </div>
@@ -194,17 +218,21 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
             {circularItems.map((item) => (
               <div
                 key={item.id}
-                className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-3.5 flex items-center justify-between"
+                className={`p-4 rounded-2xl border flex items-center justify-between ${
+                  isDark
+                    ? 'bg-white/[0.02] border-white/5'
+                    : 'bg-white/80 border-stone-200'
+                }`}
               >
                 <div>
-                  <div className="font-semibold text-sm text-white">{item.name}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">
-                    {item.packageDescription} • <span className="text-emerald-400 font-medium">{item.unitPriceLabel}</span>
+                  <div className="font-medium text-sm text-stone-900 dark:text-white">{item.name}</div>
+                  <div className="font-mono text-xs text-stone-400 mt-0.5">
+                    {item.packageDescription} • <span className="text-emerald-600 dark:text-emerald-400">{item.unitPriceLabel}</span>
                   </div>
                 </div>
 
                 <div className="text-right shrink-0 ml-2">
-                  <span className="text-xs font-bold text-amber-300 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20 inline-block">
+                  <span className="font-mono text-xs text-amber-600 dark:text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
                     {item.flyerHighlight}
                   </span>
                 </div>
@@ -214,13 +242,19 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({ groceryI
         </div>
       )}
 
-      {/* Informations Légales Fiscales Revenu Québec */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-start gap-3 text-xs text-slate-300">
-        <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <h3 className="font-bold text-white">Règles Fiscales de Revenu Québec (Aliments de base détaxés à 0%)</h3>
-          <p className="leading-relaxed">
-            Au Québec, la nourriture de base (viandes fraîches, volaille, poisson, œufs, produits laitiers, fruits, légumes, pain, avoine, pâtes, riz) est strictement <strong>détaxée (0 % de TPS et 0 % de TVQ)</strong>. Seuls les produits non alimentaires ou certains snacks préparés individuellement sont assujettis aux taxes combinées de <strong>14,975 %</strong>. Votre ticket FoodPlanner applique fidèlement ces règles.
+      {/* Note Fiscale */}
+      <div
+        className={`p-6 rounded-3xl border flex items-start gap-4 ${
+          isDark ? 'bg-white/[0.02] border-white/5' : 'bg-stone-100/70 border-stone-200'
+        }`}
+      >
+        <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+        <div className="space-y-1 text-xs text-stone-500 dark:text-stone-400 leading-relaxed font-sans">
+          <h4 className="font-serif text-sm font-medium text-stone-900 dark:text-white">
+            Note sur la Dé-taxation Alimentaire au Québec
+          </h4>
+          <p>
+            Toutes les viandes, poissons, produits laitiers, légumes, fruits, œufs, avoine et pain sont à 0 % de taxe au Québec (Loi sur la taxe de vente). Seuls les produits de ménage et articles non alimentaires supportent la TPS (5%) et la TVQ (9.975%).
           </p>
         </div>
       </div>

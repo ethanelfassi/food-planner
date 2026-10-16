@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import { DayPlan } from '@/types';
-import { Flame, Dumbbell, Plus, CheckCircle2, Circle, Trophy, AlertCircle, Apple } from 'lucide-react';
+import { Flame, Dumbbell, Plus, Check, Circle, Trophy, AlertCircle, Apple } from 'lucide-react';
 
 interface CalorieTrackerViewProps {
   currentDayPlan: DayPlan;
+  isDark: boolean;
 }
 
 interface CustomEntry {
@@ -15,8 +16,7 @@ interface CustomEntry {
   protein: number;
 }
 
-export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentDayPlan }) => {
-  // État des repas cochés
+export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentDayPlan, isDark }) => {
   const [eatenMeals, setEatenMeals] = useState<Record<string, boolean>>({
     breakfast: true,
     lunch: true,
@@ -48,38 +48,26 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
     setExtraProt('');
   };
 
-  // Calculs actuels
   let consumedCalories = 0;
   let consumedProtein = 0;
-  let consumedCarbs = 0;
-  let consumedFat = 0;
 
   if (eatenMeals.breakfast) {
     consumedCalories += currentDayPlan.breakfast.caloriesPerServing;
     consumedProtein += currentDayPlan.breakfast.proteinPerServing;
-    consumedCarbs += currentDayPlan.breakfast.carbsPerServing;
-    consumedFat += currentDayPlan.breakfast.fatPerServing;
   }
   if (eatenMeals.lunch) {
     consumedCalories += currentDayPlan.lunch.caloriesPerServing;
     consumedProtein += currentDayPlan.lunch.proteinPerServing;
-    consumedCarbs += currentDayPlan.lunch.carbsPerServing;
-    consumedFat += currentDayPlan.lunch.fatPerServing;
   }
   if (eatenMeals.dinner) {
     consumedCalories += currentDayPlan.dinner.caloriesPerServing;
     consumedProtein += currentDayPlan.dinner.proteinPerServing;
-    consumedCarbs += currentDayPlan.dinner.carbsPerServing;
-    consumedFat += currentDayPlan.dinner.fatPerServing;
   }
   if (eatenMeals.snack) {
     consumedCalories += currentDayPlan.snack.caloriesPerServing;
     consumedProtein += currentDayPlan.snack.proteinPerServing;
-    consumedCarbs += currentDayPlan.snack.carbsPerServing;
-    consumedFat += currentDayPlan.snack.fatPerServing;
   }
 
-  // Ajouter extras
   for (const extra of customEntries) {
     consumedCalories += extra.calories;
     consumedProtein += extra.protein;
@@ -90,74 +78,85 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
   const calPercent = Math.min(100, Math.round((consumedCalories / targetCalories) * 100));
   const protPercent = Math.min(100, Math.round((consumedProtein / targetProtein) * 100));
 
+  const cardGlassClass = isDark ? 'liquid-glass' : 'liquid-glass-light';
+
   return (
-    <div className="space-y-6">
-      {/* En-tête Tracker */}
-      <div className="bg-slate-900 border border-slate-700/60 rounded-2xl p-4 sm:p-6 shadow-xl">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8">
+      {/* Anneaux Métaboliques Apple Fitness+ */}
+      <div className={`rounded-3xl p-6 sm:p-8 transition-all border ${cardGlassClass}`}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs uppercase font-bold tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                Suivi Nutritionnel En Direct
+            <div className="flex items-center gap-2 mb-2">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                Suivi Nutritionnel • {currentDayPlan.dayName}
               </span>
-              <span className="text-xs text-slate-400">Prise de Masse • {currentDayPlan.dayName}</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black text-white">
-              Calorie & Macro Tracker Intégré
+
+            <h1 className="font-serif text-3xl sm:text-4xl font-normal tracking-tight text-stone-900 dark:text-white">
+              Activité & <span className="italic">Métabolisme</span>
             </h1>
-            <p className="text-xs sm:text-sm text-slate-300 mt-1">
-              Cochez vos repas consommés aujourd'hui ou ajoutez vos extras pour suivre précisément vos calories et protéines vers votre cible de 3 050 kcal.
+
+            <p className="text-sm text-stone-500 dark:text-stone-400 mt-2 font-sans">
+              Consignez vos repas consommés en direct pour maintenir votre progression de prise de masse.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 self-start md:self-auto">
+          <div className="flex items-center gap-3">
             {protPercent >= 100 ? (
-              <div className="flex items-center gap-2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3.5 py-2 rounded-xl text-xs font-bold">
-                <Trophy className="w-4 h-4 text-emerald-400" />
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-mono">
+                <Trophy className="w-4 h-4 text-emerald-500" />
                 <span>Objectif Protéines Atteint !</span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 bg-amber-500/10 text-amber-300 border border-amber-500/20 px-3.5 py-2 rounded-xl text-xs font-medium">
-                <AlertCircle className="w-4 h-4 text-amber-400" />
-                <span>Encore {Math.max(0, targetProtein - consumedProtein)}g de protéines</span>
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-mono">
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                <span>Reste {Math.max(0, targetProtein - consumedProtein)} g de protéines</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Jauges Principales */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 pt-4 border-t border-slate-800">
-          {/* Jauge Calories */}
-          <div className="bg-slate-950/70 border border-slate-800 p-4 rounded-xl">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
-                <Flame className="w-4 h-4 text-amber-400" /> Calories consommées
+        {/* Jauges Apple Activity Style */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 pt-6 border-t border-stone-200/60 dark:border-white/10">
+          {/* Énergie */}
+          <div
+            className={`p-4 rounded-2xl border ${
+              isDark ? 'bg-black/30 border-white/5' : 'bg-white/80 border-stone-200'
+            }`}
+          >
+            <div className="flex justify-between items-center mb-2 font-mono text-xs">
+              <span className="text-stone-400 flex items-center gap-1.5 uppercase tracking-wider">
+                <Flame className="w-3.5 h-3.5 text-amber-500" /> Calories
               </span>
-              <span className="text-xs font-bold text-amber-300">
+              <span className="tabular-nums font-semibold text-stone-900 dark:text-white">
                 {consumedCalories} / {targetCalories} kcal ({calPercent}%)
               </span>
             </div>
-            <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-2.5 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
               <div
-                className="bg-gradient-to-r from-amber-500 to-amber-400 h-full transition-all duration-300"
+                className="bg-amber-500 h-full transition-all duration-300 rounded-full"
                 style={{ width: `${calPercent}%` }}
               />
             </div>
           </div>
 
-          {/* Jauge Protéines */}
-          <div className="bg-slate-950/70 border border-slate-800 p-4 rounded-xl">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
-                <Dumbbell className="w-4 h-4 text-emerald-400" /> Protéines consommées
+          {/* Protéines */}
+          <div
+            className={`p-4 rounded-2xl border ${
+              isDark ? 'bg-black/30 border-white/5' : 'bg-white/80 border-stone-200'
+            }`}
+          >
+            <div className="flex justify-between items-center mb-2 font-mono text-xs">
+              <span className="text-stone-400 flex items-center gap-1.5 uppercase tracking-wider">
+                <Dumbbell className="w-3.5 h-3.5 text-emerald-500" /> Protéines
               </span>
-              <span className="text-xs font-bold text-emerald-300">
+              <span className="tabular-nums font-semibold text-stone-900 dark:text-white">
                 {consumedProtein} / {targetProtein} g ({protPercent}%)
               </span>
             </div>
-            <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-2.5 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
               <div
-                className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full transition-all duration-300"
+                className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
                 style={{ width: `${protPercent}%` }}
               />
             </div>
@@ -165,134 +164,164 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
         </div>
       </div>
 
-      {/* Repas du Jour à Cocher */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-        <h2 className="text-base font-bold text-white flex items-center gap-2">
-          <Apple className="w-4 h-4 text-emerald-400" />
-          <span>Repas prévus aujourd'hui ({currentDayPlan.dayName})</span>
+      {/* Repas du Jour */}
+      <div className={`rounded-3xl p-6 sm:p-8 transition-all border ${cardGlassClass}`}>
+        <h2 className="font-serif text-2xl font-normal text-stone-900 dark:text-white mb-4">
+          Repas de la Journée <span className="italic">({currentDayPlan.dayName})</span>
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           {/* Déjeuner */}
           <div
             onClick={() => toggleMeal('breakfast')}
-            className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+            className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
               eatenMeals.breakfast
-                ? 'bg-slate-950/60 border-emerald-500/50 shadow-sm'
-                : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800'
+                ? isDark
+                  ? 'bg-white/[0.06] border-emerald-500/40'
+                  : 'bg-white border-emerald-700/40 shadow-xs'
+                : isDark
+                ? 'bg-white/[0.01] border-white/5'
+                : 'bg-stone-100/60 border-stone-200'
             }`}
           >
             <div className="flex items-center gap-3">
-              {eatenMeals.breakfast ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-              ) : (
-                <Circle className="w-5 h-5 text-slate-600" />
-              )}
+              <div
+                className={`w-5 h-5 rounded-lg flex items-center justify-center transition-colors ${
+                  eatenMeals.breakfast ? 'bg-emerald-600 text-white' : 'border border-stone-400'
+                }`}
+              >
+                {eatenMeals.breakfast && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+              </div>
               <div>
-                <div className="text-xs font-bold uppercase text-amber-400">Déjeuner</div>
-                <div className={`text-sm font-semibold ${eatenMeals.breakfast ? 'text-white' : 'text-slate-400'}`}>
+                <div className="font-mono text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  Déjeuner
+                </div>
+                <div className="font-serif text-sm font-medium text-stone-900 dark:text-white">
                   {currentDayPlan.breakfast.title}
                 </div>
               </div>
             </div>
-            <div className="text-right shrink-0 ml-2 text-xs">
-              <div className="font-bold text-amber-300">{currentDayPlan.breakfast.caloriesPerServing} kcal</div>
-              <div className="font-semibold text-emerald-400">{currentDayPlan.breakfast.proteinPerServing}g prot</div>
+            <div className="text-right font-mono tabular-nums text-xs">
+              <div className="text-stone-900 dark:text-white">{currentDayPlan.breakfast.caloriesPerServing} kcal</div>
+              <div className="text-emerald-600 dark:text-emerald-400 font-semibold">{currentDayPlan.breakfast.proteinPerServing}g prot</div>
             </div>
           </div>
 
-          {/* Dîner (Midi) */}
+          {/* Dîner */}
           <div
             onClick={() => toggleMeal('lunch')}
-            className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+            className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
               eatenMeals.lunch
-                ? 'bg-slate-950/60 border-emerald-500/50 shadow-sm'
-                : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800'
+                ? isDark
+                  ? 'bg-white/[0.06] border-emerald-500/40'
+                  : 'bg-white border-emerald-700/40 shadow-xs'
+                : isDark
+                ? 'bg-white/[0.01] border-white/5'
+                : 'bg-stone-100/60 border-stone-200'
             }`}
           >
             <div className="flex items-center gap-3">
-              {eatenMeals.lunch ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-              ) : (
-                <Circle className="w-5 h-5 text-slate-600" />
-              )}
+              <div
+                className={`w-5 h-5 rounded-lg flex items-center justify-center transition-colors ${
+                  eatenMeals.lunch ? 'bg-emerald-600 text-white' : 'border border-stone-400'
+                }`}
+              >
+                {eatenMeals.lunch && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+              </div>
               <div>
-                <div className="text-xs font-bold uppercase text-sky-400">Dîner (Midi)</div>
-                <div className={`text-sm font-semibold ${eatenMeals.lunch ? 'text-white' : 'text-slate-400'}`}>
+                <div className="font-mono text-[10px] uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                  Dîner (Midi)
+                </div>
+                <div className="font-serif text-sm font-medium text-stone-900 dark:text-white">
                   {currentDayPlan.lunch.title}
                 </div>
               </div>
             </div>
-            <div className="text-right shrink-0 ml-2 text-xs">
-              <div className="font-bold text-amber-300">{currentDayPlan.lunch.caloriesPerServing} kcal</div>
-              <div className="font-semibold text-emerald-400">{currentDayPlan.lunch.proteinPerServing}g prot</div>
+            <div className="text-right font-mono tabular-nums text-xs">
+              <div className="text-stone-900 dark:text-white">{currentDayPlan.lunch.caloriesPerServing} kcal</div>
+              <div className="text-emerald-600 dark:text-emerald-400 font-semibold">{currentDayPlan.lunch.proteinPerServing}g prot</div>
             </div>
           </div>
 
-          {/* Souper (Soir) */}
+          {/* Souper */}
           <div
             onClick={() => toggleMeal('dinner')}
-            className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+            className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
               eatenMeals.dinner
-                ? 'bg-slate-950/60 border-emerald-500/50 shadow-sm'
-                : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800'
+                ? isDark
+                  ? 'bg-white/[0.06] border-emerald-500/40'
+                  : 'bg-white border-emerald-700/40 shadow-xs'
+                : isDark
+                ? 'bg-white/[0.01] border-white/5'
+                : 'bg-stone-100/60 border-stone-200'
             }`}
           >
             <div className="flex items-center gap-3">
-              {eatenMeals.dinner ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-              ) : (
-                <Circle className="w-5 h-5 text-slate-600" />
-              )}
+              <div
+                className={`w-5 h-5 rounded-lg flex items-center justify-center transition-colors ${
+                  eatenMeals.dinner ? 'bg-emerald-600 text-white' : 'border border-stone-400'
+                }`}
+              >
+                {eatenMeals.dinner && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+              </div>
               <div>
-                <div className="text-xs font-bold uppercase text-purple-400">Souper (Soir)</div>
-                <div className={`text-sm font-semibold ${eatenMeals.dinner ? 'text-white' : 'text-slate-400'}`}>
+                <div className="font-mono text-[10px] uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                  Souper (Soir)
+                </div>
+                <div className="font-serif text-sm font-medium text-stone-900 dark:text-white">
                   {currentDayPlan.dinner.title}
                 </div>
               </div>
             </div>
-            <div className="text-right shrink-0 ml-2 text-xs">
-              <div className="font-bold text-amber-300">{currentDayPlan.dinner.caloriesPerServing} kcal</div>
-              <div className="font-semibold text-emerald-400">{currentDayPlan.dinner.proteinPerServing}g prot</div>
+            <div className="text-right font-mono tabular-nums text-xs">
+              <div className="text-stone-900 dark:text-white">{currentDayPlan.dinner.caloriesPerServing} kcal</div>
+              <div className="text-emerald-600 dark:text-emerald-400 font-semibold">{currentDayPlan.dinner.proteinPerServing}g prot</div>
             </div>
           </div>
 
           {/* Collation */}
           <div
             onClick={() => toggleMeal('snack')}
-            className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+            className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
               eatenMeals.snack
-                ? 'bg-slate-950/60 border-emerald-500/50 shadow-sm'
-                : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800'
+                ? isDark
+                  ? 'bg-white/[0.06] border-emerald-500/40'
+                  : 'bg-white border-emerald-700/40 shadow-xs'
+                : isDark
+                ? 'bg-white/[0.01] border-white/5'
+                : 'bg-stone-100/60 border-stone-200'
             }`}
           >
             <div className="flex items-center gap-3">
-              {eatenMeals.snack ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-              ) : (
-                <Circle className="w-5 h-5 text-slate-600" />
-              )}
+              <div
+                className={`w-5 h-5 rounded-lg flex items-center justify-center transition-colors ${
+                  eatenMeals.snack ? 'bg-emerald-600 text-white' : 'border border-stone-400'
+                }`}
+              >
+                {eatenMeals.snack && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+              </div>
               <div>
-                <div className="text-xs font-bold uppercase text-rose-400">Collation</div>
-                <div className={`text-sm font-semibold ${eatenMeals.snack ? 'text-white' : 'text-slate-400'}`}>
+                <div className="font-mono text-[10px] uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                  Collation
+                </div>
+                <div className="font-serif text-sm font-medium text-stone-900 dark:text-white">
                   {currentDayPlan.snack.title}
                 </div>
               </div>
             </div>
-            <div className="text-right shrink-0 ml-2 text-xs">
-              <div className="font-bold text-amber-300">{currentDayPlan.snack.caloriesPerServing} kcal</div>
-              <div className="font-semibold text-emerald-400">{currentDayPlan.snack.proteinPerServing}g prot</div>
+            <div className="text-right font-mono tabular-nums text-xs">
+              <div className="text-stone-900 dark:text-white">{currentDayPlan.snack.caloriesPerServing} kcal</div>
+              <div className="text-emerald-600 dark:text-emerald-400 font-semibold">{currentDayPlan.snack.proteinPerServing}g prot</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Ajout d'un Extra / Aliment Libre */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-        <h2 className="text-base font-bold text-white flex items-center gap-2">
-          <Plus className="w-4 h-4 text-emerald-400" />
-          <span>Ajouter un aliment libre ou extra hors-menu</span>
-        </h2>
+      {/* Ajout d'extras */}
+      <div className={`rounded-3xl p-6 sm:p-8 transition-all border ${cardGlassClass}`}>
+        <h3 className="font-serif text-xl font-normal text-stone-900 dark:text-white mb-3">
+          Ajouter une collation libre ou extra
+        </h3>
 
         <form onSubmit={handleAddExtra} className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
           <input
@@ -300,39 +329,52 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
             placeholder="Nom (ex: 2 œufs durs, poignée d'amandes...)"
             value={extraName}
             onChange={(e) => setExtraName(e.target.value)}
-            className="sm:col-span-2 px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            className={`sm:col-span-2 px-3 py-2 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+              isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+            }`}
           />
           <input
             type="number"
             placeholder="Calories (kcal)"
             value={extraCals}
             onChange={(e) => setExtraCals(e.target.value)}
-            className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            className={`px-3 py-2 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+              isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+            }`}
           />
           <input
             type="number"
             placeholder="Protéines (g)"
             value={extraProt}
             onChange={(e) => setExtraProt(e.target.value)}
-            className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            className={`px-3 py-2 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+              isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+            }`}
           />
           <div className="sm:col-span-4 flex justify-end">
             <button
               type="submit"
-              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-xs transition-colors"
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold ${
+                isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-stone-50 hover:bg-stone-800'
+              }`}
             >
-              Enregistrer l'extra
+              Enregistrer
             </button>
           </div>
         </form>
 
         {customEntries.length > 0 && (
-          <div className="pt-2 border-t border-slate-800 space-y-1.5">
-            <span className="text-xs text-slate-400 font-medium">Extras ajoutés :</span>
+          <div className="mt-4 pt-3 border-t border-stone-200/50 dark:border-white/10 space-y-2">
+            <span className="text-xs font-mono text-stone-400">Extras enregistrés :</span>
             {customEntries.map((item) => (
-              <div key={item.id} className="flex justify-between items-center text-xs bg-slate-950/50 p-2 rounded-lg border border-slate-800">
-                <span className="text-slate-200">{item.name}</span>
-                <span className="font-semibold text-emerald-400">
+              <div
+                key={item.id}
+                className={`flex justify-between items-center text-xs p-2.5 rounded-xl border font-mono ${
+                  isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-stone-200'
+                }`}
+              >
+                <span className="text-stone-900 dark:text-white">{item.name}</span>
+                <span className="text-emerald-600 dark:text-emerald-400 tabular-nums">
                   +{item.calories} kcal • +{item.protein}g prot
                 </span>
               </div>
