@@ -11,8 +11,8 @@ export const DEFAULT_COUPLE_SETTINGS: CoupleSettings = {
     portionMultiplier: 1.0,
   },
   user2: {
-    id: 'copine',
-    name: 'Copine',
+    id: 'laurine',
+    name: 'Laurine',
     targetCalories: 1950,
     targetProtein: 75,
     dietaryDescription: 'Maintien / Santé • Portions plus légères • Moins de viande rouge',
@@ -54,7 +54,7 @@ export function calculateSplitCost(
   let user1Total = 0;
   let user2Total = 0;
   let meatDairyEthan = 0;
-  let meatDairyCopine = 0;
+  let meatDairyLaurine = 0;
 
   for (const item of groceryItems) {
     const cost = item.exactPriceMetro;
@@ -64,14 +64,14 @@ export function calculateSplitCost(
       user1Total += share1;
       user2Total += share2;
       meatDairyEthan += share1;
-      meatDairyCopine += share2;
+      meatDairyLaurine += share2;
     } else if (item.aisle === 'PRODUITS_LAITIERS_ET_OEUFS') {
       const share1 = cost * dairyShare1;
       const share2 = cost * dairyShare2;
       user1Total += share1;
       user2Total += share2;
       meatDairyEthan += share1;
-      meatDairyCopine += share2;
+      meatDairyLaurine += share2;
     } else {
       const share1 = cost * calShare1;
       const share2 = cost * calShare2;
@@ -93,7 +93,7 @@ export function calculateSplitCost(
     user1Percent,
     user2Percent,
     meatDairyShareUser1: rounded(meatDairyEthan),
-    meatDairyShareUser2: rounded(meatDairyCopine),
-    explanation: `${settings.user1.name} prend en charge ${user1Percent}% de la facture (${user1Rounded} $) car son quota protéique (${settings.user1.targetProtein}g) et calorique (${settings.user1.targetCalories} kcal) concentre la majeure partie du budget boucherie et produits laitiers. Sa copine (${settings.user2.targetProtein}g prot, ${settings.user2.targetCalories} kcal) prend en charge ${user2Percent}% (${user2Rounded} $).`,
+    meatDairyShareUser2: rounded(meatDairyLaurine),
+    explanation: `${settings.user1.name} prend en charge ${user1Percent}% de la facture (${user1Rounded} $) car son quota protéique (${settings.user1.targetProtein}g) et calorique (${settings.user1.targetCalories} kcal) concentre la majeure partie du budget boucherie et produits laitiers. Laurine (${settings.user2.targetProtein}g prot, ${settings.user2.targetCalories} kcal) prend en charge ${user2Percent}% (${user2Rounded} $).`,
   };
 }

@@ -44,16 +44,22 @@ export function calculateRecipeScore(
   return { isExcluded, score, likedCount };
 }
 
-export function generateWeeklyPlan(preferences: ProductPreferencesMap = {}): WeeklyPlan {
+export function generateWeeklyPlan(
+  preferences: ProductPreferencesMap = {},
+  customRecipes: Recipe[] = []
+): WeeklyPlan {
   const days: DayPlan[] = [];
 
+  const allRecipes = [...RECIPES, ...customRecipes];
+
   // Évaluer et filtrer les recettes selon les préférences
-  const scoredRecipes = RECIPES.map((r) => {
+  const scoredRecipes = allRecipes.map((r) => {
     const { isExcluded, score, likedCount } = calculateRecipeScore(r, preferences);
+    const customBonus = r.isCustom ? 25 : 0; // Bonus pour favoriser les recettes personnalisées créées par l'utilisateur
     return {
       ...r,
       isExcluded,
-      recipeScore: score,
+      recipeScore: score + customBonus,
       likedCount,
       hasPromoOrMoiDeal: score > 0,
     };
@@ -159,11 +165,13 @@ export function replaceRecipeInPlan(
   plan: WeeklyPlan,
   dayIndex: number,
   mealType: 'breakfast' | 'dinner' | 'snack',
-  newRecipeId: string
+  newRecipeId: string,
+  customRecipes: Recipe[] = []
 ): WeeklyPlan {
   const newDays = [...plan.days];
   const targetDay = { ...newDays[dayIndex] };
-  const candidate = RECIPES.find((r) => r.id === newRecipeId);
+  const allRecipes = [...RECIPES, ...customRecipes];
+  const candidate = allRecipes.find((r) => r.id === newRecipeId);
 
   if (!candidate) return plan;
 

@@ -10,7 +10,8 @@ import {
   getAllAccountsSettings, 
   updateAccountSettings, 
   getAllCustomPrices, 
-  setCustomPrice 
+  setCustomPrice,
+  getAllCustomRecipes
 } from '@/lib/db';
 
 export async function GET() {
@@ -20,6 +21,7 @@ export async function GET() {
     const allPreferences = getAllAccountsPreferences();
     const allSettings = getAllAccountsSettings();
     const customPrices = getAllCustomPrices();
+    const customRecipes = getAllCustomRecipes();
 
     return NextResponse.json({
       accounts,
@@ -27,6 +29,7 @@ export async function GET() {
       preferences: allPreferences,
       settings: allSettings,
       customPrices,
+      customRecipes,
       // Champs rétrocompatibles
       legacyPreferences: allPreferences[activeAccountId] || allPreferences['ethan'] || {},
       legacySettings: allSettings[activeAccountId] || allSettings['ethan'] || {},

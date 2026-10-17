@@ -97,22 +97,40 @@ Ce document répertorie l'ensemble des fonctionnalités de l'application, distin
 
 ### I. Système Multi-Comptes & Liste d'Épicerie Commune (Partagée)
 - [x] **Comptes et Profils Indépendants en 1 Clic** :
-  - Profils par défaut créés pour **Ethan** et **Copine**, avec possibilité d'ajouter de nouveaux profils ou de les renommer en un clic (sans mot de passe ni friction).
-  - Sélecteur de profil intégré au bandeau d'en-tête (Header) avec badge initiales et menu déroulant fluide.
+  - Profils par défaut créés pour **Ethan** et **Laurine**, avec possibilité d'ajouter de nouveaux profils ou de les renommer en un clic (sans mot de passe ni friction).
+  - Migration automatique transparente de l'ancienne désignation vers le prénom **Laurine** dans toutes les tables SQLite et l'interface.
+  - Sélecteur de profil intégré au bandeau d'en-tête (Header) avec badge initiales (`E` & `L`) et menu déroulant fluide.
 - [x] **Objectifs Métaboliques et Préférences Dédiés par Profil** :
-  - Chaque profil possède ses propres cibles de calories, protéines, glucides, lipides et budget hebdomadaire (ex. Ethan : 3 050 kcal / 165g P ; Copine : 1 950 kcal / 75g P).
+  - Chaque profil possède ses propres cibles de calories, protéines, glucides, lipides et budget hebdomadaire (ex. Ethan : 3 050 kcal / 165g P ; Laurine : 1 950 kcal / 75g P).
   - Chaque profil a son propre catalogue de préférences produits (aliments aimés, neutres, ou exclus).
 - [x] **Planification Hebdomadaire & Tracker Spécifiques à Chaque Compte** :
   - Menu de recettes composé selon les goûts et le gabarit de la personne sélectionnée.
   - Suivi calorique du jour synchronisé avec les repas du profil actif.
 - [x] **Liste d'Épicerie Commune (Partagée) & Listes Individuelles** :
-  - Sélecteur de vue instantané : **« Liste Commune (Partagée) »**, **« Liste d'Ethan »**, **« Liste de Copine »**.
+  - Sélecteur de vue instantané : **« Liste Commune (Partagée) »**, **« Liste d'Ethan »**, **« Liste de Laurine »**.
   - **Fusion intelligente des emballages** : Les ingrédients communs sont consolidés en formats réels de vente sans acheter des paquets en double.
-  - **Badges d'attribution sur les fiches produits** : Identification visuelle immédiate des articles `Commun (Ethan & Copine)` ou `Pour [Nom]`.
+  - **Badges d'attribution sur les fiches produits** : Identification visuelle immédiate des articles `Commun (Ethan & Laurine)` ou `Pour [Nom]`.
   - **Ventilation Équitable du Ticket Partagé** : Calcul au prorata exact des portions consommées par chacun, avec calcul fiscal (TPS/TVQ) et montant net à rembourser.
   - Ajout d'articles manuels avec attribution au choix : pour tout le monde ou pour un profil spécifique.
 - [x] **Persistance Complète en Base SQLite** :
   - Tables relationnelles `accounts`, `account_preferences` et `account_settings` dans `food_planner.sqlite`.
+
+### J. Gestion des Recettes & Repas Personnalisés (Modifiables dans SQLite)
+- [x] **Créateur et Gestionnaire de Repas sur Mesure** :
+  - Interface dédiée accessible depuis le planificateur (« Créer un Repas ») ou via le modal de recette pour concevoir ou modifier n'importe quel plat.
+  - Exemple concret intégré et modifiable : **Pâtes aux champignons, crème & lardons québécois** (pâtes Barilla, champignons blancs frais, lardons Lafleur/Olymel, crème à cuisson 15% Québon, parmesan râpé).
+  - Choix des ingrédients parmi l'ensemble du catalogue de produits de la base de données SQLite.
+  - Ajustement précis des quantités et unités (g, ml, unité, cuillère à soupe, tranche, canne).
+- [x] **Calcul Automatique & Temps Réel des Macronutriments et du Coût** :
+  - Dès l'ajout ou la modification d'un ingrédient, l'application recalcule instantanément les **Calories**, **Protéines**, **Glucides**, **Lipides** et le **Coût par portion ($ CAD)**.
+  - Sauvegarde locale 100% persistante dans la table SQLite `custom_recipes`.
+  - Intégration transparente dans le planificateur hebdomadaire et dans le menu de remplacement de repas avec badge distinctif **« Maison »**.
+
+### K. Accès Direct et Immédiat aux Macros des Produits
+- [x] **Pillules de Macros Directes sur Chaque Fiche Produit** :
+  - **Sur la Liste d'Épicerie** : Chaque carte d'article affiche directement ses macros aux 100g (`🔥 Cals`, `🥩 Prot`, `🌾 Gluc`, `🥑 Lip`) sans avoir à ouvrir de modal.
+  - **Dans le Catalogue des Préférences** : Affichage 4 piliers compact et net pour visualiser instantanément la densité nutritionnelle de chaque aliment avant de le marquer comme favori ou exclu.
+  - **Dans les Détails des Recettes** : Chaque ingrédient liste ses macronutriments exacts pour comprendre son apport dans le plat.
 
 ---
 

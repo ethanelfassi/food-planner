@@ -3,7 +3,7 @@
 import React from 'react';
 import { ProductPreferenceStatus, ProductPreferencesMap, Recipe } from '@/types';
 import { INGREDIENTS } from '@/data/ingredients';
-import { X, Clock, Flame, Dumbbell, Sparkles, Heart, Ban } from 'lucide-react';
+import { X, Clock, Flame, Dumbbell, Sparkles, Heart, Ban, Pencil } from 'lucide-react';
 
 interface RecipeModalProps {
   recipe: Recipe | null;
@@ -11,6 +11,7 @@ interface RecipeModalProps {
   isDark: boolean;
   onClose: () => void;
   onUpdatePreference?: (ingredientId: string, status: ProductPreferenceStatus) => void;
+  onEditCustomRecipe?: (recipe: Recipe) => void;
 }
 
 export const RecipeModal: React.FC<RecipeModalProps> = ({ 
@@ -18,7 +19,8 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   preferences = {}, 
   isDark, 
   onClose,
-  onUpdatePreference 
+  onUpdatePreference,
+  onEditCustomRecipe 
 }) => {
   if (!recipe) return null;
 
@@ -44,7 +46,13 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                 {recipe.mealType === 'dejeuner' && 'Déjeuner Sportif'}
                 {recipe.mealType === 'souper' && 'Souper & Dîner (2 portions)'}
                 {recipe.mealType === 'collation' && 'Collation Sportive'}
+                {recipe.mealType === 'diner' && 'Dîner'}
               </span>
+              {recipe.isCustom && (
+                <span className="px-2.5 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold">
+                  Recette Personnalisée
+                </span>
+              )}
               <span className="text-stone-500 dark:text-stone-400 flex items-center gap-1 font-sans">
                 <Clock className="w-3.5 h-3.5 text-stone-400" />
                 {recipe.prepTimeMinutes + recipe.cookTimeMinutes} min total
@@ -54,12 +62,27 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
               {recipe.title}
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-2xl text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-500/10 transition-colors shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {recipe.isCustom && onEditCustomRecipe && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onEditCustomRecipe(recipe);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20 hover:bg-stone-100 dark:hover:bg-white/10 transition-colors font-medium"
+                title="Modifier cette recette"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Modifier</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-2 rounded-2xl text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-500/10 transition-colors shrink-0"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -138,6 +161,18 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                       </div>
                       {item.notes && (
                         <p className="text-xs text-stone-600 dark:text-stone-400 italic mt-0.5">{item.notes}</p>
+                      )}
+                      {ingMeta?.macrosPer100g && (
+                        <div className="flex items-center gap-1.5 mt-1.5 text-[10px] font-mono text-stone-500 dark:text-stone-400">
+                          <span className="font-semibold text-stone-800 dark:text-stone-200">🔥 {ingMeta.macrosPer100g.calories} kcal</span>
+                          <span>•</span>
+                          <span className="font-semibold text-stone-800 dark:text-stone-200">🥩 {ingMeta.macrosPer100g.protein}g P</span>
+                          <span>•</span>
+                          <span>🌾 {ingMeta.macrosPer100g.carbs}g G</span>
+                          <span>•</span>
+                          <span>🥑 {ingMeta.macrosPer100g.fat}g L</span>
+                          <span className="text-[9px] text-stone-400">/ 100g</span>
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-2">

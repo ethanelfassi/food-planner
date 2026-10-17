@@ -540,7 +540,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-serif text-lg font-medium text-stone-900 dark:text-white">
-                  Gestion pour Deux <span className="italic font-light text-stone-500">(Ethan & Copine)</span>
+                  Gestion pour Deux <span className="italic font-light text-stone-500">(Ethan & Laurine)</span>
                 </h3>
                 <span
                   className={`text-[9px] font-mono uppercase tracking-widest px-2.5 py-0.5 rounded-full border ${
@@ -592,7 +592,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                   isDark ? 'bg-black/20 border-white/5' : 'bg-stone-50 border-stone-200'
                 }`}
               >
-                <div className="text-xs font-mono text-stone-500 dark:text-stone-400 font-medium">Part de sa Copine (~1 950 kcal)</div>
+                <div className="text-xs font-mono text-stone-500 dark:text-stone-400 font-medium">Part de Laurine (~1 950 kcal)</div>
                 <div className="font-mono tabular-nums text-xl font-medium mt-1 text-stone-700 dark:text-stone-300">
                   {splitReport.user2Share.toFixed(2)} $ CAD{' '}
                   <span className="text-xs font-normal text-stone-500 dark:text-stone-400">({splitReport.user2Percent} %)</span>
@@ -938,6 +938,29 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                               <span>{item.moiPriceLabel || 'Prix Membre Moi'}</span>
                             </div>
                           )}
+
+                          {/* Accès Direct aux Macros du Produit */}
+                          {(() => {
+                            const macros = item.macrosPer100g || (item.ingredientId ? INGREDIENTS[item.ingredientId]?.macrosPer100g : undefined);
+                            if (!macros) return null;
+                            return (
+                              <div className="flex items-center gap-1 mt-2 flex-wrap text-[10px] font-mono">
+                                <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-white/10 font-medium">
+                                  🔥 {macros.calories} kcal
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-white/10 font-medium">
+                                  🥩 {macros.protein}g P
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-white/10">
+                                  🌾 {macros.carbs}g G
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-white/10">
+                                  🥑 {macros.fat}g L
+                                </span>
+                                <span className="text-[9px] text-stone-400">/ 100g</span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
 

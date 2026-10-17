@@ -102,6 +102,7 @@ export function generateGroceryList(
       flyerHighlight: ingredient.flyerDeal?.promoLabel,
       imageUrl: ingredient.imageUrl,
       metroProductUrl: ingredient.metroProductUrl,
+      macrosPer100g: ingredient.macrosPer100g,
     });
   }
 
@@ -269,6 +270,7 @@ export function generateCommonGroceryList(
       flyerHighlight: ingredient.flyerDeal?.promoLabel,
       imageUrl: ingredient.imageUrl,
       metroProductUrl: ingredient.metroProductUrl,
+      macrosPer100g: ingredient.macrosPer100g,
       neededBy,
       neededBreakdown,
     });

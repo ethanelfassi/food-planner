@@ -572,16 +572,16 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
               </div>
             </div>
 
-            {/* Profil Copine / Mode Couple */}
+            {/* Profil Laurine / Mode Couple */}
             <div className={`rounded-3xl p-6 sm:p-7 border space-y-4 ${cardGlassClass}`}>
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-stone-700 dark:text-stone-300" />
                 <h3 className="font-serif text-lg font-medium text-stone-900 dark:text-white">
-                  Variables Partenaire <span className="italic font-light">(Copine)</span>
+                  Variables Partenaire <span className="italic font-light">(Laurine)</span>
                 </h3>
               </div>
               <p className="text-xs text-stone-500 dark:text-stone-400 font-sans">
-                Ajustez les besoins de votre copine. Ces cibles déterminent la pondération mathématique exacte du partage des coûts d'épicerie.
+                Ajustez les besoins de Laurine. Ces cibles déterminent la pondération mathématique exacte du partage des coûts d'épicerie.
               </p>
 
               <div className="grid grid-cols-2 gap-3 pt-1">
@@ -925,6 +925,28 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
                               </span>
                             )}
                           </div>
+
+                          {/* Accès Direct aux Macros du Produit (/100g) */}
+                          {item.macrosPer100g && (
+                            <div className="grid grid-cols-4 gap-1 mt-2.5 p-1.5 rounded-xl bg-stone-100/70 dark:bg-white/5 border border-stone-200/60 dark:border-white/10 text-center font-mono text-[10px]">
+                              <div>
+                                <div className="text-stone-500 dark:text-stone-400 text-[9px] uppercase">Cals</div>
+                                <div className="font-semibold text-stone-900 dark:text-white tabular-nums">{item.macrosPer100g.calories}</div>
+                              </div>
+                              <div>
+                                <div className="text-stone-500 dark:text-stone-400 text-[9px] uppercase">Prot</div>
+                                <div className="font-semibold text-stone-900 dark:text-white tabular-nums">{item.macrosPer100g.protein}g</div>
+                              </div>
+                              <div>
+                                <div className="text-stone-500 dark:text-stone-400 text-[9px] uppercase">Gluc</div>
+                                <div className="font-medium text-stone-700 dark:text-stone-300 tabular-nums">{item.macrosPer100g.carbs}g</div>
+                              </div>
+                              <div>
+                                <div className="text-stone-500 dark:text-stone-400 text-[9px] uppercase">Lip</div>
+                                <div className="font-medium text-stone-700 dark:text-stone-300 tabular-nums">{item.macrosPer100g.fat}g</div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

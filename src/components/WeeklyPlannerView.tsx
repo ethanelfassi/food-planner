@@ -15,27 +15,32 @@ import {
   Sparkles,
   Flame,
   Dumbbell,
-  Heart
+  Heart,
+  Plus
 } from 'lucide-react';
 
 interface WeeklyPlannerViewProps {
   plan: WeeklyPlan;
   preferences?: ProductPreferencesMap;
   userSettings?: UserCustomizationSettings;
+  customRecipes?: Recipe[];
   isDark: boolean;
   onRegenerateAll: () => void;
   onReplaceRecipe: (dayIndex: number, mealType: 'breakfast' | 'dinner' | 'snack', newRecipeId: string) => void;
   onSelectRecipe: (recipe: Recipe) => void;
+  onOpenRecipeCreator?: () => void;
 }
 
 export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
   plan,
   preferences = {},
   userSettings,
+  customRecipes = [],
   isDark,
   onRegenerateAll,
   onReplaceRecipe,
   onSelectRecipe,
+  onOpenRecipeCreator,
 }) => {
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [swapMealState, setSwapMealState] = useState<{
@@ -45,11 +50,15 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
 
   const currentDay = plan.days[selectedDayIndex];
 
+  const allRecipesPool = React.useMemo(() => {
+    return [...RECIPES, ...(customRecipes || [])];
+  }, [customRecipes]);
+
   const availableReplacements = swapMealState
-    ? RECIPES.filter((r) => {
+    ? allRecipesPool.filter((r) => {
         // 1. Filtrer par type de repas
         if (swapMealState.mealType === 'breakfast' && r.mealType !== 'dejeuner') return false;
-        if (swapMealState.mealType === 'dinner' && r.mealType !== 'souper') return false;
+        if (swapMealState.mealType === 'dinner' && r.mealType !== 'souper' && r.mealType !== 'diner') return false;
         if (swapMealState.mealType === 'snack' && r.mealType !== 'collation') return false;
 
         // 2. Bannir si la recette contient un ingrédient exclu
@@ -57,8 +66,8 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
         return !isExcluded;
       }).sort((a, b) => {
         // Prioriser les recettes avec des ingrédients aimés et des promos
-        const scoreA = calculateRecipeScore(a, preferences).score;
-        const scoreB = calculateRecipeScore(b, preferences).score;
+        const scoreA = calculateRecipeScore(a, preferences).score + (a.isCustom ? 25 : 0);
+        const scoreB = calculateRecipeScore(b, preferences).score + (b.isCustom ? 25 : 0);
         return scoreB - scoreA;
       })
     : [];
@@ -126,17 +135,30 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={onRegenerateAll}
-              className={`p-3.5 rounded-2xl border transition-all active:scale-95 ${
-                isDark
-                  ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
-                  : 'bg-stone-900 hover:bg-stone-800 text-stone-50 border-stone-900 shadow-xs'
-              }`}
-              title="Régénérer le menu de la semaine"
-            >
-              <RefreshCw className="w-4 h-4 text-stone-100 dark:text-stone-200" />
-            </button>
+            <div className="flex items-center gap-2">
+              {onOpenRecipeCreator && (
+                <button
+                  onClick={onOpenRecipeCreator}
+                  className="flex items-center gap-1.5 px-3.5 py-3 rounded-2xl border text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 border-stone-300 dark:border-white/20 hover:bg-stone-100 dark:hover:bg-white/10 text-stone-900 dark:text-stone-100 shadow-xs"
+                  title="Créer un nouveau repas personnalisé"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Créer un Repas</span>
+                </button>
+              )}
+
+              <button
+                onClick={onRegenerateAll}
+                className={`p-3.5 rounded-2xl border transition-all active:scale-95 ${
+                  isDark
+                    ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
+                    : 'bg-stone-900 hover:bg-stone-800 text-stone-50 border-stone-900 shadow-xs'
+                }`}
+                title="Régénérer le menu de la semaine"
+              >
+                <RefreshCw className="w-4 h-4 text-stone-100 dark:text-stone-200" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -422,6 +444,11 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                       <span className="font-serif font-medium text-sm text-stone-900 dark:text-white">
                         {rec.title}
                       </span>
+                      {rec.isCustom && (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold">
+                          Maison
+                        </span>
+                      )}
                       {calculateRecipeScore(rec, preferences).likedCount > 0 && (
                         <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
                           <Heart className="w-2.5 h-2.5 fill-current" /> Favori

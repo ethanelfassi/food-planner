@@ -58,7 +58,7 @@ export interface RecipeIngredientItem {
 export interface Recipe {
   id: string;
   title: string;
-  mealType: 'dejeuner' | 'souper' | 'collation';
+  mealType: 'dejeuner' | 'souper' | 'collation' | 'diner';
   prepTimeMinutes: number;
   cookTimeMinutes: number;
   servings: number;
@@ -70,6 +70,9 @@ export interface Recipe {
   instructions: string[];
   tags: string[];
   hasPromoOrMoiDeal?: boolean; // Pour prioriser les recettes en promo
+  isCustom?: boolean;
+  createdBy?: string;
+  updatedAt?: string;
 }
 
 export interface DayPlan {
@@ -120,13 +123,19 @@ export interface GroceryItem {
   flyerHighlight?: string;
   imageUrl?: string;
   metroProductUrl?: string;
-  neededBy?: string[]; // IDs des comptes ayant besoin de cet article (ex: ['ethan', 'copine'])
+  neededBy?: string[]; // IDs des comptes ayant besoin de cet article (ex: ['ethan', 'laurine'])
   neededBreakdown?: {
     accountId: string;
     accountName: string;
     quantity: number;
   }[];
   forAccount?: string; // Pour les articles ajoutés manuellement ('common' ou accountId)
+  macrosPer100g?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
 }
 
 export interface ReceiptTaxCalculation {
@@ -218,7 +227,7 @@ export const DEFAULT_USER_SETTINGS: UserCustomizationSettings = {
   goalName: 'Prise de masse athlétique',
 };
 
-export const DEFAULT_COPINE_SETTINGS: UserCustomizationSettings = {
+export const DEFAULT_LAURINE_SETTINGS: UserCustomizationSettings = {
   targetCalories: 1950,
   targetProtein: 75,
   targetCarbs: 230,
@@ -229,16 +238,19 @@ export const DEFAULT_COPINE_SETTINGS: UserCustomizationSettings = {
   goalName: 'Alimentation équilibrée & tonique',
 };
 
+// Alias de rétrocompatibilité
+export const DEFAULT_COPINE_SETTINGS = DEFAULT_LAURINE_SETTINGS;
+
 export interface UserAccount {
-  id: string; // Ex: 'ethan', 'copine'
-  name: string; // Ex: 'Ethan', 'Copine'
-  avatarInitials: string; // Ex: 'E', 'C'
+  id: string; // Ex: 'ethan', 'laurine'
+  name: string; // Ex: 'Ethan', 'Laurine'
+  avatarInitials: string; // Ex: 'E', 'L'
   isDefault?: boolean;
 }
 
 export const DEFAULT_ACCOUNTS: UserAccount[] = [
   { id: 'ethan', name: 'Ethan', avatarInitials: 'E', isDefault: true },
-  { id: 'copine', name: 'Copine', avatarInitials: 'C' },
+  { id: 'laurine', name: 'Laurine', avatarInitials: 'L' },
 ];
 
 export type GroceryViewScope = 'common' | string; // 'common' ou accountId

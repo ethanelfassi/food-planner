@@ -5,10 +5,16 @@ import fs from 'node:fs';
 import { 
   UserCustomizationSettings, 
   DEFAULT_USER_SETTINGS, 
+  DEFAULT_LAURINE_SETTINGS,
   DEFAULT_COPINE_SETTINGS, 
   UserAccount, 
-  DEFAULT_ACCOUNTS 
+  DEFAULT_ACCOUNTS,
+  Recipe,
+  RecipeIngredientItem
 } from '@/types';
+import { INGREDIENTS } from '@/data/ingredients';
+import { calculateRecipeNutrients } from './nutrition';
+export { calculateRecipeNutrients };
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DB_DIR, 'food_planner.sqlite');
@@ -75,10 +81,37 @@ export function getDatabase(): DatabaseSync {
         updated_at TEXT NOT NULL,
         PRIMARY KEY (account_id, key)
       );
+
+      CREATE TABLE IF NOT EXISTS custom_recipes (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        meal_type TEXT NOT NULL CHECK(meal_type IN ('dejeuner', 'diner', 'souper', 'collation')),
+        prep_time_minutes INTEGER NOT NULL DEFAULT 15,
+        cook_time_minutes INTEGER NOT NULL DEFAULT 15,
+        servings INTEGER NOT NULL DEFAULT 1,
+        calories_per_serving REAL NOT NULL,
+        protein_per_serving REAL NOT NULL,
+        carbs_per_serving REAL NOT NULL,
+        fat_per_serving REAL NOT NULL,
+        ingredients_json TEXT NOT NULL,
+        instructions_json TEXT NOT NULL,
+        tags_json TEXT NOT NULL,
+        created_by TEXT NOT NULL DEFAULT 'ethan',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
     `);
 
-    // Migration & Initialisation automatique des comptes Ethan et Copine
+    // Migration & Initialisation automatique des comptes Ethan et Laurine
     try {
+      // 1. Migration automatique de copine -> laurine si des données existent déjà
+      dbInstance.exec(`
+        UPDATE accounts SET id = 'laurine', name = 'Laurine', avatar_initials = 'L' WHERE id = 'copine';
+        UPDATE account_preferences SET account_id = 'laurine' WHERE account_id = 'copine';
+        UPDATE account_settings SET account_id = 'laurine' WHERE account_id = 'copine';
+        UPDATE app_settings SET value = 'laurine' WHERE key = 'active_account_id' AND value = 'copine';
+      `);
+
       const accountCountRow = dbInstance.prepare('SELECT COUNT(*) as count FROM accounts').get() as { count: number } | undefined;
       const accountCount = accountCountRow?.count ?? 0;
 
@@ -86,7 +119,7 @@ export function getDatabase(): DatabaseSync {
         const insertAccount = dbInstance.prepare('INSERT INTO accounts (id, name, avatar_initials, created_at) VALUES (?, ?, ?, ?)');
         const now = new Date().toISOString();
         insertAccount.run('ethan', 'Ethan', 'E', now);
-        insertAccount.run('copine', 'Copine', 'C', now);
+        insertAccount.run('laurine', 'Laurine', 'L', now);
       }
 
       // Migrer les préférences existantes de product_preferences vers account_preferences pour Ethan
@@ -114,19 +147,66 @@ export function getDatabase(): DatabaseSync {
         }
       }
 
-      // Initialiser les réglages pour Copine
-      const copineSettingsCountRow = dbInstance.prepare("SELECT COUNT(*) as count FROM account_settings WHERE account_id = 'copine'").get() as { count: number } | undefined;
-      if ((copineSettingsCountRow?.count ?? 0) === 0) {
+      // Initialiser les réglages pour Laurine
+      const laurineSettingsCountRow = dbInstance.prepare("SELECT COUNT(*) as count FROM account_settings WHERE account_id = 'laurine'").get() as { count: number } | undefined;
+      if ((laurineSettingsCountRow?.count ?? 0) === 0) {
         const now = new Date().toISOString();
         const upsertSetting = dbInstance.prepare(`
           INSERT OR IGNORE INTO account_settings (account_id, key, value, updated_at) VALUES (?, ?, ?, ?)
         `);
-        for (const [k, v] of Object.entries(DEFAULT_COPINE_SETTINGS)) {
-          upsertSetting.run('copine', k, String(v), now);
+        for (const [k, v] of Object.entries(DEFAULT_LAURINE_SETTINGS)) {
+          upsertSetting.run('laurine', k, String(v), now);
         }
       }
+
+      // 2. Initialiser la recette personnalisée exemple si la table custom_recipes est vide
+      const customRecipeCountRow = dbInstance.prepare('SELECT COUNT(*) as count FROM custom_recipes').get() as { count: number } | undefined;
+      if ((customRecipeCountRow?.count ?? 0) === 0) {
+        const seedIngredients: RecipeIngredientItem[] = [
+          { ingredientId: 'pates_penne', quantity: 200, unit: 'g', notes: 'Penne ou Rigatoni Barilla' },
+          { ingredientId: 'champignons_blancs', quantity: 200, unit: 'g', notes: 'Émincés et dorés à la poêle' },
+          { ingredientId: 'lardons_bacon', quantity: 150, unit: 'g', notes: 'Lardons fumés québécois croustillants' },
+          { ingredientId: 'creme_15', quantity: 150, unit: 'ml', notes: 'Crème à cuisson 15% Québon' },
+          { ingredientId: 'parmesan_rape', quantity: 30, unit: 'g', notes: 'Parmesan râpé à incorporer en fin de cuisson' },
+        ];
+        const seedInstructions = [
+          'Faire bouillir une grande casserole d\'eau salée et cuire les pâtes al dente selon les instructions.',
+          'Dans une poêle chaude, faire dorer les lardons à feu vif jusqu\'à ce qu\'ils soient dorés et croustillants.',
+          'Ajouter les champignons émincés dans la poêle et les faire revenir 4 à 5 minutes avec les sucs des lardons.',
+          'Verser la crème à cuisson 15%, mélanger et laisser mijoter à feu doux 2 minutes pour épaissir la sauce.',
+          'Égoutter les pâtes, les incorporer directement dans la sauce chaude, puis saupoudrer de parmesan râpé.',
+          'Poivrer généreusement et servir chaud.'
+        ];
+        const nutrients = calculateRecipeNutrients(seedIngredients, 2);
+        const now = new Date().toISOString();
+        const insertSeed = dbInstance.prepare(`
+          INSERT INTO custom_recipes (
+            id, title, meal_type, prep_time_minutes, cook_time_minutes, servings,
+            calories_per_serving, protein_per_serving, carbs_per_serving, fat_per_serving,
+            ingredients_json, instructions_json, tags_json, created_by, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        insertSeed.run(
+          'custom_pates_champignons_creme_lardons',
+          'Pâtes aux champignons, crème & lardons québécois',
+          'souper',
+          10,
+          15,
+          2,
+          nutrients.caloriesPerServing,
+          nutrients.proteinPerServing,
+          nutrients.carbsPerServing,
+          nutrients.fatPerServing,
+          JSON.stringify(seedIngredients),
+          JSON.stringify(seedInstructions),
+          JSON.stringify(['fait-maison', 'pâtes', 'réconfortant', 'italien-québécois', 'rapide']),
+          'ethan',
+          now,
+          now
+        );
+      }
     } catch (migErr) {
-      console.warn('Note sur la migration accounts SQLite:', migErr);
+      console.warn('Note sur l\'initialisation SQLite:', migErr);
     }
   }
 
@@ -144,7 +224,7 @@ export interface AccountRow {
 
 export function getAllAccounts(): UserAccount[] {
   const db = getDatabase();
-  const stmt = db.prepare("SELECT id, name, avatar_initials FROM accounts ORDER BY CASE WHEN id = 'ethan' THEN 0 WHEN id = 'copine' THEN 1 ELSE 2 END, name ASC");
+  const stmt = db.prepare("SELECT id, name, avatar_initials FROM accounts ORDER BY CASE WHEN id = 'ethan' THEN 0 WHEN id = 'laurine' THEN 1 ELSE 2 END, name ASC");
   const rows = stmt.all() as unknown as AccountRow[];
 
   if (rows.length === 0) {
@@ -177,7 +257,7 @@ export function createAccount(id: string, name: string): UserAccount {
   const upsertSetting = db.prepare(`
     INSERT OR IGNORE INTO account_settings (account_id, key, value, updated_at) VALUES (?, ?, ?, ?)
   `);
-  for (const [k, v] of Object.entries(DEFAULT_COPINE_SETTINGS)) {
+  for (const [k, v] of Object.entries(DEFAULT_LAURINE_SETTINGS)) {
     upsertSetting.run(cleanId, k, String(v), now);
   }
 
@@ -342,7 +422,7 @@ export function getSettingsForAccount(accountId = 'ethan'): UserCustomizationSet
   const stmt = db.prepare('SELECT key, value FROM account_settings WHERE account_id = ?');
   const rows = stmt.all(accountId) as unknown as SettingRow[];
 
-  const baseDefaults = accountId === 'copine' ? DEFAULT_COPINE_SETTINGS : DEFAULT_USER_SETTINGS;
+  const baseDefaults = (accountId === 'laurine' || accountId === 'copine') ? DEFAULT_LAURINE_SETTINGS : DEFAULT_USER_SETTINGS;
   const settings: UserCustomizationSettings = { ...baseDefaults };
 
   for (const row of rows) {
@@ -432,3 +512,183 @@ export function getAppSettings(): UserCustomizationSettings {
 export function updateAppSettings(newSettings: Partial<UserCustomizationSettings>): UserCustomizationSettings {
   return updateAccountSettings('ethan', newSettings);
 }
+
+// --- GESTION DES RECETTES ET REPAS PERSONNALISÉS (SQLITE) ---
+
+export interface CustomRecipeRow {
+  id: string;
+  title: string;
+  meal_type: string;
+  prep_time_minutes: number;
+  cook_time_minutes: number;
+  servings: number;
+  calories_per_serving: number;
+  protein_per_serving: number;
+  carbs_per_serving: number;
+  fat_per_serving: number;
+  ingredients_json: string;
+  instructions_json: string;
+  tags_json: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getAllCustomRecipes(): Recipe[] {
+  const db = getDatabase();
+  const stmt = db.prepare('SELECT * FROM custom_recipes ORDER BY updated_at DESC');
+  const rows = stmt.all() as unknown as CustomRecipeRow[];
+
+  return rows.map((r) => {
+    let ingredients: RecipeIngredientItem[] = [];
+    let instructions: string[] = [];
+    let tags: string[] = [];
+
+    try {
+      ingredients = JSON.parse(r.ingredients_json || '[]');
+    } catch {
+      ingredients = [];
+    }
+    try {
+      instructions = JSON.parse(r.instructions_json || '[]');
+    } catch {
+      instructions = [];
+    }
+    try {
+      tags = JSON.parse(r.tags_json || '[]');
+    } catch {
+      tags = [];
+    }
+
+    return {
+      id: r.id,
+      title: r.title,
+      mealType: r.meal_type as 'dejeuner' | 'diner' | 'souper' | 'collation',
+      prepTimeMinutes: Number(r.prep_time_minutes) || 15,
+      cookTimeMinutes: Number(r.cook_time_minutes) || 15,
+      servings: Number(r.servings) || 1,
+      caloriesPerServing: Math.round(Number(r.calories_per_serving) || 0),
+      proteinPerServing: Math.round((Number(r.protein_per_serving) || 0) * 10) / 10,
+      carbsPerServing: Math.round((Number(r.carbs_per_serving) || 0) * 10) / 10,
+      fatPerServing: Math.round((Number(r.fat_per_serving) || 0) * 10) / 10,
+      ingredients,
+      instructions,
+      tags,
+      isCustom: true,
+      createdBy: r.created_by,
+      updatedAt: r.updated_at,
+    };
+  });
+}
+
+export function getCustomRecipeById(id: string): Recipe | null {
+  const db = getDatabase();
+  const stmt = db.prepare('SELECT * FROM custom_recipes WHERE id = ?');
+  const r = stmt.get(id) as unknown as CustomRecipeRow | undefined;
+  if (!r) return null;
+
+  return {
+    id: r.id,
+    title: r.title,
+    mealType: r.meal_type as 'dejeuner' | 'diner' | 'souper' | 'collation',
+    prepTimeMinutes: Number(r.prep_time_minutes) || 15,
+    cookTimeMinutes: Number(r.cook_time_minutes) || 15,
+    servings: Number(r.servings) || 1,
+    caloriesPerServing: Math.round(Number(r.calories_per_serving) || 0),
+    proteinPerServing: Math.round((Number(r.protein_per_serving) || 0) * 10) / 10,
+    carbsPerServing: Math.round((Number(r.carbs_per_serving) || 0) * 10) / 10,
+    fatPerServing: Math.round((Number(r.fat_per_serving) || 0) * 10) / 10,
+    ingredients: JSON.parse(r.ingredients_json || '[]'),
+    instructions: JSON.parse(r.instructions_json || '[]'),
+    tags: JSON.parse(r.tags_json || '[]'),
+    isCustom: true,
+    createdBy: r.created_by,
+    updatedAt: r.updated_at,
+  };
+}
+
+export function saveCustomRecipe(recipeData: Partial<Recipe>): Recipe {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  const id = recipeData.id || `custom_recipe_${Date.now()}`;
+  const title = (recipeData.title || 'Recette Maison').trim();
+  const mealType = recipeData.mealType || 'souper';
+  const prepTime = Number(recipeData.prepTimeMinutes) || 15;
+  const cookTime = Number(recipeData.cookTimeMinutes) || 15;
+  const servings = Math.max(1, Number(recipeData.servings) || 1);
+  const ingredients = recipeData.ingredients || [];
+  const instructions = recipeData.instructions || [];
+  const tags = recipeData.tags || ['fait-maison'];
+  const createdBy = recipeData.createdBy || 'ethan';
+
+  // Calcul automatique précis des macros à partir des ingrédients de la BD
+  const nutrients = calculateRecipeNutrients(ingredients, servings);
+
+  const stmt = db.prepare(`
+    INSERT INTO custom_recipes (
+      id, title, meal_type, prep_time_minutes, cook_time_minutes, servings,
+      calories_per_serving, protein_per_serving, carbs_per_serving, fat_per_serving,
+      ingredients_json, instructions_json, tags_json, created_by, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      title = excluded.title,
+      meal_type = excluded.meal_type,
+      prep_time_minutes = excluded.prep_time_minutes,
+      cook_time_minutes = excluded.cook_time_minutes,
+      servings = excluded.servings,
+      calories_per_serving = excluded.calories_per_serving,
+      protein_per_serving = excluded.protein_per_serving,
+      carbs_per_serving = excluded.carbs_per_serving,
+      fat_per_serving = excluded.fat_per_serving,
+      ingredients_json = excluded.ingredients_json,
+      instructions_json = excluded.instructions_json,
+      tags_json = excluded.tags_json,
+      updated_at = excluded.updated_at
+  `);
+
+  stmt.run(
+    id,
+    title,
+    mealType,
+    prepTime,
+    cookTime,
+    servings,
+    nutrients.caloriesPerServing,
+    nutrients.proteinPerServing,
+    nutrients.carbsPerServing,
+    nutrients.fatPerServing,
+    JSON.stringify(ingredients),
+    JSON.stringify(instructions),
+    JSON.stringify(tags),
+    createdBy,
+    now,
+    now
+  );
+
+  return {
+    id,
+    title,
+    mealType,
+    prepTimeMinutes: prepTime,
+    cookTimeMinutes: cookTime,
+    servings,
+    caloriesPerServing: nutrients.caloriesPerServing,
+    proteinPerServing: nutrients.proteinPerServing,
+    carbsPerServing: nutrients.carbsPerServing,
+    fatPerServing: nutrients.fatPerServing,
+    ingredients,
+    instructions,
+    tags,
+    isCustom: true,
+    createdBy,
+    updatedAt: now,
+  };
+}
+
+export function deleteCustomRecipe(id: string): boolean {
+  const db = getDatabase();
+  const stmt = db.prepare('DELETE FROM custom_recipes WHERE id = ?');
+  const res = stmt.run(id);
+  return (res as unknown as { changes: number }).changes > 0;
+}
+

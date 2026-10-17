@@ -13,7 +13,7 @@ import {
   CustomPricesMap,
   UserCustomizationSettings,
   DEFAULT_USER_SETTINGS,
-  DEFAULT_COPINE_SETTINGS,
+  DEFAULT_LAURINE_SETTINGS,
   UserAccount,
   DEFAULT_ACCOUNTS,
   GroceryViewScope
@@ -33,6 +33,7 @@ import { DealsAndPricesView } from '@/components/DealsAndPricesView';
 import { CalorieTrackerView } from '@/components/CalorieTrackerView';
 import { ProductPreferencesView } from '@/components/ProductPreferencesView';
 import { RecipeModal } from '@/components/RecipeModal';
+import { RecipeCreatorModal } from '@/components/RecipeCreatorModal';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'planner' | 'grocery' | 'prices' | 'tracker' | 'preferences'>('planner');
@@ -47,13 +48,18 @@ export default function Home() {
   // Données par compte
   const [preferencesByAccount, setPreferencesByAccount] = useState<Record<string, ProductPreferencesMap>>({
     ethan: {},
-    copine: {},
+    laurine: {},
   });
   const [settingsByAccount, setSettingsByAccount] = useState<Record<string, UserCustomizationSettings>>({
     ethan: DEFAULT_USER_SETTINGS,
-    copine: DEFAULT_COPINE_SETTINGS,
+    laurine: DEFAULT_LAURINE_SETTINGS,
   });
   const [plansByAccount, setPlansByAccount] = useState<Record<string, WeeklyPlan>>({});
+
+  // Recettes personnalisées créées par les utilisateurs dans SQLite
+  const [customRecipes, setCustomRecipes] = useState<Recipe[]>([]);
+  const [isRecipeCreatorOpen, setIsRecipeCreatorOpen] = useState(false);
+  const [recipeToEdit, setRecipeToEdit] = useState<Recipe | null>(null);
 
   // Paramètres globaux & personnalisations
   const [customPrices, setCustomPrices] = useState<CustomPricesMap>({});
@@ -79,12 +85,13 @@ export default function Home() {
     const initAppData = async () => {
       let loadedAccounts = DEFAULT_ACCOUNTS;
       let activeAcc = 'ethan';
-      let loadedPrefs: Record<string, ProductPreferencesMap> = { ethan: {}, copine: {} };
+      let loadedPrefs: Record<string, ProductPreferencesMap> = { ethan: {}, laurine: {} };
       let loadedSettings: Record<string, UserCustomizationSettings> = {
         ethan: DEFAULT_USER_SETTINGS,
-        copine: DEFAULT_COPINE_SETTINGS,
+        laurine: DEFAULT_LAURINE_SETTINGS,
       };
       let loadedPrices: CustomPricesMap = {};
+      let loadedCustomRecipes: Recipe[] = [];
 
       try {
         const res = await fetch('/api/preferences');
@@ -105,6 +112,9 @@ export default function Home() {
           if (data.customPrices) {
             loadedPrices = data.customPrices;
           }
+          if (data.customRecipes) {
+            loadedCustomRecipes = data.customRecipes;
+          }
         }
       } catch (err) {
         console.warn('Impossible de joindre /api/preferences, fallback local:', err);
@@ -115,18 +125,19 @@ export default function Home() {
       setPreferencesByAccount(loadedPrefs);
       setSettingsByAccount(loadedSettings);
       setCustomPrices(loadedPrices);
+      setCustomRecipes(loadedCustomRecipes);
 
-      // Générer les plans de chaque compte selon leurs préférences respectives
+      // Générer les plans de chaque compte selon leurs préférences et recettes personnalisées
       const initialPlans: Record<string, WeeklyPlan> = {};
       for (const acc of loadedAccounts) {
         const userPrefs = loadedPrefs[acc.id] || {};
-        initialPlans[acc.id] = generateWeeklyPlan(userPrefs);
+        initialPlans[acc.id] = generateWeeklyPlan(userPrefs, loadedCustomRecipes);
       }
       setPlansByAccount(initialPlans);
 
-      // Mettre à jour coupleSettings
+      // Mettre à jour coupleSettings pour Ethan & Laurine
       const ethanSett = loadedSettings['ethan'] || DEFAULT_USER_SETTINGS;
-      const copineSett = loadedSettings['copine'] || DEFAULT_COPINE_SETTINGS;
+      const laurineSett = loadedSettings['laurine'] || loadedSettings['copine'] || DEFAULT_LAURINE_SETTINGS;
       setCoupleSettings({
         coupleModeEnabled: true,
         user1: {
@@ -136,8 +147,10 @@ export default function Home() {
         },
         user2: {
           ...DEFAULT_COUPLE_SETTINGS.user2,
-          targetCalories: copineSett.targetCalories,
-          targetProtein: copineSett.targetProtein,
+          name: 'Laurine',
+          id: 'laurine',
+          targetCalories: laurineSett.targetCalories,
+          targetProtein: laurineSett.targetProtein,
         },
       });
     };
@@ -211,10 +224,10 @@ export default function Home() {
     };
 
     setAccounts((prev) => [...prev, newAcc]);
-    const defaultSett = { ...DEFAULT_COPINE_SETTINGS, goalName: 'Alimentation saine & équilibrée' };
+    const defaultSett = { ...DEFAULT_LAURINE_SETTINGS, goalName: 'Alimentation saine & équilibrée' };
     setSettingsByAccount((prev) => ({ ...prev, [cleanId]: defaultSett }));
     setPreferencesByAccount((prev) => ({ ...prev, [cleanId]: {} }));
-    const newPlan = generateWeeklyPlan({});
+    const newPlan = generateWeeklyPlan({}, customRecipes);
     setPlansByAccount((prev) => ({ ...prev, [cleanId]: newPlan }));
     setActiveAccountId(cleanId);
 
@@ -262,7 +275,7 @@ export default function Home() {
 
     // Si banni, réadapter immédiatement le plan du compte actif
     if (status === 'disliked') {
-      const newPlan = generateWeeklyPlan(nextPrefs);
+      const newPlan = generateWeeklyPlan(nextPrefs, customRecipes);
       setPlansByAccount((prev) => ({
         ...prev,
         [activeAccountId]: newPlan,
@@ -296,7 +309,7 @@ export default function Home() {
       console.error('Erreur reset preferences SQLite:', err);
     }
 
-    const newPlan = generateWeeklyPlan({});
+    const newPlan = generateWeeklyPlan({}, customRecipes);
     setPlansByAccount((prev) => ({
       ...prev,
       [activeAccountId]: newPlan,
@@ -305,7 +318,7 @@ export default function Home() {
 
   const handleApplyPreferencesToPlan = () => {
     const prefs = preferencesByAccount[activeAccountId] || {};
-    const newPlan = generateWeeklyPlan(prefs);
+    const newPlan = generateWeeklyPlan(prefs, customRecipes);
     setPlansByAccount((prev) => ({
       ...prev,
       [activeAccountId]: newPlan,
@@ -367,11 +380,41 @@ export default function Home() {
     }
   };
 
-  // --- GESTION DES RECETTES DU PLANIFICATEUR ---
+  // --- GESTION DES RECETTES ET REPAS MAISON (SQLITE) ---
+
+  const handleSaveCustomRecipe = (savedRecipe: Recipe) => {
+    const updatedRecipes = customRecipes.some((r) => r.id === savedRecipe.id)
+      ? customRecipes.map((r) => (r.id === savedRecipe.id ? savedRecipe : r))
+      : [savedRecipe, ...customRecipes];
+
+    setCustomRecipes(updatedRecipes);
+
+    // Mettre à jour le plan hebdomadaire pour intégrer le repas
+    const prefs = preferencesByAccount[activeAccountId] || {};
+    const newPlan = generateWeeklyPlan(prefs, updatedRecipes);
+    setPlansByAccount((prev) => ({
+      ...prev,
+      [activeAccountId]: newPlan,
+    }));
+  };
+
+  const handleDeleteCustomRecipe = (recipeId: string) => {
+    const remaining = customRecipes.filter((r) => r.id !== recipeId);
+    setCustomRecipes(remaining);
+
+    const prefs = preferencesByAccount[activeAccountId] || {};
+    const newPlan = generateWeeklyPlan(prefs, remaining);
+    setPlansByAccount((prev) => ({
+      ...prev,
+      [activeAccountId]: newPlan,
+    }));
+  };
+
+  // --- GESTION DU PLANIFICATEUR ---
 
   const handleRegenerateAll = () => {
     const prefs = preferencesByAccount[activeAccountId] || {};
-    const newPlan = generateWeeklyPlan(prefs);
+    const newPlan = generateWeeklyPlan(prefs, customRecipes);
     setPlansByAccount((prev) => ({
       ...prev,
       [activeAccountId]: newPlan,
@@ -384,7 +427,7 @@ export default function Home() {
     newRecipeId: string
   ) => {
     if (!activePlan) return;
-    const updatedPlan = replaceRecipeInPlan(activePlan, dayIndex, mealType, newRecipeId);
+    const updatedPlan = replaceRecipeInPlan(activePlan, dayIndex, mealType, newRecipeId, customRecipes);
     setPlansByAccount((prev) => ({
       ...prev,
       [activeAccountId]: updatedPlan,
@@ -539,10 +582,15 @@ export default function Home() {
             plan={activePlan}
             preferences={activePreferences}
             userSettings={activeSettings}
+            customRecipes={customRecipes}
             isDark={isDark}
             onRegenerateAll={handleRegenerateAll}
             onReplaceRecipe={handleReplaceRecipe}
             onSelectRecipe={(recipe) => setSelectedRecipe(recipe)}
+            onOpenRecipeCreator={() => {
+              setRecipeToEdit(null);
+              setIsRecipeCreatorOpen(true);
+            }}
           />
         )}
 
@@ -605,6 +653,23 @@ export default function Home() {
         isDark={isDark}
         onClose={() => setSelectedRecipe(null)}
         onUpdatePreference={handleUpdatePreference}
+        onEditCustomRecipe={(recipe) => {
+          setRecipeToEdit(recipe);
+          setIsRecipeCreatorOpen(true);
+        }}
+      />
+
+      <RecipeCreatorModal
+        isOpen={isRecipeCreatorOpen}
+        onClose={() => {
+          setIsRecipeCreatorOpen(false);
+          setRecipeToEdit(null);
+        }}
+        recipeToEdit={recipeToEdit}
+        onSaveRecipe={handleSaveCustomRecipe}
+        onDeleteRecipe={handleDeleteCustomRecipe}
+        isDark={isDark}
+        activeAccountId={activeAccountId}
       />
 
       <footer
