@@ -406,10 +406,10 @@ export const Header: React.FC<HeaderProps> = ({
                     ? 'text-stone-400 hover:text-white'
                     : 'text-stone-700 hover:text-stone-950 font-medium'
                 }`}
-                title="Circulaires et rabais épicerie"
+                title="Circulaires, rabais épicerie et calculateur de rentabilité protéique"
               >
                 <Store className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden xl:inline">Circulaires</span>
+                <span className="hidden xl:inline">Prix & Protéines</span>
               </button>
 
               <button

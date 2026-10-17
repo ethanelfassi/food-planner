@@ -740,7 +740,13 @@ export default function Home() {
         )}
 
         {activeTab === 'prices' && (
-          <DealsAndPricesView groceryItems={displayedGroceryItems} isDark={isDark} />
+          <DealsAndPricesView
+            groceryItems={displayedGroceryItems}
+            isDark={isDark}
+            customProducts={customProducts}
+            customPrices={customPrices}
+            userSettings={activeSettings}
+          />
         )}
       </main>
 

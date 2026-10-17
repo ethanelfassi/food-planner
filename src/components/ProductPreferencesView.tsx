@@ -36,8 +36,10 @@ import {
   Target,
   X,
   ScanBarcode,
-  Trash2
+  Trash2,
+  ArrowUpDown
 } from 'lucide-react';
+import { calculateProteinEfficiency } from '@/lib/protein-calculator';
 
 interface ProductPreferencesViewProps {
   preferences: ProductPreferencesMap;
@@ -78,6 +80,7 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAisle, setSelectedAisle] = useState<string>('all');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'liked' | 'disliked' | 'neutral'>('all');
+  const [sortBy, setSortBy] = useState<'default' | 'protein_ratio' | 'protein_pct' | 'price_asc'>('default');
   const [saveToast, setSaveToast] = useState<string | null>(null);
 
   // État local pour le formulaire de cibles nutritionnelles & budget
@@ -115,21 +118,53 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
   const neutralCount = allIngredients.length - likedCount - dislikedCount;
   const customPricesCount = Object.keys(customPrices).length;
 
-  // Filtrage du catalogue
-  const filteredIngredients = allIngredients.filter((item: Ingredient) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.packaging.label.toLowerCase().includes(searchQuery.toLowerCase());
+  // Filtrage et tri du catalogue
+  const filteredIngredients = useMemo(() => {
+    const list = allIngredients.filter((item: Ingredient) => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.packaging.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.barcode && item.barcode.includes(searchQuery));
 
-    if (!matchesSearch) return false;
+      if (!matchesSearch) return false;
 
-    if (selectedAisle !== 'all' && item.aisle !== selectedAisle) return false;
+      if (selectedAisle !== 'all' && item.aisle !== selectedAisle) return false;
 
-    const currentStatus = preferences[item.id] || 'neutral';
-    if (selectedFilter !== 'all' && currentStatus !== selectedFilter) return false;
+      const currentStatus = preferences[item.id] || 'neutral';
+      if (selectedFilter !== 'all' && currentStatus !== selectedFilter) return false;
 
-    return true;
-  });
+      return true;
+    });
+
+    if (sortBy === 'protein_ratio') {
+      return [...list].sort((a, b) => {
+        const protA = a.macrosPer100g?.protein ?? 0;
+        const protB = b.macrosPer100g?.protein ?? 0;
+        if (protA <= 0 && protB <= 0) return 0;
+        if (protA <= 0) return 1;
+        if (protB <= 0) return -1;
+        const priceA = customPrices[a.id] ?? a.packaging.exactPriceMetro;
+        const priceB = customPrices[b.id] ?? b.packaging.exactPriceMetro;
+        const effA = calculateProteinEfficiency(priceA, a.packaging.amount, a.packaging.unit, protA, a.id);
+        const effB = calculateProteinEfficiency(priceB, b.packaging.amount, b.packaging.unit, protB, b.id);
+        return effA.costPer100gProtein - effB.costPer100gProtein;
+      });
+    }
+
+    if (sortBy === 'protein_pct') {
+      return [...list].sort((a, b) => (b.macrosPer100g?.protein ?? 0) - (a.macrosPer100g?.protein ?? 0));
+    }
+
+    if (sortBy === 'price_asc') {
+      return [...list].sort((a, b) => {
+        const priceA = customPrices[a.id] ?? a.packaging.exactPriceMetro;
+        const priceB = customPrices[b.id] ?? b.packaging.exactPriceMetro;
+        return priceA - priceB;
+      });
+    }
+
+    return list;
+  }, [allIngredients, searchQuery, selectedAisle, preferences, selectedFilter, sortBy, customPrices]);
 
   const handleSelectPreference = (id: string, newStatus: ProductPreferenceStatus, name: string) => {
     onUpdatePreference(id, newStatus);
@@ -928,7 +963,7 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
               isDark ? 'bg-white/[0.02] border-white/10' : 'bg-white border-stone-200 shadow-xs'
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
@@ -940,6 +975,25 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
                     isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
                   }`}
                 />
+              </div>
+
+              {/* Sélecteur de Tri */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className={`px-3 py-2.5 rounded-2xl border text-xs font-mono transition-all outline-hidden ${
+                    isDark
+                      ? 'bg-black/40 border-white/10 text-stone-200'
+                      : 'bg-white border-stone-300 text-stone-800 shadow-xs'
+                  }`}
+                  title="Trier la liste de produits"
+                >
+                  <option value="default">Tri : Par défaut (Rayon)</option>
+                  <option value="protein_ratio">Rentabilité Protéique ($/100g P)</option>
+                  <option value="protein_pct">Teneur en Protéine (% prot)</option>
+                  <option value="price_asc">Prix croissant ($)</option>
+                </select>
               </div>
 
               {onOpenBarcodeModal && (
@@ -1121,6 +1175,29 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
                                 <div className="font-medium text-stone-700 dark:text-stone-300 tabular-nums">{item.macrosPer100g.fat}g</div>
                               </div>
                             </div>
+                          )}
+
+                          {/* Rentabilité Protéique ($/100g P) */}
+                          {item.macrosPer100g && item.macrosPer100g.protein > 0 && (
+                            (() => {
+                              const eff = calculateProteinEfficiency(
+                                activePrice,
+                                item.packaging.amount,
+                                item.packaging.unit,
+                                item.macrosPer100g.protein,
+                                item.id
+                              );
+                              return (
+                                <div className="mt-2 flex items-center justify-between text-[10px] font-mono p-1.5 rounded-xl border border-stone-200/60 dark:border-white/10 bg-stone-100/60 dark:bg-white/[0.03]">
+                                  <span className="text-stone-500 dark:text-stone-400 flex items-center gap-1">
+                                    <Dumbbell className="w-3 h-3 text-stone-400" /> Rentabilité :
+                                  </span>
+                                  <span className={`font-semibold px-1.5 py-0.5 rounded-md border text-[9px] ${eff.tierColorClass.badge}`}>
+                                    {eff.costPer100gProtein.toFixed(2)} $ / 100g P
+                                  </span>
+                                </div>
+                              );
+                            })()
                           )}
                         </div>
                       </div>
