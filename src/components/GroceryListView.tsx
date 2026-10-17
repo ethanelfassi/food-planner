@@ -1066,13 +1066,17 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
                               className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-1 rounded-xl border transition-all active:scale-95 ${
-                                isDark
+                                item.metroProductUrl.includes('/p/')
+                                  ? isDark
+                                    ? 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+                                    : 'bg-stone-900 hover:bg-stone-800 text-white border-stone-900 shadow-xs'
+                                  : isDark
                                   ? 'bg-white/5 hover:bg-white/15 text-stone-200 border-white/10'
                                   : 'bg-stone-100 hover:bg-stone-200 text-stone-900 border-stone-300 shadow-xs'
                               }`}
-                              title="Consulter le produit en direct sur Metro.ca"
+                              title={item.metroProductUrl.includes('/p/') ? "Fiche produit directe Metro.ca (UPC certifié)" : "Rechercher sur Metro.ca"}
                             >
-                              <span>Fiche</span>
+                              <span>{item.metroProductUrl.includes('/p/') ? 'Fiche Metro' : 'Recherche'}</span>
                               <ExternalLink className="w-2.5 h-2.5 opacity-70" />
                             </a>
                           )}

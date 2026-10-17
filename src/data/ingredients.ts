@@ -8,7 +8,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'BOUCHERIE_ET_POISSONNERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=poitrines+de+poulet+desossees+sans+peau',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/viandes-et-volailles/poulet-et-dinde/poitrines/poitrines-de-poulet-desossees-sans-peau-eleve-sans-antibiotiques/p/234383',
     packaging: {
       amount: 600,
       unit: 'g',
@@ -144,7 +144,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'PRODUITS_LAITIERS_ET_OEUFS',
     baseUnit: 'unite',
     imageUrl: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=oeufs+blancs+calibre+gros',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/produits-laitiers-et-oeufs/oeufs/oeufs-entiers/gros-oeufs/p/059749896078',
     packaging: {
       amount: 12,
       unit: 'unite',
@@ -167,7 +167,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'PRODUITS_LAITIERS_ET_OEUFS',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=yogourt+grec+nature',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/produits-laitiers-et-oeufs/yogourts/yogourts-grecs/yogourt-grec-nature-0/p/065684594248',
     packaging: {
       amount: 750,
       unit: 'g',
@@ -197,7 +197,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'PRODUITS_LAITIERS_ET_OEUFS',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1559561853-08451507cbe7?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=fromage+cottage+2',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/produits-laitiers-et-oeufs/fromages/fromages-cottage/fromage-cottage-1/p/068200115047',
     packaging: {
       amount: 500,
       unit: 'g',
@@ -220,7 +220,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'PRODUITS_LAITIERS_ET_OEUFS',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1618164436241-4473940d1f5c?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=fromage+cheddar+fort',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/produits-laitiers-et-oeufs/fromages/cheddars/fromage-cheddar-mi-fort/p/059749911047',
     packaging: {
       amount: 400,
       unit: 'g',
@@ -250,7 +250,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'PRODUITS_LAITIERS_ET_OEUFS',
     baseUnit: 'ml',
     imageUrl: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=lait+partiellement+ecreme+2',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/produits-laitiers-et-oeufs/laits-cremes-et-beurres/laits-2/lait-2/p/068200010212',
     packaging: {
       amount: 2000,
       unit: 'ml',
@@ -273,7 +273,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'PRODUITS_LAITIERS_ET_OEUFS',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1452195100486-9cc805987862?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=fromage+parmesan+rape',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/produits-laitiers-et-oeufs/fromages/parmesan-et-fromages-italiens/fromage-parmesan-rape/p/068200473093',
     packaging: {
       amount: 150,
       unit: 'g',
@@ -296,7 +296,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'PRODUITS_LAITIERS_ET_OEUFS',
     baseUnit: 'ml',
     imageUrl: 'https://images.unsplash.com/photo-1528750997573-59b89d56f4f7?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=creme+a+cuisson+15',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/produits-laitiers-et-oeufs/laits-cremes-et-beurres/cremes/creme-champetre-15/p/068200202617',
     packaging: {
       amount: 473,
       unit: 'ml',
@@ -599,7 +599,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'BOULANGERIE',
     baseUnit: 'unite',
     imageUrl: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=bagels+sesame+style+montreal',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/pains-et-patisseries/bagels/bagels-au-sesame/p/068721008034',
     packaging: {
       amount: 6,
       unit: 'unite',
@@ -622,7 +622,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'BOULANGERIE',
     baseUnit: 'tranche',
     imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=pain+100+grains+entiers',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/pains-et-patisseries/pains-emballes/ble-entier-et-cereales/pain-tranche-100-ble-entier/p/061077760082',
     packaging: {
       amount: 16,
       unit: 'tranche',
@@ -647,7 +647,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=flocons+d+avoine+quaker',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/cereales-tartinades-et-sirops/gruaux-et-cereales-chaudes/flocons-d-avoine-a-gros-flocons/p/055577101018',
     packaging: {
       amount: 1000,
       unit: 'g',
@@ -670,7 +670,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=beurre+d+arachide+naturel+kraft',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/cereales-tartinades-et-sirops/beurres-de-noix-et-graines/beurre-d-arachide-naturel-cremeux/p/068100084665',
     packaging: {
       amount: 750,
       unit: 'g',
@@ -700,7 +700,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=riz+basmati',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/pates-riz-et-legumineuses/riz/riz-basmati/p/059749942706',
     packaging: {
       amount: 900,
       unit: 'g',
@@ -723,7 +723,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1551462147-ff29053bfc14?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=pates+penne+rigate',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/pates-riz-et-legumineuses/pates/pates-penne-rigate/p/076808011050',
     packaging: {
       amount: 454,
       unit: 'g',
@@ -746,7 +746,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'canne',
     imageUrl: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=haricots+noirs+conserve',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/produits-en-conserve-et-en-pot/legumineuses-en-conserve/haricots-noirs/p/059749871105',
     packaging: {
       amount: 1,
       unit: 'canne',
@@ -769,7 +769,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'canne',
     imageUrl: 'https://images.unsplash.com/photo-1515543237350-b3eea1ec8082?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=haricots+rouges+conserve',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/produits-en-conserve-et-en-pot/legumineuses-en-conserve/haricots-rouges/p/059749871129',
     packaging: {
       amount: 1,
       unit: 'canne',
@@ -792,7 +792,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'canne',
     imageUrl: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=thon+blanc+dans+l+eau',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/produits-en-conserve-et-en-pot/poissons-et-fruits-de-mer/thon-pale-emietie-dans-l-eau/p/061362434308',
     packaging: {
       amount: 1,
       unit: 'canne',
@@ -822,7 +822,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'canne',
     imageUrl: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=tomates+en+des+conserve',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/produits-en-conserve-et-en-pot/legumes-en-conserve/tomates-en-des-avec-epices/p/059749870108',
     packaging: {
       amount: 1,
       unit: 'canne',
@@ -845,7 +845,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'ml',
     imageUrl: 'https://images.unsplash.com/photo-1607305387299-a3d9611cd469?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=passata+puree+de+tomates',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/produits-en-conserve-et-en-pot/pates-et-sauces-pour-pates/passata-puree-de-tomates/p/059749964128',
     packaging: {
       amount: 680,
       unit: 'ml',
@@ -868,7 +868,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1508061252966-f72fb4d2325c?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=amandes+entieres+naturelles',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/collations/noix-et-graines/amandes-entieres-naturelles/p/059749950107',
     packaging: {
       amount: 400,
       unit: 'g',
@@ -891,7 +891,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=noix+de+grenoble',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/collations/noix-et-graines/morceaux-de-noix-de-grenoble/p/059749950206',
     packaging: {
       amount: 300,
       unit: 'g',
@@ -914,7 +914,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'ml',
     imageUrl: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=sirop+d+erable+pur+quebec',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/cereales-tartinades-et-sirops/sirops-d-erable/sirop-d-erable-pur-ambre/p/059749961127',
     packaging: {
       amount: 540,
       unit: 'ml',
@@ -937,7 +937,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'ml',
     imageUrl: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=huile+d+olive+extra+vierge',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/huiles-et-vinaigres/huiles-d-olive/huile-d-olive-extra-vierge/p/059749931021',
     packaging: {
       amount: 1000,
       unit: 'ml',
@@ -960,7 +960,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'ml',
     imageUrl: 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=sauce+soya+reduite+en+sodium',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/condiments-et-sauces/sauces-asiatiques/sauce-soya-reduite-en-sodium/p/041390000455',
     packaging: {
       amount: 443,
       unit: 'ml',
@@ -983,7 +983,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'ml',
     imageUrl: 'https://images.unsplash.com/photo-1582234372722-50d7ccc30ebd?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=salsa+douce',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/condiments-et-sauces/salsas-et-dips/salsa-douce/p/068700011039',
     packaging: {
       amount: 418,
       unit: 'ml',
@@ -1061,7 +1061,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'PRODUITS_LAITIERS_ET_OEUFS',
     baseUnit: 'ml',
     imageUrl: 'https://images.unsplash.com/photo-1528750997573-59b89d56f4f7?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=creme+35',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/produits-laitiers-et-oeufs/laits-cremes-et-beurres/cremes/creme-a-cuisson-35/p/068200202709',
     packaging: {
       amount: 473,
       unit: 'ml',
@@ -1084,7 +1084,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'PRODUITS_LAITIERS_ET_OEUFS',
     baseUnit: 'ml',
     imageUrl: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=creme+sure',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/produits-laitiers-et-oeufs/cremes-sures-et-tartinades/creme-sure-14/p/065684000350',
     packaging: {
       amount: 500,
       unit: 'ml',
@@ -1108,7 +1108,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'PRODUITS_LAITIERS_ET_OEUFS',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=beurre+sale',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/produits-laitiers-et-oeufs/laits-cremes-et-beurres/beurres-et-margarines/beurre-sale/p/059749891042',
     packaging: {
       amount: 454,
       unit: 'g',
@@ -1155,7 +1155,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'BOUCHERIE_ET_POISSONNERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1559742811-822863c45c43?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=crevettes+blanches+decortiquees',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/surgeles/poissons-et-fruits-de-mer/crevettes/crevettes-blanches-crues-decortiquees/p/059749980104',
     packaging: {
       amount: 340,
       unit: 'g',
@@ -1293,7 +1293,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=quinoa+blanc',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/pates-riz-et-legumineuses/cereales-et-grains/quinoa-blanc-biologique/p/059749942805',
     packaging: {
       amount: 500,
       unit: 'g',
@@ -1316,7 +1316,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'ml',
     imageUrl: 'https://images.unsplash.com/photo-1528750997573-59b89d56f4f7?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=moutarde+de+dijon',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/condiments-et-sauces/moutardes/moutarde-de-dijon/p/066800000010',
     packaging: {
       amount: 370,
       unit: 'ml',
@@ -1339,7 +1339,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1514733670139-4d87a1941d55?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=graines+de+chia',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/collations/noix-et-graines/graines-de-chia-noires/p/059749950305',
     packaging: {
       amount: 400,
       unit: 'g',
@@ -1362,7 +1362,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'BOUCHERIE_ET_POISSONNERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1528607929212-2636ec44253e?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=bacon+fume',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/viandes-et-volailles/porc-et-veau/bacon-et-saucisses/bacon-fume-naturellement/p/059749893046',
     packaging: {
       amount: 375,
       unit: 'g',
@@ -1387,7 +1387,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=tofu+ferme+unisoya',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/fruits-et-legumes/vegetalien-et-vegetarien/tofus-et-tempehs/tofu-regulier/p/062859000044',
     packaging: {
       amount: 454,
       unit: 'g',
@@ -1411,7 +1411,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'SURGELES',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1551248429-40975aa4de74?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=edamame+surgeles',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/surgeles/legumes-surgeles/edamames/edamames-ecosses-surgeles/p/059749970303',
     packaging: {
       amount: 500,
       unit: 'g',
@@ -1434,7 +1434,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'SURGELES',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=legumes+pour+saute+surgeles',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/surgeles/legumes-surgeles/melanges-de-legumes/melange-pour-saute-asiatique-surgele/p/059749970105',
     packaging: {
       amount: 750,
       unit: 'g',
@@ -1457,7 +1457,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'SURGELES',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1502741224143-90386d7f8c82?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=petits+fruits+surgeles',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/surgeles/fruits-surgeles/melanges-de-fruits/melange-de-3-petits-fruits-surgele/p/059749970204',
     packaging: {
       amount: 600,
       unit: 'g',
@@ -1481,7 +1481,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'ml',
     imageUrl: 'https://images.unsplash.com/photo-1572449043416-55f4685c9bb7?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=stefano+faita+sauce+tomate',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/produits-en-conserve-et-en-pot/pates-et-sauces-pour-pates/sauce-pour-pates-tomate-basilic/p/628110146106',
     packaging: {
       amount: 648,
       unit: 'ml',
@@ -1505,7 +1505,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1551462147-37885acc36f1?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=barilla+spaghetti',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/pates-riz-et-legumineuses/pates/pates-spaghetti/p/076808011012',
     packaging: {
       amount: 454,
       unit: 'g',
@@ -1528,7 +1528,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=riz+jasmin',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/pates-riz-et-legumineuses/riz/riz-jasmin/p/059749942713',
     packaging: {
       amount: 2000,
       unit: 'g',
@@ -1551,7 +1551,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'canne',
     imageUrl: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=lentilles+conserve',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/produits-en-conserve-et-en-pot/legumineuses-en-conserve/lentilles-brunes/p/059749871143',
     packaging: {
       amount: 540,
       unit: 'ml',
@@ -1574,7 +1574,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'canne',
     imageUrl: 'https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=pois+chiches+conserve',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/produits-en-conserve-et-en-pot/legumineuses-en-conserve/pois-chiches/p/059749871136',
     packaging: {
       amount: 540,
       unit: 'ml',
@@ -1597,7 +1597,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'PRODUITS_LAITIERS_ET_OEUFS',
     baseUnit: 'ml',
     imageUrl: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=earths+own+avoine',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/produits-laitiers-et-oeufs/boissons-vegetales/boissons-d-avoine/boisson-d-avoine-originale-sans-gluten/p/025293004819',
     packaging: {
       amount: 1750,
       unit: 'ml',
@@ -1621,7 +1621,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'PRODUITS_LAITIERS_ET_OEUFS',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1624806992066-5ffcf7ca186b?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=fromage+mozzarella+rape',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/produits-laitiers-et-oeufs/fromages/fromages-rapes/fromage-mozzarella-rape/p/068200473062',
     packaging: {
       amount: 320,
       unit: 'g',
@@ -1644,7 +1644,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'BOULANGERIE',
     baseUnit: 'tranche',
     imageUrl: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=dempsters+tortillas',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/pains-et-patisseries/pains-plats-et-tortillas/tortillas/tortillas-originales-10-pouces/p/068721102947',
     packaging: {
       amount: 10,
       unit: 'unite',
@@ -1667,7 +1667,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'BOULANGERIE',
     baseUnit: 'tranche',
     imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=bon+matin+pain+ble+entier',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/pains-et-patisseries/pains-emballes/ble-entier-et-cereales/pain-tranche-multigrain-moelleux/p/061077315350',
     packaging: {
       amount: 600,
       unit: 'g',
@@ -1690,7 +1690,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'BOULANGERIE',
     baseUnit: 'unite',
     imageUrl: 'https://images.unsplash.com/photo-1589367920969-ab8e050bbb04?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=dempsters+muffins+anglais',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/pains-et-patisseries/muffins-anglais-et-crumpets/muffins-anglais/muffins-anglais-originaux/p/068721001011',
     packaging: {
       amount: 6,
       unit: 'unite',
@@ -1713,7 +1713,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'BOUCHERIE_ET_POISSONNERIE',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=poitrine+de+dinde+tranchee',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/charcuterie/viandes-tranchees-emballees/dinde-et-poulet/poitrine-de-dinde-roti-au-four/p/068721014202',
     packaging: {
       amount: 175,
       unit: 'g',
@@ -1876,7 +1876,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'canne',
     imageUrl: 'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=mais+en+grains+conserve',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/produits-en-conserve-et-en-pot/legumes-en-conserve/mais-en-grains-entiers/p/059749870207',
     packaging: {
       amount: 341,
       unit: 'ml',
@@ -1899,7 +1899,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'EPICERIE',
     baseUnit: 'ml',
     imageUrl: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=sirop+agave',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/garde-manger/cereales-tartinades-et-sirops/sirops-et-edulcorants/sirop-d-agave-bleu-biologique/p/059749961202',
     packaging: {
       amount: 330,
       unit: 'ml',
@@ -1922,7 +1922,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     aisle: 'PRODUITS_LAITIERS_ET_OEUFS',
     baseUnit: 'g',
     imageUrl: 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=200&auto=format&fit=crop&q=80',
-    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=fontaine+sante+houmous',
+    metroProductUrl: 'https://www.metro.ca/epicerie-en-ligne/allees/charcuterie/trempettes-et-tartinades/houmous/houmous-traditionnel/p/069508000014',
     packaging: {
       amount: 260,
       unit: 'g',

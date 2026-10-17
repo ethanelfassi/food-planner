@@ -1145,7 +1145,7 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
                             target="_blank"
                             rel="noopener noreferrer"
                             className="p-1.5 text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors"
-                            title="Fiche officielle Metro.ca"
+                            title={item.metroProductUrl.includes('/p/') ? "Fiche produit directe Metro.ca (UPC certifié)" : "Rechercher ce produit sur Metro.ca"}
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
                           </a>
