@@ -51,7 +51,16 @@ export function calculateRecipeNutrients(
     } else if (unit === 'tranche') {
       grams = (Number(item.quantity) || 1) * 25;
     } else if (unit === 'canne') {
-      grams = (Number(item.quantity) || 1) * 400;
+      const id = item.ingredientId.toLowerCase();
+      if (id.includes('thon')) {
+        grams = (Number(item.quantity) || 1) * 120; // 1 boîte de thon standard 170g = 120g de chair égouttée
+      } else if (id.includes('tomate')) {
+        grams = (Number(item.quantity) || 1) * 796; // Boîte standard de tomates québécoise 796 ml
+      } else if (id.includes('haricot') || id.includes('pois')) {
+        grams = (Number(item.quantity) || 1) * 390; // Boîte de légumineuses 540 ml = ~390g égoutté
+      } else {
+        grams = (Number(item.quantity) || 1) * 400;
+      }
     }
 
     const factor = grams / 100;

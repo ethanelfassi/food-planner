@@ -407,7 +407,7 @@ export const ProteinEfficiencyCalculator: React.FC<ProteinEfficiencyCalculatorPr
               </div>
             </div>
 
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               <span className="text-[11px] text-stone-400 font-mono">Presets populaires :</span>
               <button
                 type="button"
@@ -438,6 +438,19 @@ export const ProteinEfficiencyCalculator: React.FC<ProteinEfficiencyCalculatorPr
               <button
                 type="button"
                 onClick={() => {
+                  setSimName('Thon blanc en conserve (égoutté)');
+                  setSimPrice('1.69');
+                  setSimAmount('120');
+                  setSimUnit('g');
+                  setSimProteinPer100g('25');
+                }}
+                className="text-[11px] px-2 py-0.5 rounded-lg border border-stone-200 dark:border-white/10 hover:border-stone-400 text-stone-600 dark:text-stone-300 transition-colors"
+              >
+                Thon (120g égoutté)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   setSimName('Yogourt grec 0% 750g');
                   setSimPrice('5.49');
                   setSimAmount('750');
@@ -448,6 +461,14 @@ export const ProteinEfficiencyCalculator: React.FC<ProteinEfficiencyCalculatorPr
               >
                 Yogourt grec 750g
               </button>
+            </div>
+
+            {/* Note Précision : Poids Égoutté */}
+            <div className="p-3 rounded-xl bg-stone-100/60 dark:bg-white/[0.02] border border-stone-200/60 dark:border-white/5 text-[11px] text-stone-500 dark:text-stone-400 leading-snug flex items-start gap-2">
+              <Info className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
+              <span>
+                <strong>Précision Poids Égoutté :</strong> Pour les poissons en conserve (thon, saumon) et légumineuses, le calculateur prend en compte le poids réel égoutté (ex: 1 boîte de thon de 170g donne 120g net de chair, soit 30g de protéines pures) afin de ne pas fausser le ratio en comptabilisant l'eau de bouillon.
+              </span>
             </div>
           </div>
 

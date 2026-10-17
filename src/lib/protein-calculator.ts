@@ -46,20 +46,28 @@ export interface RankedProteinItem {
 export function estimateTotalWeightGrams(amount: number, unit: string, ingredientId = ''): number {
   const cleanUnit = (unit || 'g').toLowerCase().trim();
   const safeAmount = Math.max(0, Number(amount) || 0);
+  const id = ingredientId.toLowerCase();
 
   if (cleanUnit === 'g' || cleanUnit === 'ml') {
+    // Si c'est du thon en conserve avec le poids brut de la boîte (170g),
+    // le poids net réel consommable (égoutté) est de 120g
+    if (id.includes('thon') && safeAmount >= 140 && safeAmount <= 190) {
+      return 120;
+    }
     return safeAmount;
   }
 
   if (cleanUnit === 'unite' || cleanUnit === 'unité') {
-    const id = ingredientId.toLowerCase();
     if (id.includes('oeuf')) return safeAmount * 50; // 1 gros œuf = ~50g
     if (id.includes('banane')) return safeAmount * 120;
     if (id.includes('pomme')) return safeAmount * 180;
     if (id.includes('avocat')) return safeAmount * 150;
     if (id.includes('bagel')) return safeAmount * 95;
     if (id.includes('patate_douce')) return safeAmount * 200;
-    if (id.includes('canne')) return safeAmount * 400;
+    if (id.includes('canne')) {
+      if (id.includes('thon')) return safeAmount * 120;
+      return safeAmount * 400;
+    }
     return safeAmount * 100; // estimation par défaut
   }
 
@@ -72,6 +80,9 @@ export function estimateTotalWeightGrams(amount: number, unit: string, ingredien
   }
 
   if (cleanUnit === 'canne') {
+    if (id.includes('thon')) return safeAmount * 120; // 1 boîte de thon 170g = 120g net égoutté
+    if (id.includes('tomate')) return safeAmount * 796;
+    if (id.includes('haricot') || id.includes('pois')) return safeAmount * 390;
     return safeAmount * 400;
   }
 

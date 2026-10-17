@@ -796,11 +796,11 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     packaging: {
       amount: 1,
       unit: 'canne',
-      label: 'Canne de 170g',
+      label: 'Boîte de 170g (120g égoutté)',
       regularPriceMetro: 2.49,
       exactPriceMetro: 1.69, // Prix Membre Moi
-      unitPricePer100g: 0.99,
-      unitPriceLabel: '0.99 $ / 100g',
+      unitPricePer100g: 1.41,
+      unitPriceLabel: '1.41 $ / 100g égoutté',
       priceMaxi: 1.89,
       priceSuperC: 1.79,
       priceIGA: 2.69,
