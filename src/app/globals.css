@@ -8,6 +8,11 @@
   --font-serif: var(--font-serif);
 }
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
 /* Glassmorphism & Liquid Glass Surfaces */
 .liquid-glass {
   background: rgba(255, 255, 255, 0.035);

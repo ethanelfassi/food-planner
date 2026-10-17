@@ -16,7 +16,11 @@ import {
   Plus,
   Pencil,
   X,
-  ChefHat
+  ChefHat,
+  Flame,
+  Dumbbell,
+  Wheat,
+  Droplet
 } from 'lucide-react';
 import { UserCustomizationSettings, UserAccount, DEFAULT_ACCOUNTS } from '@/types';
 
@@ -105,27 +109,27 @@ export const Header: React.FC<HeaderProps> = ({
           : 'bg-white/80 border-stone-200/90 text-stone-900 shadow-xs'
       } backdrop-blur-2xl`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18">
+      <div className="max-w-[1536px] w-full mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-18 gap-2 sm:gap-4 min-w-0">
           {/* Logo & Titre - Typo Éditoriale Nordic */}
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-center gap-3 shrink-0">
             <div
-              className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${
+              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center shrink-0 transition-all ${
                 isDark
                   ? 'bg-gradient-to-b from-white/10 to-white/[0.02] border border-white/15 shadow-inner'
                   : 'bg-stone-950 text-white shadow-xs'
               }`}
             >
-              <span className="font-serif italic font-semibold text-lg">fp</span>
+              <span className="font-serif italic font-semibold text-base sm:text-lg">fp</span>
             </div>
 
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-serif tracking-tight text-xl font-normal text-stone-950 dark:text-stone-100">
+                <span className="font-serif tracking-tight text-lg sm:text-xl font-normal text-stone-950 dark:text-stone-100 whitespace-nowrap">
                   FoodPlanner <span className="italic font-light text-stone-400">QC</span>
                 </span>
                 <span
-                  className={`text-[10px] uppercase font-mono tracking-widest px-2.5 py-0.5 rounded-full border ${
+                  className={`hidden sm:inline-block text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded-full border whitespace-nowrap ${
                     isDark
                       ? 'bg-white/5 text-stone-300 border-white/10'
                       : 'bg-stone-100 text-stone-800 border-stone-200 font-medium'
@@ -135,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
                 {coupleModeEnabled && (
                   <span
-                    className={`text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                    className={`hidden md:inline-flex text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded-full border items-center gap-1 whitespace-nowrap ${
                       isDark
                         ? 'bg-white/5 text-stone-300 border-white/10'
                         : 'bg-stone-100 text-stone-800 border-stone-200 font-medium'
@@ -146,7 +150,7 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
               </div>
               <p
-                className={`text-[11px] tracking-wide hidden sm:block ${
+                className={`text-[11px] tracking-wide hidden 2xl:block truncate max-w-xs ${
                   isDark ? 'text-stone-400' : 'text-stone-500'
                 }`}
               >
@@ -155,70 +159,70 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Anneau / Pill Macros Style Apple Fitness Monochrome */}
+          {/* Anneau / Pill Macros Style Apple Fitness Monochrome - STRICTEMENT 1 SEULE LIGNE */}
           <button
             onClick={() => setActiveTab('preferences')}
-            className={`hidden xl:flex items-center gap-3 px-3.5 py-1.5 rounded-full border transition-all hover:scale-[1.02] cursor-pointer ${
+            className={`hidden xl:inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border transition-all hover:scale-[1.02] cursor-pointer whitespace-nowrap shrink-0 flex-nowrap ${
               isDark
                 ? 'bg-white/[0.03] hover:bg-white/[0.06] border-white/10 text-stone-200'
                 : 'bg-stone-100/80 hover:bg-stone-200/80 border-stone-200/90 text-stone-800 shadow-xs'
             }`}
             title="Cliquez pour ajuster vos cibles caloriques et macro-nutritionnelles"
           >
-            <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums">
-              <span className="w-1.5 h-1.5 rounded-full bg-stone-900 dark:bg-stone-300" />
-              <span className={isDark ? 'text-stone-400' : 'text-stone-500'}>Cible :</span>
-              <span className="font-semibold text-stone-900 dark:text-stone-100">
-                {userSettings?.targetCalories ?? 3050} kcal
+            <div className="flex items-center gap-1 text-xs font-mono tabular-nums whitespace-nowrap">
+              <Flame className="w-3.5 h-3.5 text-stone-600 dark:text-stone-300 shrink-0" />
+              <span className="font-bold text-stone-900 dark:text-stone-100">
+                {userSettings?.targetCalories ?? 3050}
               </span>
+              <span className={isDark ? 'text-stone-400 text-[11px]' : 'text-stone-500 text-[11px]'}>kcal</span>
             </div>
-            <div className={`h-3 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-200'}`} />
-            <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums">
-              <span className="w-1.5 h-1.5 rounded-full bg-stone-600 dark:bg-stone-400" />
-              <span className={isDark ? 'text-stone-400' : 'text-stone-500'}>Protéines :</span>
-              <span className="font-semibold text-stone-900 dark:text-stone-100">
-                {userSettings?.targetProtein ?? 165} g
+            <div className={`h-3 w-[1px] shrink-0 ${isDark ? 'bg-white/10' : 'bg-stone-300'}`} />
+            <div className="flex items-center gap-1 text-xs font-mono tabular-nums whitespace-nowrap">
+              <Dumbbell className="w-3.5 h-3.5 text-stone-600 dark:text-stone-400 shrink-0" />
+              <span className="font-bold text-stone-900 dark:text-stone-100">
+                {userSettings?.targetProtein ?? 165}g
               </span>
+              <span className={isDark ? 'text-stone-400 text-[11px]' : 'text-stone-500 text-[11px]'}>P</span>
             </div>
-            <div className={`h-3 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-200'}`} />
-            <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums">
-              <span className="w-1.5 h-1.5 rounded-full bg-stone-500 dark:bg-stone-400" />
-              <span className={isDark ? 'text-stone-400' : 'text-stone-500'}>Glucides :</span>
-              <span className="font-semibold text-stone-900 dark:text-stone-100">
-                {userSettings?.targetCarbs ?? 390} g
+            <div className={`h-3 w-[1px] shrink-0 ${isDark ? 'bg-white/10' : 'bg-stone-300'}`} />
+            <div className="flex items-center gap-1 text-xs font-mono tabular-nums whitespace-nowrap">
+              <Wheat className="w-3.5 h-3.5 text-stone-500 dark:text-stone-400 shrink-0" />
+              <span className="font-bold text-stone-900 dark:text-stone-100">
+                {userSettings?.targetCarbs ?? 390}g
               </span>
+              <span className={isDark ? 'text-stone-400 text-[11px]' : 'text-stone-500 text-[11px]'}>G</span>
             </div>
-            <div className={`h-3 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-200'}`} />
-            <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums">
-              <span className="w-1.5 h-1.5 rounded-full bg-stone-400 dark:bg-stone-500" />
-              <span className={isDark ? 'text-stone-400' : 'text-stone-500'}>Lipides :</span>
-              <span className="font-semibold text-stone-900 dark:text-stone-100">
-                {userSettings?.targetFat ?? 90} g
+            <div className={`h-3 w-[1px] shrink-0 ${isDark ? 'bg-white/10' : 'bg-stone-300'}`} />
+            <div className="flex items-center gap-1 text-xs font-mono tabular-nums whitespace-nowrap">
+              <Droplet className="w-3.5 h-3.5 text-stone-400 dark:text-stone-500 shrink-0" />
+              <span className="font-bold text-stone-900 dark:text-stone-100">
+                {userSettings?.targetFat ?? 90}g
               </span>
+              <span className={isDark ? 'text-stone-400 text-[11px]' : 'text-stone-500 text-[11px]'}>L</span>
             </div>
           </button>
 
           {/* Sélecteur de Compte + Navigation + Theme Toggle */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* Account Switcher Dropdown */}
-            <div className="relative" ref={menuRef}>
+            <div className="relative shrink-0" ref={menuRef}>
               <button
                 onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-2xl border transition-all active:scale-95 ${
+                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-2xl border transition-all active:scale-95 shrink-0 ${
                   isDark
                     ? 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-white'
                     : 'bg-white hover:bg-stone-50 border-stone-200 text-stone-900 shadow-xs'
                 }`}
                 title="Changer de compte ou gérer les profils"
               >
-                <div className="w-5 h-5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 flex items-center justify-center font-mono text-[10px] font-bold">
+                <div className="w-5 h-5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 flex items-center justify-center font-mono text-[10px] font-bold shrink-0">
                   {activeAccount.avatarInitials}
                 </div>
-                <span className="text-xs font-medium max-w-[80px] sm:max-w-[120px] truncate">
+                <span className="text-xs font-medium max-w-[70px] sm:max-w-[110px] truncate">
                   {activeAccount.name}
                 </span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-stone-400 transition-transform ${
+                  className={`w-3.5 h-3.5 text-stone-400 transition-transform shrink-0 ${
                     isAccountMenuOpen ? 'rotate-180' : ''
                   }`}
                 />
@@ -264,7 +268,7 @@ export const Header: React.FC<HeaderProps> = ({
                         >
                           <div className="flex items-center gap-2.5">
                             <div
-                              className={`w-6 h-6 rounded-full flex items-center justify-center font-mono text-[10px] font-bold ${
+                              className={`w-6 h-6 rounded-full flex items-center justify-center font-mono text-[10px] font-bold shrink-0 ${
                                 isActive
                                   ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950'
                                   : 'bg-stone-200 text-stone-700 dark:bg-white/10 dark:text-stone-300'
@@ -274,7 +278,7 @@ export const Header: React.FC<HeaderProps> = ({
                             </div>
                             <span>{acc.name}</span>
                           </div>
-                          {isActive && <Check className="w-3.5 h-3.5 text-stone-900 dark:text-white" />}
+                          {isActive && <Check className="w-3.5 h-3.5 text-stone-900 dark:text-white shrink-0" />}
                         </button>
                       );
                     })}
@@ -285,14 +289,14 @@ export const Header: React.FC<HeaderProps> = ({
                       onClick={handleOpenRename}
                       className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors"
                     >
-                      <Pencil className="w-3 h-3" />
+                      <Pencil className="w-3 h-3 shrink-0" />
                       <span>Renommer « {activeAccount.name} »</span>
                     </button>
                     <button
                       onClick={handleOpenCreate}
                       className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors"
                     >
-                      <Plus className="w-3 h-3" />
+                      <Plus className="w-3 h-3 shrink-0" />
                       <span>Ajouter un profil</span>
                     </button>
                   </div>
@@ -302,7 +306,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Nav Pill Liquid Glass */}
             <nav
-              className={`flex items-center p-1 rounded-2xl border transition-all ${
+              className={`flex items-center p-1 rounded-2xl border transition-all shrink-0 ${
                 isDark
                   ? 'bg-white/[0.04] border-white/10'
                   : 'bg-stone-200/60 border-stone-300/60'
@@ -310,7 +314,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <button
                 onClick={() => setActiveTab('planner')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${
                   activeTab === 'planner'
                     ? isDark
                       ? 'bg-white text-stone-950 font-semibold shadow-md'
@@ -319,14 +323,15 @@ export const Header: React.FC<HeaderProps> = ({
                     ? 'text-stone-400 hover:text-white'
                     : 'text-stone-700 hover:text-stone-950 font-medium'
                 }`}
+                title="Planning de la semaine"
               >
-                <Calendar className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Semaine</span>
+                <Calendar className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden md:inline">Semaine</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('recipes')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${
                   activeTab === 'recipes'
                     ? isDark
                       ? 'bg-white text-stone-950 font-semibold shadow-md'
@@ -335,14 +340,15 @@ export const Header: React.FC<HeaderProps> = ({
                     ? 'text-stone-400 hover:text-white'
                     : 'text-stone-700 hover:text-stone-950 font-medium'
                 }`}
+                title="Livre de recettes"
               >
-                <ChefHat className="w-3.5 h-3.5" />
-                <span>Recettes</span>
+                <ChefHat className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">Recettes</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('grocery')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${
                   activeTab === 'grocery'
                     ? isDark
                       ? 'bg-white text-stone-950 font-semibold shadow-md'
@@ -351,12 +357,13 @@ export const Header: React.FC<HeaderProps> = ({
                     ? 'text-stone-400 hover:text-white'
                     : 'text-stone-700 hover:text-stone-950 font-medium'
                 }`}
+                title="Liste d'épicerie"
               >
-                <ShoppingBag className="w-3.5 h-3.5" />
+                <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
                 <span>Épicerie</span>
                 {groceryCount > 0 && (
                   <span
-                    className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold ${
+                    className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold shrink-0 ${
                       activeTab === 'grocery'
                         ? isDark
                           ? 'bg-stone-950 text-white'
@@ -373,7 +380,7 @@ export const Header: React.FC<HeaderProps> = ({
 
               <button
                 onClick={() => setActiveTab('tracker')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${
                   activeTab === 'tracker'
                     ? isDark
                       ? 'bg-white text-stone-950 font-semibold shadow-md'
@@ -382,14 +389,15 @@ export const Header: React.FC<HeaderProps> = ({
                     ? 'text-stone-400 hover:text-white'
                     : 'text-stone-700 hover:text-stone-950 font-medium'
                 }`}
+                title="Suivi des calories et macros"
               >
-                <Activity className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Tracker</span>
+                <Activity className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden lg:inline">Tracker</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('prices')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${
                   activeTab === 'prices'
                     ? isDark
                       ? 'bg-white text-stone-950 font-semibold shadow-md'
@@ -398,14 +406,15 @@ export const Header: React.FC<HeaderProps> = ({
                     ? 'text-stone-400 hover:text-white'
                     : 'text-stone-700 hover:text-stone-950 font-medium'
                 }`}
+                title="Circulaires et rabais épicerie"
               >
-                <Store className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Circulaires</span>
+                <Store className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden xl:inline">Circulaires</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('preferences')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${
                   activeTab === 'preferences'
                     ? isDark
                       ? 'bg-white text-stone-950 font-semibold shadow-md'
@@ -414,9 +423,10 @@ export const Header: React.FC<HeaderProps> = ({
                     ? 'text-stone-400 hover:text-white'
                     : 'text-stone-700 hover:text-stone-950 font-medium'
                 }`}
+                title="Préférences et objectifs nutritionnels"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Préférences</span>
+                <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden lg:inline">Préférences</span>
               </button>
             </nav>
 
@@ -424,14 +434,14 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onToggleTheme}
               aria-label="Basculer le thème Jour/Nuit"
-              className={`p-2.5 rounded-2xl border transition-all ${
+              className={`p-2 sm:p-2.5 rounded-2xl border transition-all shrink-0 ${
                 isDark
                   ? 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-stone-200'
                   : 'bg-white hover:bg-stone-50 border-stone-200 text-stone-800 shadow-xs'
               }`}
               title={isDark ? 'Activer le mode Jour (Scandinavian Minimal)' : 'Activer le mode Nuit (Obsidian Glass)'}
             >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {isDark ? <Sun className="w-4 h-4 shrink-0" /> : <Moon className="w-4 h-4 shrink-0" />}
             </button>
           </div>
         </div>

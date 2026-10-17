@@ -590,7 +590,7 @@ export default function Home() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 ${
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 w-full overflow-x-hidden ${
         isDark ? 'bg-[#0B0C0E] text-stone-100' : 'bg-[#F7F7F6] text-stone-900'
       }`}
     >
@@ -609,7 +609,7 @@ export default function Home() {
         onToggleTheme={toggleTheme}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className="flex-1 max-w-[1536px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8">
         {activeTab === 'planner' && (
           <WeeklyPlannerView
             plan={activePlan}
