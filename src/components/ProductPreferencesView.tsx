@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { INGREDIENTS } from '@/data/ingredients';
 import { AISLE_LABELS } from '@/lib/grocery';
 import { 
+  Ingredient,
   MetroAisle, 
   ProductPreferenceStatus, 
   ProductPreferencesMap, 
@@ -33,7 +34,9 @@ import {
   Droplet,
   Users,
   Target,
-  X
+  X,
+  ScanBarcode,
+  Trash2
 } from 'lucide-react';
 
 interface ProductPreferencesViewProps {
@@ -43,6 +46,9 @@ interface ProductPreferencesViewProps {
   accounts?: UserAccount[];
   activeAccountId?: string;
   isDark: boolean;
+  customProducts?: Ingredient[];
+  onOpenBarcodeModal?: () => void;
+  onDeleteCustomProduct?: (id: string) => void;
   onUpdatePreference: (ingredientId: string, status: ProductPreferenceStatus) => void;
   onUpdateCustomPrice?: (ingredientId: string, price: number | null) => void;
   onUpdateSettings?: (settings: Partial<UserCustomizationSettings>) => void;
@@ -58,6 +64,9 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
   accounts = DEFAULT_ACCOUNTS,
   activeAccountId = 'ethan',
   isDark,
+  customProducts = [],
+  onOpenBarcodeModal,
+  onDeleteCustomProduct,
   onUpdatePreference,
   onUpdateCustomPrice,
   onUpdateSettings,
@@ -90,16 +99,24 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
   } | null>(null);
   const [customPriceInput, setCustomPriceInput] = useState<string>('');
 
-  const allIngredients = Object.values(INGREDIENTS);
+  // Catalogue fusionné (produits statiques + produits ajoutés par code-barres)
+  const catalog = useMemo<Record<string, Ingredient>>(() => {
+    const customMap: Record<string, Ingredient> = Object.fromEntries(
+      (customProducts || []).map((p: Ingredient) => [p.id, p])
+    );
+    return { ...INGREDIENTS, ...customMap };
+  }, [customProducts]);
+
+  const allIngredients = useMemo<Ingredient[]>(() => Object.values(catalog), [catalog]);
 
   // Compteurs
-  const likedCount = allIngredients.filter((i) => preferences[i.id] === 'liked').length;
-  const dislikedCount = allIngredients.filter((i) => preferences[i.id] === 'disliked').length;
+  const likedCount = allIngredients.filter((i: Ingredient) => preferences[i.id] === 'liked').length;
+  const dislikedCount = allIngredients.filter((i: Ingredient) => preferences[i.id] === 'disliked').length;
   const neutralCount = allIngredients.length - likedCount - dislikedCount;
   const customPricesCount = Object.keys(customPrices).length;
 
   // Filtrage du catalogue
-  const filteredIngredients = allIngredients.filter((item) => {
+  const filteredIngredients = allIngredients.filter((item: Ingredient) => {
     const matchesSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.packaging.label.toLowerCase().includes(searchQuery.toLowerCase());
@@ -911,17 +928,35 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
               isDark ? 'bg-white/[0.02] border-white/10' : 'bg-white border-stone-200 shadow-xs'
             }`}
           >
-            <div className="relative">
-              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Rechercher un produit... (ex: champignons, crème, dinde, bœuf, gruau)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full pl-10 pr-4 py-2.5 rounded-2xl text-xs border focus:outline-none focus:ring-1 focus:ring-stone-500 ${
-                  isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
-                }`}
-              />
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Rechercher un produit... (ex: champignons, crème, dinde, bœuf, gruau)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={`w-full pl-10 pr-4 py-2.5 rounded-2xl text-xs border focus:outline-none focus:ring-1 focus:ring-stone-500 ${
+                    isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
+                  }`}
+                />
+              </div>
+
+              {onOpenBarcodeModal && (
+                <button
+                  type="button"
+                  onClick={onOpenBarcodeModal}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-mono uppercase tracking-wider font-semibold transition-all border shrink-0 active:scale-95 shadow-sm ${
+                    isDark
+                      ? 'bg-white/10 hover:bg-white/15 border-white/15 text-white'
+                      : 'bg-white hover:bg-stone-50 border-stone-300 text-stone-900 shadow-xs'
+                  }`}
+                  title="Scanner ou entrer un code-barres pour ajouter un produit à la base"
+                >
+                  <ScanBarcode className="w-4 h-4 text-emerald-500" />
+                  <span className="hidden sm:inline">+ Code-barres</span>
+                </button>
+              )}
             </div>
 
             {/* Filtres par Rayons */}
@@ -966,7 +1001,7 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {filteredIngredients.map((item) => {
+              {filteredIngredients.map((item: Ingredient) => {
                 const currentStatus = preferences[item.id] || 'neutral';
                 const isLiked = currentStatus === 'liked';
                 const isDisliked = currentStatus === 'disliked';
@@ -1021,8 +1056,13 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400">
-                              {AISLE_LABELS[item.aisle]?.title || item.aisle}
+                              {AISLE_LABELS[item.aisle as MetroAisle]?.title || item.aisle}
                             </span>
+                            {item.barcode && (
+                              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
+                                Code-barres : {item.barcode}
+                              </span>
+                            )}
                             {item.packaging.isMoiMemberPrice && !hasCustomPrice && (
                               <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20 font-semibold">
                                 Moi
@@ -1149,6 +1189,16 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
                           </a>
+                        )}
+
+                        {item.isCustom && onDeleteCustomProduct && (
+                          <button
+                            onClick={() => onDeleteCustomProduct(item.id)}
+                            className="p-1.5 text-stone-400 hover:text-red-500 transition-colors"
+                            title="Supprimer ce produit personnalisé de la base de données"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         )}
                       </div>
                     </div>

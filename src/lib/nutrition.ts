@@ -1,4 +1,4 @@
-import { RecipeIngredientItem } from '@/types';
+import { RecipeIngredientItem, Ingredient } from '@/types';
 import { INGREDIENTS } from '@/data/ingredients';
 
 export interface RecipeNutrientCalculation {
@@ -17,7 +17,8 @@ export interface RecipeNutrientCalculation {
 // Calcul automatique et temps réel des valeurs nutritionnelles et du coût d'une recette
 export function calculateRecipeNutrients(
   ingredients: RecipeIngredientItem[],
-  servings: number = 1
+  servings: number = 1,
+  customCatalog?: Record<string, Ingredient>
 ): RecipeNutrientCalculation {
   const safeServings = Math.max(1, servings || 1);
   let totalCals = 0;
@@ -27,7 +28,7 @@ export function calculateRecipeNutrients(
   let totalCost = 0;
 
   for (const item of ingredients) {
-    const ing = INGREDIENTS[item.ingredientId];
+    const ing = (customCatalog && customCatalog[item.ingredientId]) || INGREDIENTS[item.ingredientId];
     if (!ing) continue;
 
     // Calcul du poids en grammes

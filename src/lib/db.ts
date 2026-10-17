@@ -10,7 +10,8 @@ import {
   UserAccount, 
   DEFAULT_ACCOUNTS,
   Recipe,
-  RecipeIngredientItem
+  RecipeIngredientItem,
+  Ingredient
 } from '@/types';
 import { INGREDIENTS } from '@/data/ingredients';
 import { calculateRecipeNutrients } from './nutrition';
@@ -101,6 +102,27 @@ export function getDatabase(): DatabaseSync {
         updated_at TEXT NOT NULL
       );
     `);
+
+    // Migration custom_products pour supporter code-barres, photos, macros et poids
+    const customProductCols = [
+      "ALTER TABLE custom_products ADD COLUMN barcode TEXT",
+      "ALTER TABLE custom_products ADD COLUMN image_url TEXT",
+      "ALTER TABLE custom_products ADD COLUMN calories_per_100g REAL DEFAULT 0",
+      "ALTER TABLE custom_products ADD COLUMN protein_per_100g REAL DEFAULT 0",
+      "ALTER TABLE custom_products ADD COLUMN carbs_per_100g REAL DEFAULT 0",
+      "ALTER TABLE custom_products ADD COLUMN fat_per_100g REAL DEFAULT 0",
+      "ALTER TABLE custom_products ADD COLUMN amount REAL DEFAULT 100",
+      "ALTER TABLE custom_products ADD COLUMN unit TEXT DEFAULT 'g'",
+      "ALTER TABLE custom_products ADD COLUMN metro_url TEXT",
+      "ALTER TABLE custom_products ADD COLUMN created_by TEXT DEFAULT 'ethan'",
+    ];
+    for (const colSql of customProductCols) {
+      try {
+        dbInstance.exec(colSql);
+      } catch {
+        // Ignorer si la colonne existe déjà
+      }
+    }
 
     // Migration & Initialisation automatique des comptes Ethan et Laurine
     try {
@@ -697,4 +719,140 @@ export function deleteCustomRecipe(id: string): boolean {
   const res = stmt.run(id);
   return (res as unknown as { changes: number }).changes > 0;
 }
+
+// --- GESTION DES PRODUITS PERSONNALISÉS (CODES-BARRES ET CRÉATIONS) ---
+
+export function getCustomProducts(): Ingredient[] {
+  const db = getDatabase();
+  const rows = db.prepare('SELECT * FROM custom_products ORDER BY created_at DESC').all() as any[];
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    aisle: r.aisle || 'EPICERIE',
+    baseUnit: r.unit === 'ml' ? 'ml' : 'g',
+    packaging: {
+      amount: Number(r.amount) || 100,
+      unit: r.unit || 'g',
+      label: r.package_description || `${r.amount || 100} ${r.unit || 'g'}`,
+      regularPriceMetro: Number(r.price) || 3.99,
+      exactPriceMetro: Number(r.price) || 3.99,
+      unitPricePer100g: r.amount ? Math.round((Number(r.price) / (Number(r.amount) / 100)) * 100) / 100 : 0,
+      unitPriceLabel: `${r.price || 3.99} $ / emballage`,
+      priceMaxi: Number(r.price) || 3.99,
+      priceSuperC: Number(r.price) || 3.99,
+      priceIGA: Number(r.price) || 3.99,
+      isTaxable: Boolean(r.is_taxable),
+      isMoiMemberPrice: false,
+    },
+    imageUrl: r.image_url || undefined,
+    metroProductUrl: r.metro_url || `https://www.metro.ca/recherche?free-text=${encodeURIComponent(r.name)}`,
+    barcode: r.barcode || undefined,
+    isCustom: true,
+    macrosPer100g: {
+      calories: Math.round(Number(r.calories_per_100g) || 0),
+      protein: Math.round((Number(r.protein_per_100g) || 0) * 10) / 10,
+      carbs: Math.round((Number(r.carbs_per_100g) || 0) * 10) / 10,
+      fat: Math.round((Number(r.fat_per_100g) || 0) * 10) / 10,
+    },
+  }));
+}
+
+export function saveCustomProduct(product: Partial<Ingredient>): Ingredient {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  const id = product.id || (product.barcode ? `barcode_${product.barcode}` : `custom_prod_${Date.now()}`);
+  const name = (product.name || 'Produit personnalisé').trim();
+  const aisle = product.aisle || 'EPICERIE';
+  const pkg = product.packaging || {
+    amount: 100,
+    unit: 'g',
+    label: '100g',
+    regularPriceMetro: 3.99,
+    exactPriceMetro: 3.99,
+    unitPricePer100g: 3.99,
+    unitPriceLabel: '3.99 $ / 100g',
+    priceMaxi: 3.79,
+    priceSuperC: 3.69,
+    priceIGA: 4.19,
+    isTaxable: false,
+    isMoiMemberPrice: false,
+  };
+  const price = pkg.exactPriceMetro ?? pkg.regularPriceMetro ?? 3.99;
+  const barcode = product.barcode || null;
+  const imageUrl = product.imageUrl || null;
+  const metroUrl = product.metroProductUrl || null;
+  const calories = product.macrosPer100g?.calories ?? 0;
+  const protein = product.macrosPer100g?.protein ?? 0;
+  const carbs = product.macrosPer100g?.carbs ?? 0;
+  const fat = product.macrosPer100g?.fat ?? 0;
+  const isTaxable = pkg.isTaxable ? 1 : 0;
+
+  const stmt = db.prepare(`
+    INSERT INTO custom_products (
+      id, name, aisle, package_description, price, is_taxable, created_at,
+      barcode, image_url, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g,
+      amount, unit, metro_url
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      aisle = excluded.aisle,
+      package_description = excluded.package_description,
+      price = excluded.price,
+      is_taxable = excluded.is_taxable,
+      barcode = excluded.barcode,
+      image_url = excluded.image_url,
+      calories_per_100g = excluded.calories_per_100g,
+      protein_per_100g = excluded.protein_per_100g,
+      carbs_per_100g = excluded.carbs_per_100g,
+      fat_per_100g = excluded.fat_per_100g,
+      amount = excluded.amount,
+      unit = excluded.unit,
+      metro_url = excluded.metro_url
+  `);
+
+  stmt.run(
+    id,
+    name,
+    aisle,
+    pkg.label || `${pkg.amount} ${pkg.unit}`,
+    price,
+    isTaxable,
+    now,
+    barcode,
+    imageUrl,
+    calories,
+    protein,
+    carbs,
+    fat,
+    pkg.amount,
+    pkg.unit,
+    metroUrl
+  );
+
+  return {
+    id,
+    name,
+    aisle: aisle as any,
+    baseUnit: pkg.unit === 'ml' ? 'ml' : 'g',
+    packaging: pkg,
+    imageUrl: imageUrl || undefined,
+    metroProductUrl: metroUrl || undefined,
+    barcode: barcode || undefined,
+    isCustom: true,
+    macrosPer100g: {
+      calories,
+      protein,
+      carbs,
+      fat,
+    },
+  };
+}
+
+export function deleteCustomProduct(id: string): boolean {
+  const db = getDatabase();
+  const stmt = db.prepare('DELETE FROM custom_products WHERE id = ?');
+  const res = stmt.run(id);
+  return (res as unknown as { changes: number }).changes > 0;
+}
+
 

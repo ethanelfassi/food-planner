@@ -26,7 +26,8 @@ import {
   X,
   Wheat,
   Droplet,
-  Tag
+  Tag,
+  ScanBarcode
 } from 'lucide-react';
 
 interface RecipeBookViewProps {
@@ -36,6 +37,7 @@ interface RecipeBookViewProps {
   isDark: boolean;
   onSelectRecipe: (recipe: Recipe) => void;
   onOpenRecipeCreator: () => void;
+  onOpenBarcodeModal?: () => void;
   onEditRecipe: (recipe: Recipe) => void;
   onDeleteRecipe: (recipeId: string) => void;
   onPlanRecipeToDay: (dayIndex: number, mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack', recipeId: string) => void;
@@ -58,6 +60,7 @@ export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
   isDark,
   onSelectRecipe,
   onOpenRecipeCreator,
+  onOpenBarcodeModal,
   onEditRecipe,
   onDeleteRecipe,
   onPlanRecipeToDay,
@@ -198,8 +201,23 @@ export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
             </p>
           </div>
 
-          {/* Bouton Créer un Repas */}
-          <div className="flex items-center gap-3 self-start lg:self-auto">
+          {/* Boutons d'Action : Créer Repas & Ajouter Code-barres */}
+          <div className="flex items-center gap-2.5 self-start lg:self-auto flex-wrap">
+            {onOpenBarcodeModal && (
+              <button
+                onClick={onOpenBarcodeModal}
+                className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-mono uppercase tracking-wider transition-all border font-semibold active:scale-95 shadow-md ${
+                  isDark
+                    ? 'bg-white/10 text-white hover:bg-white/15 border-white/15'
+                    : 'bg-white text-stone-900 hover:bg-stone-50 border-stone-300 shadow-xs'
+                }`}
+                title="Scanner ou entrer un code-barres pour ajouter un produit à la base"
+              >
+                <ScanBarcode className="w-4 h-4 text-emerald-500" />
+                <span>+ Code-barres</span>
+              </button>
+            )}
+
             <button
               onClick={onOpenRecipeCreator}
               className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-mono uppercase tracking-wider transition-all border font-semibold active:scale-95 shadow-lg ${

@@ -27,6 +27,7 @@ interface RecipeCreatorModalProps {
   onDeleteRecipe?: (recipeId: string) => void;
   isDark: boolean;
   activeAccountId?: string;
+  customProducts?: import('@/types').Ingredient[];
 }
 
 const COMMON_UNITS = [
@@ -46,6 +47,7 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
   onDeleteRecipe,
   isDark,
   activeAccountId = 'ethan',
+  customProducts = [],
 }) => {
   const [title, setTitle] = useState('');
   const [mealType, setMealType] = useState<MealType>('souper');
@@ -90,10 +92,16 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
     setErrorMessage(null);
   }, [recipeToEdit, isOpen]);
 
+  // Catalogue fusionné (produits statiques + produits ajoutés par code-barres)
+  const catalog = useMemo(() => {
+    const customMap = Object.fromEntries(customProducts.map((p) => [p.id, p]));
+    return { ...INGREDIENTS, ...customMap };
+  }, [customProducts]);
+
   // Liste triée des produits pour la recherche
   const catalogList = useMemo(() => {
-    return Object.values(INGREDIENTS).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
-  }, []);
+    return Object.values(catalog).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  }, [catalog]);
 
   const filteredCatalog = useMemo(() => {
     if (!ingredientSearch.trim()) return catalogList.slice(0, 15);
@@ -105,14 +113,14 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
 
   // Calcul temps réel des macronutriments et du coût
   const liveNutrients = useMemo(() => {
-    return calculateRecipeNutrients(ingredients, servings);
-  }, [ingredients, servings]);
+    return calculateRecipeNutrients(ingredients, servings, catalog);
+  }, [ingredients, servings, catalog]);
 
   if (!isOpen) return null;
 
   const handleSelectCatalogItem = (ingId: string) => {
     setSelectedIngredientId(ingId);
-    const ing = INGREDIENTS[ingId];
+    const ing = catalog[ingId];
     if (ing) {
       setIngredientUnit(ing.baseUnit || 'g');
       if (ing.baseUnit === 'unite') {
@@ -484,6 +492,11 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
                     >
                       <div className="flex items-center gap-2 truncate">
                         <span className="truncate">{ing.name}</span>
+                        {ing.barcode && (
+                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0 font-semibold">
+                            Code-barres
+                          </span>
+                        )}
                         <span className="text-[10px] font-mono text-stone-400 shrink-0">
                           ({ing.packaging.exactPriceMetro.toFixed(2)}$ / {ing.packaging.label})
                         </span>
@@ -561,7 +574,7 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
             {ingredients.length > 0 ? (
               <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                 {ingredients.map((item, index) => {
-                  const ing = INGREDIENTS[item.ingredientId];
+                  const ing = catalog[item.ingredientId];
                   return (
                     <div
                       key={index}

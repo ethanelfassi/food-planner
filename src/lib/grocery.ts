@@ -1,4 +1,4 @@
-import { GroceryItem, MetroAisle, ReceiptTaxCalculation, WeeklyPlan } from '@/types';
+import { GroceryItem, MetroAisle, ReceiptTaxCalculation, WeeklyPlan, Ingredient } from '@/types';
 import { INGREDIENTS } from '@/data/ingredients';
 
 export const AISLE_LABELS: Record<MetroAisle, { title: string; order: number; icon: string }> = {
@@ -16,8 +16,12 @@ export function generateGroceryList(
   coupleModeEnabled = false,
   customPrices: Record<string, number> = {},
   user1Calories = 3050,
-  partnerCalories = 1950
+  partnerCalories = 1950,
+  customCatalog?: Record<string, Ingredient> | Ingredient[]
 ): GroceryItem[] {
+  const customMap: Record<string, Ingredient> = Array.isArray(customCatalog)
+    ? Object.fromEntries(customCatalog.map((c) => [c.id, c]))
+    : customCatalog || {};
   const aggregated: Record<string, number> = {};
   const coupleFactor = coupleModeEnabled
     ? Math.max(1.2, Math.min(2.0, 1 + partnerCalories / (user1Calories || 3050)))
@@ -39,7 +43,7 @@ export function generateGroceryList(
   const groceryItems: GroceryItem[] = [];
 
   for (const [ingredientId, neededQuantity] of Object.entries(aggregated)) {
-    const ingredient = INGREDIENTS[ingredientId];
+    const ingredient = customMap[ingredientId] || INGREDIENTS[ingredientId];
     if (!ingredient) continue;
 
     const pack = ingredient.packaging;
@@ -167,8 +171,13 @@ export interface CommonAccountPlanInput {
 
 export function generateCommonGroceryList(
   accountPlans: CommonAccountPlanInput[],
-  customPrices: Record<string, number> = {}
+  customPrices: Record<string, number> = {},
+  customCatalog?: Record<string, Ingredient> | Ingredient[]
 ): GroceryItem[] {
+  const customMap: Record<string, Ingredient> = Array.isArray(customCatalog)
+    ? Object.fromEntries(customCatalog.map((c) => [c.id, c]))
+    : customCatalog || {};
+
   interface IngredientDemand {
     total: number;
     byAccount: Record<string, number>;
@@ -203,7 +212,7 @@ export function generateCommonGroceryList(
   const groceryItems: GroceryItem[] = [];
 
   for (const [ingredientId, demand] of Object.entries(demandMap)) {
-    const ingredient = INGREDIENTS[ingredientId];
+    const ingredient = customMap[ingredientId] || INGREDIENTS[ingredientId];
     if (!ingredient) continue;
 
     const pack = ingredient.packaging;

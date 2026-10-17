@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   CoupleSettings, 
   GroceryItem, 
+  Ingredient,
   MetroAisle, 
   ProductPreferenceStatus, 
   ProductPreferencesMap, 
@@ -35,12 +36,17 @@ import { CalorieTrackerView } from '@/components/CalorieTrackerView';
 import { ProductPreferencesView } from '@/components/ProductPreferencesView';
 import { RecipeModal } from '@/components/RecipeModal';
 import { RecipeCreatorModal } from '@/components/RecipeCreatorModal';
+import { BarcodeScannerModal } from '@/components/BarcodeScannerModal';
 import { RECIPES } from '@/data/recipes';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'planner' | 'recipes' | 'grocery' | 'prices' | 'tracker' | 'preferences'>('planner');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+
+  // Produits personnalisés scannés par code-barres (enregistrés dans SQLite)
+  const [customProducts, setCustomProducts] = useState<Ingredient[]>([]);
+  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
 
   // Multi-comptes
   const [accounts, setAccounts] = useState<UserAccount[]>(DEFAULT_ACCOUNTS);
@@ -94,9 +100,14 @@ export default function Home() {
       };
       let loadedPrices: CustomPricesMap = {};
       let loadedCustomRecipes: Recipe[] = [];
+      let loadedCustomProducts: Ingredient[] = [];
 
       try {
-        const res = await fetch('/api/preferences');
+        const [res, prodRes] = await Promise.all([
+          fetch('/api/preferences'),
+          fetch('/api/products')
+        ]);
+
         if (res.ok) {
           const data = await res.json();
           if (data.accounts && data.accounts.length > 0) {
@@ -118,8 +129,15 @@ export default function Home() {
             loadedCustomRecipes = data.customRecipes;
           }
         }
+
+        if (prodRes.ok) {
+          const prodData = await prodRes.json();
+          if (prodData.products) {
+            loadedCustomProducts = prodData.products;
+          }
+        }
       } catch (err) {
-        console.warn('Impossible de joindre /api/preferences, fallback local:', err);
+        console.warn('Impossible de charger les données SQLite, fallback local:', err);
       }
 
       setAccounts(loadedAccounts);
@@ -128,6 +146,7 @@ export default function Home() {
       setSettingsByAccount(loadedSettings);
       setCustomPrices(loadedPrices);
       setCustomRecipes(loadedCustomRecipes);
+      setCustomProducts(loadedCustomProducts);
 
       // Générer les plans de chaque compte selon leurs préférences et recettes personnalisées
       const initialPlans: Record<string, WeeklyPlan> = {};
@@ -412,6 +431,29 @@ export default function Home() {
     }));
   };
 
+  // --- GESTION DES PRODUITS PERSONNALISÉS (CODE-BARRES SQLITE) ---
+
+  const handleProductAddedFromBarcode = (product: Ingredient) => {
+    setCustomProducts((prev) => {
+      const exists = prev.some((p) => p.id === product.id);
+      if (exists) {
+        return prev.map((p) => (p.id === product.id ? product : p));
+      }
+      return [product, ...prev];
+    });
+  };
+
+  const handleDeleteCustomProduct = async (productId: string) => {
+    setCustomProducts((prev) => prev.filter((p) => p.id !== productId));
+    try {
+      await fetch(`/api/products?id=${encodeURIComponent(productId)}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.error('Erreur suppression produit personnalisé:', err);
+    }
+  };
+
   // --- GESTION DU PLANIFICATEUR ---
 
   const handleRegenerateAll = () => {
@@ -550,7 +592,7 @@ export default function Home() {
     plan: plansByAccount[acc.id] || activePlan,
   }));
 
-  const commonGroceryItems = generateCommonGroceryList(commonAccountPlans, customPrices);
+  const commonGroceryItems = generateCommonGroceryList(commonAccountPlans, customPrices, customProducts);
   const commonItemsWithCustom = [
     ...customManualItems.filter((i) => !i.forAccount || i.forAccount === 'common' || accounts.some(a => a.id === i.forAccount)),
     ...commonGroceryItems,
@@ -574,7 +616,8 @@ export default function Home() {
       false,
       customPrices,
       targetSettings.targetCalories,
-      targetSettings.partnerCalories
+      targetSettings.partnerCalories,
+      customProducts
     );
     const manualForTarget = customManualItems.filter(
       (i) => i.forAccount === targetAccId || i.forAccount === 'common'
@@ -638,6 +681,7 @@ export default function Home() {
               setRecipeToEdit(null);
               setIsRecipeCreatorOpen(true);
             }}
+            onOpenBarcodeModal={() => setIsBarcodeModalOpen(true)}
             onEditRecipe={handleEditRecipe}
             onDeleteRecipe={handleDeleteRecipe}
             onPlanRecipeToDay={handlePlanRecipeToDay}
@@ -675,6 +719,9 @@ export default function Home() {
             accounts={accounts}
             activeAccountId={activeAccountId}
             isDark={isDark}
+            customProducts={customProducts}
+            onOpenBarcodeModal={() => setIsBarcodeModalOpen(true)}
+            onDeleteCustomProduct={handleDeleteCustomProduct}
             onUpdatePreference={handleUpdatePreference}
             onUpdateCustomPrice={handleUpdateCustomPrice}
             onUpdateSettings={handleUpdateSettings}
@@ -720,6 +767,14 @@ export default function Home() {
         onDeleteRecipe={handleDeleteCustomRecipe}
         isDark={isDark}
         activeAccountId={activeAccountId}
+        customProducts={customProducts}
+      />
+
+      <BarcodeScannerModal
+        isOpen={isBarcodeModalOpen}
+        onClose={() => setIsBarcodeModalOpen(false)}
+        onProductAdded={handleProductAddedFromBarcode}
+        isDark={isDark}
       />
 
       <footer

@@ -31,6 +31,8 @@ export interface Ingredient {
   packaging: IngredientPackaging;
   imageUrl?: string;
   metroProductUrl?: string;
+  barcode?: string;
+  isCustom?: boolean;
   macrosPer100g: {
     calories: number;
     protein: number;
