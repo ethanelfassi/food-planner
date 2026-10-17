@@ -67,6 +67,11 @@ export const ProteinEfficiencyCalculator: React.FC<ProteinEfficiencyCalculatorPr
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState<'cost_protein_asc' | 'protein_per_dollar_desc' | 'protein_pct_desc' | 'price_asc'>('cost_protein_asc');
+  const [displayLimit, setDisplayLimit] = useState<number>(30);
+
+  React.useEffect(() => {
+    setDisplayLimit(30);
+  }, [searchQuery, categoryFilter, sortBy]);
 
   // Calcul du résultat du simulateur
   const simResult: ProteinEfficiencyResult = useMemo(() => {
@@ -632,158 +637,177 @@ export const ProteinEfficiencyCalculator: React.FC<ProteinEfficiencyCalculatorPr
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {filteredRankings.map((item, index) => {
-              const res = item.result;
-              const isTop3 = index < 3 && categoryFilter === 'ALL' && sortBy === 'cost_protein_asc';
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {filteredRankings.slice(0, displayLimit).map((item, index) => {
+                const res = item.result;
+                const isTop3 = index < 3 && categoryFilter === 'ALL' && sortBy === 'cost_protein_asc';
 
-              return (
-                <div
-                  key={item.id}
-                  className={`p-4.5 rounded-3xl border transition-all flex flex-col justify-between relative group ${
-                    isTop3
-                      ? isDark
-                        ? 'bg-white/[0.05] border-amber-500/30 ring-1 ring-amber-500/20'
-                        : 'bg-white border-amber-400/80 ring-1 ring-amber-400/30 shadow-md'
-                      : isDark
-                      ? 'bg-white/[0.02] border-white/5 hover:border-white/20'
-                      : 'bg-white border-stone-200/90 hover:border-stone-300 shadow-xs'
+                return (
+                  <div
+                    key={item.id}
+                    className={`p-4.5 rounded-3xl border transition-all flex flex-col justify-between relative group ${
+                      isTop3
+                        ? isDark
+                          ? 'bg-white/[0.05] border-amber-500/30 ring-1 ring-amber-500/20'
+                          : 'bg-white border-amber-400/80 ring-1 ring-amber-400/30 shadow-md'
+                        : isDark
+                        ? 'bg-white/[0.02] border-white/5 hover:border-white/20'
+                        : 'bg-white border-stone-200/90 hover:border-stone-300 shadow-xs'
+                    }`}
+                  >
+                    <div>
+                      {/* En-tête : Rang + Badge de Rentabilité */}
+                      <div className="flex items-center justify-between mb-2.5">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center font-mono text-xs font-bold ${
+                              index === 0
+                                ? 'bg-amber-400 text-stone-950'
+                                : index === 1
+                                ? 'bg-stone-300 text-stone-900'
+                                : index === 2
+                                ? 'bg-amber-700 text-white'
+                                : isDark
+                                ? 'bg-white/10 text-stone-400'
+                                : 'bg-stone-100 text-stone-600'
+                            }`}
+                          >
+                            #{index + 1}
+                          </span>
+
+                          {item.barcode && (
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
+                              Code-barres
+                            </span>
+                          )}
+
+                          {item.isCustomPrice && (
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
+                              Prix Custom
+                            </span>
+                          )}
+
+                          {item.isMoiPrice && (
+                            <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20 font-semibold">
+                              Moi
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Badge Verdict Tier */}
+                        <span
+                          className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border font-semibold ${res.tierColorClass.badge}`}
+                        >
+                          {res.tierLabel}
+                        </span>
+                      </div>
+
+                      {/* Contenu Produit */}
+                      <div className="flex items-start gap-3">
+                        {item.imageUrl && (
+                          <div
+                            className={`w-14 h-14 rounded-2xl overflow-hidden shrink-0 border relative ${
+                              isDark ? 'border-white/10 bg-black/40' : 'border-stone-200 bg-stone-100'
+                            }`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.imageUrl}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          </div>
+                        )}
+
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-serif text-sm font-medium text-stone-900 dark:text-white leading-snug line-clamp-2">
+                            {item.name}
+                          </h3>
+                          <div className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 font-sans">
+                            {item.packageLabel} • <span className="font-mono font-semibold text-stone-900 dark:text-white">{item.price.toFixed(2)} $</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bloc Rentabilité Protéique (Focal Point) */}
+                      <div className="mt-3.5 p-2.5 rounded-2xl bg-stone-100/70 dark:bg-white/[0.03] border border-stone-200/60 dark:border-white/10 flex items-center justify-between">
+                        <div>
+                          <div className="text-[9px] font-mono uppercase tracking-wider text-stone-400">
+                            Coût Protéine Pure
+                          </div>
+                          <div className="font-mono text-base font-bold text-stone-900 dark:text-white tabular-nums">
+                            {res.costPer100gProtein.toFixed(2)} ${' '}
+                            <span className="text-[10px] font-normal text-stone-400">/ 100g P</span>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-[9px] font-mono uppercase tracking-wider text-stone-400">
+                            Généré par Dollar
+                          </div>
+                          <div className="font-mono text-base font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                            {res.proteinPerDollar}g{' '}
+                            <span className="text-[10px] font-normal text-stone-400">/ 1$</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Teneur en protéines et total paquet */}
+                      <div className="grid grid-cols-2 gap-1.5 mt-2 font-mono text-[11px] text-stone-600 dark:text-stone-400">
+                        <div>
+                          Teneur : <span className="font-semibold text-stone-900 dark:text-white">{item.proteinPer100g}g</span> / 100g
+                        </div>
+                        <div className="text-right">
+                          Total : <span className="font-semibold text-stone-900 dark:text-white">{res.totalProteinGrams}g</span> prot
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions Rapides */}
+                    <div className="mt-4 pt-3 border-t border-stone-200/50 dark:border-white/10 flex items-center justify-between">
+                      <button
+                        onClick={() => handleLoadProductIntoSimulator(item)}
+                        className="text-xs font-mono font-medium text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white flex items-center gap-1 transition-colors"
+                        title="Tester et ajuster dans le simulateur en direct ci-dessus"
+                      >
+                        <Zap className="w-3 h-3" /> Charger dans le simulateur
+                      </button>
+
+                      {item.metroProductUrl && (
+                        <a
+                          href={item.metroProductUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 transition-colors p-1"
+                          title="Fiche produit Metro.ca"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Bouton Rendu Progressif */}
+            {displayLimit < filteredRankings.length && (
+              <div className="flex justify-center pt-4 pb-2">
+                <button
+                  onClick={() => setDisplayLimit((prev) => prev + 30)}
+                  className={`px-6 py-3 rounded-2xl text-xs font-mono uppercase tracking-wider font-semibold border transition-all active:scale-95 shadow-sm ${
+                    isDark
+                      ? 'bg-white/10 text-white hover:bg-white/15 border-white/20'
+                      : 'bg-white text-stone-900 hover:bg-stone-50 border-stone-300'
                   }`}
                 >
-                  <div>
-                    {/* En-tête : Rang + Badge de Rentabilité */}
-                    <div className="flex items-center justify-between mb-2.5">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`w-6 h-6 rounded-lg flex items-center justify-center font-mono text-xs font-bold ${
-                            index === 0
-                              ? 'bg-amber-400 text-stone-950'
-                              : index === 1
-                              ? 'bg-stone-300 text-stone-900'
-                              : index === 2
-                              ? 'bg-amber-700 text-white'
-                              : isDark
-                              ? 'bg-white/10 text-stone-400'
-                              : 'bg-stone-100 text-stone-600'
-                          }`}
-                        >
-                          #{index + 1}
-                        </span>
-
-                        {item.barcode && (
-                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
-                            Code-barres
-                          </span>
-                        )}
-
-                        {item.isCustomPrice && (
-                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
-                            Prix Custom
-                          </span>
-                        )}
-
-                        {item.isMoiPrice && (
-                          <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20 font-semibold">
-                            Moi
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Badge Verdict Tier */}
-                      <span
-                        className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border font-semibold ${res.tierColorClass.badge}`}
-                      >
-                        {res.tierLabel}
-                      </span>
-                    </div>
-
-                    {/* Contenu Produit */}
-                    <div className="flex items-start gap-3">
-                      {item.imageUrl && (
-                        <div
-                          className={`w-14 h-14 rounded-2xl overflow-hidden shrink-0 border relative ${
-                            isDark ? 'border-white/10 bg-black/40' : 'border-stone-200 bg-stone-100'
-                          }`}
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={item.imageUrl}
-                            alt={item.name}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        </div>
-                      )}
-
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-serif text-sm font-medium text-stone-900 dark:text-white leading-snug line-clamp-2">
-                          {item.name}
-                        </h3>
-                        <div className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 font-sans">
-                          {item.packageLabel} • <span className="font-mono font-semibold text-stone-900 dark:text-white">{item.price.toFixed(2)} $</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bloc Rentabilité Protéique (Focal Point) */}
-                    <div className="mt-3.5 p-2.5 rounded-2xl bg-stone-100/70 dark:bg-white/[0.03] border border-stone-200/60 dark:border-white/10 flex items-center justify-between">
-                      <div>
-                        <div className="text-[9px] font-mono uppercase tracking-wider text-stone-400">
-                          Coût Protéine Pure
-                        </div>
-                        <div className="font-mono text-base font-bold text-stone-900 dark:text-white tabular-nums">
-                          {res.costPer100gProtein.toFixed(2)} ${' '}
-                          <span className="text-[10px] font-normal text-stone-400">/ 100g P</span>
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <div className="text-[9px] font-mono uppercase tracking-wider text-stone-400">
-                          Généré par Dollar
-                        </div>
-                        <div className="font-mono text-base font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-                          {res.proteinPerDollar}g{' '}
-                          <span className="text-[10px] font-normal text-stone-400">/ 1$</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Teneur en protéines et total paquet */}
-                    <div className="grid grid-cols-2 gap-1.5 mt-2 font-mono text-[11px] text-stone-600 dark:text-stone-400">
-                      <div>
-                        Teneur : <span className="font-semibold text-stone-900 dark:text-white">{item.proteinPer100g}g</span> / 100g
-                      </div>
-                      <div className="text-right">
-                        Total : <span className="font-semibold text-stone-900 dark:text-white">{res.totalProteinGrams}g</span> prot
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions Rapides */}
-                  <div className="mt-4 pt-3 border-t border-stone-200/50 dark:border-white/10 flex items-center justify-between">
-                    <button
-                      onClick={() => handleLoadProductIntoSimulator(item)}
-                      className="text-xs font-mono font-medium text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white flex items-center gap-1 transition-colors"
-                      title="Tester et ajuster dans le simulateur en direct ci-dessus"
-                    >
-                      <Zap className="w-3 h-3" /> Charger dans le simulateur
-                    </button>
-
-                    {item.metroProductUrl && (
-                      <a
-                        href={item.metroProductUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 transition-colors p-1"
-                        title="Fiche produit Metro.ca"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                  Afficher 30 aliments suivants ({filteredRankings.length - displayLimit} restants)
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

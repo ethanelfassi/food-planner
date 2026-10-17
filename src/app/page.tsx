@@ -586,28 +586,37 @@ export default function Home() {
   // --- CALCUL DES ARTICLES DE LA LISTE D'ÉPICERIE SELON LE SCOPE ---
 
   // 1. Liste Commune consolidée (Tous les profils réunis avec fusion des paquets)
-  const commonAccountPlans = accounts.map((acc) => ({
-    accountId: acc.id,
-    accountName: acc.name,
-    plan: plansByAccount[acc.id] || activePlan,
-  }));
+  const commonAccountPlans = React.useMemo(() => {
+    return accounts.map((acc) => ({
+      accountId: acc.id,
+      accountName: acc.name,
+      plan: plansByAccount[acc.id] || activePlan,
+    }));
+  }, [accounts, plansByAccount, activePlan]);
 
-  const commonGroceryItems = generateCommonGroceryList(commonAccountPlans, customPrices, customProducts);
-  const commonItemsWithCustom = [
-    ...customManualItems.filter((i) => !i.forAccount || i.forAccount === 'common' || accounts.some(a => a.id === i.forAccount)),
-    ...commonGroceryItems,
-  ].map((item) => ({
-    ...item,
-    checked: checkedItemsMap[item.id] || false,
-  }));
+  const commonGroceryItems = React.useMemo(() => {
+    return generateCommonGroceryList(commonAccountPlans, customPrices, customProducts);
+  }, [commonAccountPlans, customPrices, customProducts]);
 
-  const commonSplitReport = calculateCommonListSplit(commonItemsWithCustom, accounts);
+  const commonItemsWithCustom = React.useMemo(() => {
+    return [
+      ...customManualItems.filter((i) => !i.forAccount || i.forAccount === 'common' || accounts.some(a => a.id === i.forAccount)),
+      ...commonGroceryItems,
+    ].map((item) => ({
+      ...item,
+      checked: checkedItemsMap[item.id] || false,
+    }));
+  }, [customManualItems, accounts, commonGroceryItems, checkedItemsMap]);
+
+  const commonSplitReport = React.useMemo(() => {
+    return calculateCommonListSplit(commonItemsWithCustom, accounts);
+  }, [commonItemsWithCustom, accounts]);
 
   // 2. Détermination des articles visibles selon le scope
-  let displayedGroceryItems: GroceryItem[] = [];
-  if (groceryScope === 'common') {
-    displayedGroceryItems = commonItemsWithCustom;
-  } else {
+  const displayedGroceryItems = React.useMemo<GroceryItem[]>(() => {
+    if (groceryScope === 'common') {
+      return commonItemsWithCustom;
+    }
     const targetAccId = groceryScope;
     const targetPlan = plansByAccount[targetAccId] || activePlan;
     const targetSettings = settingsByAccount[targetAccId] || activeSettings;
@@ -615,21 +624,23 @@ export default function Home() {
       targetPlan,
       false,
       customPrices,
-      targetSettings.targetCalories,
-      targetSettings.partnerCalories,
+      targetSettings?.targetCalories,
+      targetSettings?.partnerCalories,
       customProducts
     );
     const manualForTarget = customManualItems.filter(
       (i) => i.forAccount === targetAccId || i.forAccount === 'common'
     );
-    displayedGroceryItems = [...manualForTarget, ...baseIndividualList].map((item) => ({
+    return [...manualForTarget, ...baseIndividualList].map((item) => ({
       ...item,
       checked: checkedItemsMap[item.id] || false,
     }));
-  }
+  }, [groceryScope, commonItemsWithCustom, plansByAccount, activePlan, settingsByAccount, activeSettings, customPrices, customProducts, customManualItems, checkedItemsMap]);
 
   // Calcul du split rétrocompatible pour la vue couple
-  const singleSplitReport: SplitCostReport = calculateSplitCost(displayedGroceryItems, coupleSettings);
+  const singleSplitReport: SplitCostReport = React.useMemo(() => {
+    return calculateSplitCost(displayedGroceryItems, coupleSettings);
+  }, [displayedGroceryItems, coupleSettings]);
 
   return (
     <div

@@ -112,6 +112,31 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
 
   const allIngredients = useMemo<Ingredient[]>(() => Object.values(catalog), [catalog]);
 
+  // Précalcul O(1) de l'efficience protéique pour tous les ingrédients
+  const proteinEfficiencyMap = useMemo(() => {
+    const map: Record<string, ReturnType<typeof calculateProteinEfficiency>> = {};
+    for (const item of allIngredients) {
+      if (item.macrosPer100g && item.macrosPer100g.protein > 0) {
+        const activePrice = customPrices[item.id] !== undefined ? customPrices[item.id] : item.packaging.exactPriceMetro;
+        map[item.id] = calculateProteinEfficiency(
+          activePrice,
+          item.packaging.amount,
+          item.packaging.unit,
+          item.macrosPer100g.protein,
+          item.id
+        );
+      }
+    }
+    return map;
+  }, [allIngredients, customPrices]);
+
+  // Pagination / Rendu progressif pour une fluidité 120 FPS
+  const [displayLimit, setDisplayLimit] = useState(30);
+
+  useEffect(() => {
+    setDisplayLimit(30);
+  }, [searchQuery, selectedAisle, selectedFilter, sortBy]);
+
   // Compteurs
   const likedCount = allIngredients.filter((i: Ingredient) => preferences[i.id] === 'liked').length;
   const dislikedCount = allIngredients.filter((i: Ingredient) => preferences[i.id] === 'disliked').length;
@@ -138,15 +163,11 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
 
     if (sortBy === 'protein_ratio') {
       return [...list].sort((a, b) => {
-        const protA = a.macrosPer100g?.protein ?? 0;
-        const protB = b.macrosPer100g?.protein ?? 0;
-        if (protA <= 0 && protB <= 0) return 0;
-        if (protA <= 0) return 1;
-        if (protB <= 0) return -1;
-        const priceA = customPrices[a.id] ?? a.packaging.exactPriceMetro;
-        const priceB = customPrices[b.id] ?? b.packaging.exactPriceMetro;
-        const effA = calculateProteinEfficiency(priceA, a.packaging.amount, a.packaging.unit, protA, a.id);
-        const effB = calculateProteinEfficiency(priceB, b.packaging.amount, b.packaging.unit, protB, b.id);
+        const effA = proteinEfficiencyMap[a.id];
+        const effB = proteinEfficiencyMap[b.id];
+        if (!effA && !effB) return 0;
+        if (!effA) return 1;
+        if (!effB) return -1;
         return effA.costPer100gProtein - effB.costPer100gProtein;
       });
     }
@@ -164,7 +185,7 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
     }
 
     return list;
-  }, [allIngredients, searchQuery, selectedAisle, preferences, selectedFilter, sortBy, customPrices]);
+  }, [allIngredients, searchQuery, selectedAisle, preferences, selectedFilter, sortBy, customPrices, proteinEfficiencyMap]);
 
   const handleSelectPreference = (id: string, newStatus: ProductPreferenceStatus, name: string) => {
     onUpdatePreference(id, newStatus);
@@ -1054,234 +1075,244 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {filteredIngredients.map((item: Ingredient) => {
-                const currentStatus = preferences[item.id] || 'neutral';
-                const isLiked = currentStatus === 'liked';
-                const isDisliked = currentStatus === 'disliked';
-                const hasCustomPrice = customPrices[item.id] !== undefined && customPrices[item.id] > 0;
-                const activePrice = hasCustomPrice ? customPrices[item.id] : item.packaging.exactPriceMetro;
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {filteredIngredients.slice(0, displayLimit).map((item: Ingredient) => {
+                  const currentStatus = preferences[item.id] || 'neutral';
+                  const isLiked = currentStatus === 'liked';
+                  const isDisliked = currentStatus === 'disliked';
+                  const hasCustomPrice = customPrices[item.id] !== undefined && customPrices[item.id] > 0;
+                  const activePrice = hasCustomPrice ? customPrices[item.id] : item.packaging.exactPriceMetro;
 
-                // Calcul du prix unitaire avec prix personnalisé
-                let unitPriceLabel = item.packaging.unitPriceLabel;
-                if (hasCustomPrice && item.packaging.amount > 0) {
-                  if (item.packaging.unit === 'g' || item.packaging.unit === 'ml') {
-                    const rate = ((activePrice / item.packaging.amount) * 100).toFixed(2);
-                    unitPriceLabel = `${rate} $ / 100${item.packaging.unit}`;
-                  } else {
-                    const rate = (activePrice / item.packaging.amount).toFixed(2);
-                    unitPriceLabel = `${rate} $ / unité`;
+                  // Calcul du prix unitaire avec prix personnalisé
+                  let unitPriceLabel = item.packaging.unitPriceLabel;
+                  if (hasCustomPrice && item.packaging.amount > 0) {
+                    if (item.packaging.unit === 'g' || item.packaging.unit === 'ml') {
+                      const rate = ((activePrice / item.packaging.amount) * 100).toFixed(2);
+                      unitPriceLabel = `${rate} $ / 100${item.packaging.unit}`;
+                    } else {
+                      const rate = (activePrice / item.packaging.amount).toFixed(2);
+                      unitPriceLabel = `${rate} $ / unité`;
+                    }
                   }
-                }
 
-                return (
-                  <div
-                    key={item.id}
-                    className={`p-4 rounded-3xl border transition-all flex flex-col justify-between ${
-                      isLiked
-                        ? isDark
-                          ? 'bg-white/[0.06] border-white/30 ring-1 ring-white/10'
-                          : 'bg-white border-stone-800 ring-1 ring-stone-800 shadow-xs'
-                        : isDisliked
-                        ? 'opacity-60 grayscale bg-stone-100/50 dark:bg-black/30 border-stone-300/60 dark:border-white/5'
-                        : isDark
-                        ? 'bg-white/[0.02] border-white/5 hover:border-white/15'
-                        : 'bg-white border-stone-200/90 hover:border-stone-300 shadow-xs'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-start gap-3">
-                        {item.imageUrl && (
-                          <div
-                            className={`w-14 h-14 rounded-2xl overflow-hidden shrink-0 border relative ${
-                              isDark ? 'border-white/10 bg-black/40' : 'border-stone-200 bg-stone-100'
-                            }`}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={item.imageUrl}
-                              alt={item.name}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                            />
-                          </div>
-                        )}
+                  const eff = proteinEfficiencyMap[item.id];
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400">
-                              {AISLE_LABELS[item.aisle as MetroAisle]?.title || item.aisle}
-                            </span>
-                            {item.barcode && (
-                              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
-                                Code-barres : {item.barcode}
-                              </span>
-                            )}
-                            {item.packaging.isMoiMemberPrice && !hasCustomPrice && (
-                              <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20 font-semibold">
-                                Moi
-                              </span>
-                            )}
-                            {hasCustomPrice && (
-                              <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded-md bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold flex items-center gap-0.5">
-                                <Pencil className="w-2.5 h-2.5" /> Prix Custom
-                              </span>
-                            )}
-                          </div>
-
-                          <h3 className="font-serif text-sm font-medium text-stone-900 dark:text-white mt-0.5 leading-snug">
-                            {item.name}
-                          </h3>
-
-                          <div className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 font-sans">
-                            {item.packaging.label}
-                          </div>
-
-                          {/* Prix et déclencheur d'édition */}
-                          <div className="flex items-baseline gap-2 mt-1.5 font-mono text-xs">
-                            <button
-                              onClick={() => handleOpenPriceModal(item)}
-                              className="font-semibold text-stone-950 dark:text-white hover:underline flex items-center gap-1 text-left"
-                              title="Cliquer pour modifier votre prix réel d'achat pour ce produit"
+                  return (
+                    <div
+                      key={item.id}
+                      className={`p-4 rounded-3xl border transition-all flex flex-col justify-between ${
+                        isLiked
+                          ? isDark
+                            ? 'bg-white/[0.06] border-white/30 ring-1 ring-white/10'
+                            : 'bg-white border-stone-800 ring-1 ring-stone-800 shadow-xs'
+                          : isDisliked
+                          ? 'opacity-60 grayscale bg-stone-100/50 dark:bg-black/30 border-stone-300/60 dark:border-white/5'
+                          : isDark
+                          ? 'bg-white/[0.02] border-white/5 hover:border-white/15'
+                          : 'bg-white border-stone-200/90 hover:border-stone-300 shadow-xs'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-start gap-3">
+                          {item.imageUrl && (
+                            <div
+                              className={`w-14 h-14 rounded-2xl overflow-hidden shrink-0 border relative ${
+                                isDark ? 'border-white/10 bg-black/40' : 'border-stone-200 bg-stone-100'
+                              }`}
                             >
-                              <span>{activePrice.toFixed(2)} $</span>
-                              <Pencil className="w-2.5 h-2.5 text-stone-400 opacity-60" />
-                            </button>
-
-                            {unitPriceLabel && (
-                              <span className="text-[11px] text-stone-500 dark:text-stone-400">
-                                ({unitPriceLabel})
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Accès Direct aux Macros du Produit (/100g) */}
-                          {item.macrosPer100g && (
-                            <div className="grid grid-cols-4 gap-1 mt-2.5 p-1.5 rounded-xl bg-stone-100/70 dark:bg-white/5 border border-stone-200/60 dark:border-white/10 text-center font-mono text-[10px]">
-                              <div>
-                                <div className="text-stone-500 dark:text-stone-400 text-[9px] uppercase">Cals</div>
-                                <div className="font-semibold text-stone-900 dark:text-white tabular-nums">{item.macrosPer100g.calories}</div>
-                              </div>
-                              <div>
-                                <div className="text-stone-500 dark:text-stone-400 text-[9px] uppercase">Prot</div>
-                                <div className="font-semibold text-stone-900 dark:text-white tabular-nums">{item.macrosPer100g.protein}g</div>
-                              </div>
-                              <div>
-                                <div className="text-stone-500 dark:text-stone-400 text-[9px] uppercase">Gluc</div>
-                                <div className="font-medium text-stone-700 dark:text-stone-300 tabular-nums">{item.macrosPer100g.carbs}g</div>
-                              </div>
-                              <div>
-                                <div className="text-stone-500 dark:text-stone-400 text-[9px] uppercase">Lip</div>
-                                <div className="font-medium text-stone-700 dark:text-stone-300 tabular-nums">{item.macrosPer100g.fat}g</div>
-                              </div>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                                decoding="async"
+                              />
                             </div>
                           )}
 
-                          {/* Rentabilité Protéique ($/100g P) */}
-                          {item.macrosPer100g && item.macrosPer100g.protein > 0 && (
-                            (() => {
-                              const eff = calculateProteinEfficiency(
-                                activePrice,
-                                item.packaging.amount,
-                                item.packaging.unit,
-                                item.macrosPer100g.protein,
-                                item.id
-                              );
-                              return (
-                                <div className="mt-2 flex items-center justify-between text-[10px] font-mono p-1.5 rounded-xl border border-stone-200/60 dark:border-white/10 bg-stone-100/60 dark:bg-white/[0.03]">
-                                  <span className="text-stone-500 dark:text-stone-400 flex items-center gap-1">
-                                    <Dumbbell className="w-3 h-3 text-stone-400" /> Rentabilité :
-                                  </span>
-                                  <span className={`font-semibold px-1.5 py-0.5 rounded-md border text-[9px] ${eff.tierColorClass.badge}`}>
-                                    {eff.costPer100gProtein.toFixed(2)} $ / 100g P
-                                  </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400">
+                                {AISLE_LABELS[item.aisle as MetroAisle]?.title || item.aisle}
+                              </span>
+                              {item.barcode && (
+                                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
+                                  Code-barres : {item.barcode}
+                                </span>
+                              )}
+                              {item.packaging.isMoiMemberPrice && !hasCustomPrice && (
+                                <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20 font-semibold">
+                                  Moi
+                                </span>
+                              )}
+                              {hasCustomPrice && (
+                                <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded-md bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold flex items-center gap-0.5">
+                                  <Pencil className="w-2.5 h-2.5" /> Prix Custom
+                                </span>
+                              )}
+                            </div>
+
+                            <h3 className="font-serif text-sm font-medium text-stone-900 dark:text-white mt-0.5 leading-snug">
+                              {item.name}
+                            </h3>
+
+                            <div className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 font-sans">
+                              {item.packaging.label}
+                            </div>
+
+                            {/* Prix et déclencheur d'édition */}
+                            <div className="flex items-baseline gap-2 mt-1.5 font-mono text-xs">
+                              <button
+                                onClick={() => handleOpenPriceModal(item)}
+                                className="font-semibold text-stone-950 dark:text-white hover:underline flex items-center gap-1 text-left"
+                                title="Cliquer pour modifier votre prix réel d'achat pour ce produit"
+                              >
+                                <span>{activePrice.toFixed(2)} $</span>
+                                <Pencil className="w-2.5 h-2.5 text-stone-400 opacity-60" />
+                              </button>
+
+                              {unitPriceLabel && (
+                                <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                                  ({unitPriceLabel})
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Accès Direct aux Macros du Produit (/100g) */}
+                            {item.macrosPer100g && (
+                              <div className="grid grid-cols-4 gap-1 mt-2.5 p-1.5 rounded-xl bg-stone-100/70 dark:bg-white/5 border border-stone-200/60 dark:border-white/10 text-center font-mono text-[10px]">
+                                <div>
+                                  <div className="text-stone-500 dark:text-stone-400 text-[9px] uppercase">Cals</div>
+                                  <div className="font-semibold text-stone-900 dark:text-white tabular-nums">{item.macrosPer100g.calories}</div>
                                 </div>
-                              );
-                            })()
+                                <div>
+                                  <div className="text-stone-500 dark:text-stone-400 text-[9px] uppercase">Prot</div>
+                                  <div className="font-semibold text-stone-900 dark:text-white tabular-nums">{item.macrosPer100g.protein}g</div>
+                                </div>
+                                <div>
+                                  <div className="text-stone-500 dark:text-stone-400 text-[9px] uppercase">Gluc</div>
+                                  <div className="font-medium text-stone-700 dark:text-stone-300 tabular-nums">{item.macrosPer100g.carbs}g</div>
+                                </div>
+                                <div>
+                                  <div className="text-stone-500 dark:text-stone-400 text-[9px] uppercase">Lip</div>
+                                  <div className="font-medium text-stone-700 dark:text-stone-300 tabular-nums">{item.macrosPer100g.fat}g</div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Rentabilité Protéique ($/100g P) */}
+                            {eff && (
+                              <div className="mt-2 flex items-center justify-between text-[10px] font-mono p-1.5 rounded-xl border border-stone-200/60 dark:border-white/10 bg-stone-100/60 dark:bg-white/[0.03]">
+                                <span className="text-stone-500 dark:text-stone-400 flex items-center gap-1">
+                                  <Dumbbell className="w-3 h-3 text-stone-400" /> Rentabilité :
+                                </span>
+                                <span className={`font-semibold px-1.5 py-0.5 rounded-md border text-[9px] ${eff.tierColorClass.badge}`}>
+                                  {eff.costPer100gProtein.toFixed(2)} $ / 100g P
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sélecteur de Préférence 3-États & Actions */}
+                      <div className="mt-4 pt-3 border-t border-stone-200/50 dark:border-white/10 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1">
+                          {/* Bouton J'aime */}
+                          <button
+                            onClick={() =>
+                              handleSelectPreference(item.id, isLiked ? 'neutral' : 'liked', item.name)
+                            }
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
+                              isLiked
+                                ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold shadow-xs'
+                                : isDark
+                                ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
+                                : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
+                            }`}
+                            title={isLiked ? 'Retirer des favoris' : 'Marquer comme produit aimé'}
+                          >
+                            <Heart
+                              className={`w-3.5 h-3.5 ${
+                                isLiked ? 'fill-current text-white dark:text-stone-950' : 'text-stone-500'
+                              }`}
+                            />
+                            <span>J'aime</span>
+                          </button>
+
+                          {/* Bouton Ne pas acheter */}
+                          <button
+                            onClick={() =>
+                              handleSelectPreference(item.id, isDisliked ? 'neutral' : 'disliked', item.name)
+                            }
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
+                              isDisliked
+                                ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold shadow-xs'
+                                : isDark
+                                ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
+                                : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
+                            }`}
+                            title={isDisliked ? 'Réautoriser ce produit' : 'Bannir ce produit de vos achats et recettes'}
+                          >
+                            <Ban className={`w-3.5 h-3.5 ${isDisliked ? 'text-white dark:text-stone-950' : 'text-stone-500'}`} />
+                            <span>Exclure</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleOpenPriceModal(item)}
+                            className="p-1.5 text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors"
+                            title="Modifier le prix d'achat de cet article"
+                          >
+                            <DollarSign className="w-3.5 h-3.5" />
+                          </button>
+
+                          {item.metroProductUrl && (
+                            <a
+                              href={item.metroProductUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors"
+                              title={item.metroProductUrl.includes('/p/') ? "Fiche produit directe Metro.ca (UPC certifié)" : "Rechercher ce produit sur Metro.ca"}
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+
+                          {item.isCustom && onDeleteCustomProduct && (
+                            <button
+                              onClick={() => onDeleteCustomProduct(item.id)}
+                              className="p-1.5 text-stone-400 hover:text-red-500 transition-colors"
+                              title="Supprimer ce produit personnalisé de la base de données"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           )}
                         </div>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
 
-                    {/* Sélecteur de Préférence 3-États & Actions */}
-                    <div className="mt-4 pt-3 border-t border-stone-200/50 dark:border-white/10 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1">
-                        {/* Bouton J'aime */}
-                        <button
-                          onClick={() =>
-                            handleSelectPreference(item.id, isLiked ? 'neutral' : 'liked', item.name)
-                          }
-                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
-                            isLiked
-                              ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold shadow-xs'
-                              : isDark
-                              ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
-                              : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
-                          }`}
-                          title={isLiked ? 'Retirer des favoris' : 'Marquer comme produit aimé'}
-                        >
-                          <Heart
-                            className={`w-3.5 h-3.5 ${
-                              isLiked ? 'fill-current text-white dark:text-stone-950' : 'text-stone-500'
-                            }`}
-                          />
-                          <span>J'aime</span>
-                        </button>
-
-                        {/* Bouton Ne pas acheter */}
-                        <button
-                          onClick={() =>
-                            handleSelectPreference(item.id, isDisliked ? 'neutral' : 'disliked', item.name)
-                          }
-                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
-                            isDisliked
-                              ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold shadow-xs'
-                              : isDark
-                              ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
-                              : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
-                          }`}
-                          title={isDisliked ? 'Réautoriser ce produit' : 'Bannir ce produit de vos achats et recettes'}
-                        >
-                          <Ban className={`w-3.5 h-3.5 ${isDisliked ? 'text-white dark:text-stone-950' : 'text-stone-500'}`} />
-                          <span>Exclure</span>
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleOpenPriceModal(item)}
-                          className="p-1.5 text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors"
-                          title="Modifier le prix d'achat de cet article"
-                        >
-                          <DollarSign className="w-3.5 h-3.5" />
-                        </button>
-
-                        {item.metroProductUrl && (
-                          <a
-                            href={item.metroProductUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors"
-                            title={item.metroProductUrl.includes('/p/') ? "Fiche produit directe Metro.ca (UPC certifié)" : "Rechercher ce produit sur Metro.ca"}
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-                        )}
-
-                        {item.isCustom && onDeleteCustomProduct && (
-                          <button
-                            onClick={() => onDeleteCustomProduct(item.id)}
-                            className="p-1.5 text-stone-400 hover:text-red-500 transition-colors"
-                            title="Supprimer ce produit personnalisé de la base de données"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {/* Bouton de Rendu Progressif (Afficher Plus) */}
+              {displayLimit < filteredIngredients.length && (
+                <div className="flex justify-center pt-4 pb-2">
+                  <button
+                    onClick={() => setDisplayLimit((prev) => prev + 30)}
+                    className={`px-6 py-3 rounded-2xl text-xs font-mono uppercase tracking-wider font-semibold border transition-all active:scale-95 shadow-sm ${
+                      isDark
+                        ? 'bg-white/10 text-white hover:bg-white/15 border-white/20'
+                        : 'bg-white text-stone-900 hover:bg-stone-50 border-stone-300'
+                    }`}
+                  >
+                    Afficher 30 produits suivants ({filteredIngredients.length - displayLimit} restants)
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

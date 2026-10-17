@@ -105,9 +105,9 @@ export const Header: React.FC<HeaderProps> = ({
     <header
       className={`sticky top-0 z-40 transition-colors duration-300 border-b ${
         isDark
-          ? 'bg-[#0B0C0E]/80 border-white/[0.08] text-white shadow-2xl shadow-black/40'
-          : 'bg-white/80 border-stone-200/90 text-stone-900 shadow-xs'
-      } backdrop-blur-2xl`}
+          ? 'bg-[#0B0C0E]/95 border-white/[0.08] text-white shadow-2xl shadow-black/40'
+          : 'bg-white/95 border-stone-200/90 text-stone-900 shadow-xs'
+      } backdrop-blur-md`}
     >
       <div className="max-w-[1536px] w-full mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-18 gap-2 sm:gap-4 min-w-0">

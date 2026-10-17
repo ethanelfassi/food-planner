@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   CoupleSettings, 
   GroceryItem, 
@@ -123,27 +123,33 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
     }, 600);
   };
 
-  const receipt = calculateReceiptTaxes(items);
+  const receipt = useMemo(() => calculateReceiptTaxes(items), [items]);
   const totalItems = items.length;
-  const checkedItems = items.filter((i) => i.checked).length;
+  const checkedItems = useMemo(() => items.filter((i) => i.checked).length, [items]);
 
-  const visibleItems = items.filter((i) => {
-    if (filterMode === 'pending') return !i.checked;
-    if (filterMode === 'completed') return i.checked;
-    return true;
-  });
+  const visibleItems = useMemo(() => {
+    return items.filter((i) => {
+      if (filterMode === 'pending') return !i.checked;
+      if (filterMode === 'completed') return i.checked;
+      return true;
+    });
+  }, [items, filterMode]);
 
-  const grouped: Record<string, GroceryItem[]> = {};
-  for (const item of visibleItems) {
-    if (!grouped[item.aisle]) grouped[item.aisle] = [];
-    grouped[item.aisle].push(item);
-  }
+  const { grouped, sortedAisles } = useMemo(() => {
+    const grp: Record<string, GroceryItem[]> = {};
+    for (const item of visibleItems) {
+      if (!grp[item.aisle]) grp[item.aisle] = [];
+      grp[item.aisle].push(item);
+    }
 
-  const sortedAisles = Object.keys(grouped).sort((a, b) => {
-    const orderA = AISLE_LABELS[a as MetroAisle]?.order ?? 99;
-    const orderB = AISLE_LABELS[b as MetroAisle]?.order ?? 99;
-    return orderA - orderB;
-  });
+    const sorted = Object.keys(grp).sort((a, b) => {
+      const orderA = AISLE_LABELS[a as MetroAisle]?.order ?? 99;
+      const orderB = AISLE_LABELS[b as MetroAisle]?.order ?? 99;
+      return orderA - orderB;
+    });
+
+    return { grouped: grp, sortedAisles: sorted };
+  }, [visibleItems]);
 
   const handleCopyClipboard = async () => {
     const text = formatGroceryListAsText(items, 'Metro');
