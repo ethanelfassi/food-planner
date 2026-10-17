@@ -54,6 +54,10 @@ export function generateGroceryList(
       packageDescription += ` (~${Math.round(neededQuantity)}g requis)`;
     } else if (pack.unit === 'unite') {
       packageDescription += ` (${Math.round(neededQuantity)} requis)`;
+    } else if (pack.unit === 'canne') {
+      packageDescription += ` (${Math.round(neededQuantity * 10) / 10} boîte${neededQuantity > 1 ? 's' : ''} requise${neededQuantity > 1 ? 's' : ''})`;
+    } else if (pack.unit === 'ml' && neededQuantity > 0) {
+      packageDescription += ` (~${Math.round(neededQuantity)}ml requis)`;
     }
 
     const hasCustomPrice = customPrices[ingredientId] !== undefined && customPrices[ingredientId] > 0;
@@ -224,6 +228,10 @@ export function generateCommonGroceryList(
       packageDescription += ` (~${Math.round(neededQuantity)}g requis)`;
     } else if (pack.unit === 'unite') {
       packageDescription += ` (${Math.round(neededQuantity)} requis)`;
+    } else if (pack.unit === 'canne') {
+      packageDescription += ` (${Math.round(neededQuantity * 10) / 10} boîte${neededQuantity > 1 ? 's' : ''} requise${neededQuantity > 1 ? 's' : ''})`;
+    } else if (pack.unit === 'ml' && neededQuantity > 0) {
+      packageDescription += ` (~${Math.round(neededQuantity)}ml requis)`;
     }
 
     const hasCustomPrice = customPrices[ingredientId] !== undefined && customPrices[ingredientId] > 0;

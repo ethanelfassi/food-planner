@@ -38,14 +38,25 @@ export function calculateRecipeNutrients(
     if (unit === 'g' || unit === 'ml') {
       grams = Number(item.quantity) || 0;
     } else if (unit === 'unite' || unit === 'unité') {
-      if (item.ingredientId.includes('oeuf')) grams = (Number(item.quantity) || 1) * 50;
-      else if (item.ingredientId.includes('banane')) grams = (Number(item.quantity) || 1) * 120;
-      else if (item.ingredientId.includes('pomme')) grams = (Number(item.quantity) || 1) * 180;
-      else if (item.ingredientId.includes('avocat')) grams = (Number(item.quantity) || 1) * 150;
-      else if (item.ingredientId.includes('bagel')) grams = (Number(item.quantity) || 1) * 95;
-      else if (item.ingredientId.includes('patate_douce')) grams = (Number(item.quantity) || 1) * 200;
-      else if (item.ingredientId.includes('ail')) grams = (Number(item.quantity) || 1) * 10;
-      else grams = (Number(item.quantity) || 1) * (ing.packaging?.amount || 100);
+      const id = item.ingredientId.toLowerCase();
+      const qty = Number(item.quantity) || 1;
+      if (id.includes('oeuf')) grams = qty * 50;
+      else if (id.includes('banane')) grams = qty * 120;
+      else if (id.includes('pomme')) grams = qty * 170;
+      else if (id.includes('avocat')) grams = qty * 150;
+      else if (id.includes('bagel')) grams = qty * 95;
+      else if (id.includes('pita')) grams = qty * 60;
+      else if (id.includes('tortilla')) grams = qty * 61;
+      else if (id.includes('muffin')) grams = qty * 57;
+      else if (id.includes('patate_douce')) grams = qty * 200;
+      else if (id.includes('concombre')) grams = qty * 300;
+      else if (id.includes('poivron')) grams = qty * 150;
+      else if (id.includes('brocoli')) grams = qty * 300;
+      else if (id.includes('chou_fleur')) grams = qty * 600;
+      else if (id.includes('citron')) grams = qty * 100;
+      else if (id.includes('ail')) grams = qty * 10;
+      else if (id.includes('echalote') || id.includes('oignon_vert')) grams = qty * 15;
+      else grams = qty * 100;
     } else if (unit === 'c_a_soupe' || unit === 'cuillere' || unit === 'c. à soupe') {
       grams = (Number(item.quantity) || 1) * 15;
     } else if (unit === 'tranche') {
@@ -58,6 +69,10 @@ export function calculateRecipeNutrients(
         grams = (Number(item.quantity) || 1) * 796; // Boîte standard de tomates québécoise 796 ml
       } else if (id.includes('haricot') || id.includes('pois')) {
         grams = (Number(item.quantity) || 1) * 390; // Boîte de légumineuses 540 ml = ~390g égoutté
+      } else if (id.includes('coco')) {
+        grams = (Number(item.quantity) || 1) * 400;
+      } else if (id.includes('mais') || id.includes('corn')) {
+        grams = (Number(item.quantity) || 1) * 280; // Canne de 341 ml = ~280g égoutté
       } else {
         grams = (Number(item.quantity) || 1) * 400;
       }
@@ -69,10 +84,15 @@ export function calculateRecipeNutrients(
     totalCarbs += (ing.macrosPer100g?.carbs ?? 0) * factor;
     totalFat += (ing.macrosPer100g?.fat ?? 0) * factor;
 
-    // Coût estimé au prorata de la quantité utilisée
+    // Coût estimé au prorata de la portion utilisée du paquet
     if (ing.packaging && ing.packaging.amount > 0) {
-      const unitCost = ing.packaging.exactPriceMetro / ing.packaging.amount;
-      totalCost += unitCost * grams;
+      const packUnit = (ing.packaging.unit || 'g').toLowerCase();
+      if (packUnit === 'canne' || packUnit === 'unite' || packUnit === 'unité') {
+        const itemQuantity = Number(item.quantity) || 1;
+        totalCost += (ing.packaging.exactPriceMetro / ing.packaging.amount) * itemQuantity;
+      } else {
+        totalCost += (ing.packaging.exactPriceMetro / ing.packaging.amount) * grams;
+      }
     }
   }
 
