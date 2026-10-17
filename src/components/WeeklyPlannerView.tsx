@@ -15,6 +15,8 @@ import {
   Sparkles,
   Flame,
   Dumbbell,
+  Wheat,
+  Droplet,
   Heart,
   Plus
 } from 'lucide-react';
@@ -105,32 +107,54 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
             </p>
           </div>
 
-          {/* Synthèse Métabolique Minimaliste */}
-          <div className="flex items-center gap-4 self-start lg:self-auto">
+          {/* Synthèse Métabolique Minimaliste 4 Piliers */}
+          <div className="flex items-center gap-4 self-start lg:self-auto flex-wrap sm:flex-nowrap">
             <div
-              className={`flex items-center gap-5 p-4 rounded-2xl border ${
+              className={`flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-2xl border ${
                 isDark
                   ? 'bg-black/30 border-white/10'
                   : 'bg-white border-stone-200 shadow-xs'
               }`}
             >
               <div>
-                <div className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
                   <Flame className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Énergie
                 </div>
-                <div className="font-mono tabular-nums text-xl sm:text-2xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyCalories} <span className="text-xs text-stone-500 font-sans font-normal">/ {userSettings?.targetCalories ?? 3050} kcal</span>
+                <div className="font-mono tabular-nums text-lg sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
+                  {plan.avgDailyCalories} <span className="text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetCalories ?? 3050}</span>
                 </div>
               </div>
 
               <div className={`h-8 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-200'}`} />
 
               <div>
-                <div className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
                   <Dumbbell className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Protéines
                 </div>
-                <div className="font-mono tabular-nums text-xl sm:text-2xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyProtein} <span className="text-xs text-stone-500 font-sans font-normal">/ {userSettings?.targetProtein ?? 165} g</span>
+                <div className="font-mono tabular-nums text-lg sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
+                  {plan.avgDailyProtein}g <span className="text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetProtein ?? 165}g</span>
+                </div>
+              </div>
+
+              <div className={`h-8 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-200'}`} />
+
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
+                  <Wheat className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Glucides
+                </div>
+                <div className="font-mono tabular-nums text-lg sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
+                  {plan.avgDailyCarbs}g <span className="text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetCarbs ?? 390}g</span>
+                </div>
+              </div>
+
+              <div className={`h-8 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-200'}`} />
+
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
+                  <Droplet className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Lipides
+                </div>
+                <div className="font-mono tabular-nums text-lg sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
+                  {plan.avgDailyFat}g <span className="text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetFat ?? 90}g</span>
                 </div>
               </div>
             </div>
@@ -215,7 +239,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
               Repas du <span className="italic">{currentDay.dayName}</span>
             </h2>
             <span className="font-mono text-xs text-stone-500 dark:text-stone-400 tabular-nums">
-              {currentDay.dailyCalories} kcal • {currentDay.dailyProtein}g protéines
+              {currentDay.dailyCalories} kcal • {currentDay.dailyProtein}g prot • {currentDay.dailyCarbs}g gluc • {currentDay.dailyFat}g lip
             </span>
           </div>
           <span className="text-xs text-stone-400 hidden sm:block font-sans">

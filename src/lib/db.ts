@@ -448,6 +448,12 @@ export function getSettingsForAccount(accountId = 'ethan'): UserCustomizationSet
       case 'partnerProtein':
         settings.partnerProtein = Number(row.value) || baseDefaults.partnerProtein;
         break;
+      case 'partnerCarbs':
+        settings.partnerCarbs = Number(row.value) || baseDefaults.partnerCarbs;
+        break;
+      case 'partnerFat':
+        settings.partnerFat = Number(row.value) || baseDefaults.partnerFat;
+        break;
       case 'goalName':
         settings.goalName = row.value || baseDefaults.goalName;
         break;

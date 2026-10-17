@@ -15,13 +15,14 @@ import {
   Check,
   Plus,
   Pencil,
-  X
+  X,
+  ChefHat
 } from 'lucide-react';
 import { UserCustomizationSettings, UserAccount, DEFAULT_ACCOUNTS } from '@/types';
 
 interface HeaderProps {
-  activeTab: 'planner' | 'grocery' | 'prices' | 'tracker' | 'preferences';
-  setActiveTab: (tab: 'planner' | 'grocery' | 'prices' | 'tracker' | 'preferences') => void;
+  activeTab: 'planner' | 'recipes' | 'grocery' | 'prices' | 'tracker' | 'preferences';
+  setActiveTab: (tab: 'planner' | 'recipes' | 'grocery' | 'prices' | 'tracker' | 'preferences') => void;
   groceryCount: number;
   coupleModeEnabled: boolean;
   userSettings?: UserCustomizationSettings;
@@ -162,7 +163,7 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'bg-white/[0.03] hover:bg-white/[0.06] border-white/10 text-stone-200'
                 : 'bg-stone-100/80 hover:bg-stone-200/80 border-stone-200/90 text-stone-800 shadow-xs'
             }`}
-            title="Cliquez pour ajuster vos cibles caloriques et protéiques"
+            title="Cliquez pour ajuster vos cibles caloriques et macro-nutritionnelles"
           >
             <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums">
               <span className="w-1.5 h-1.5 rounded-full bg-stone-900 dark:bg-stone-300" />
@@ -177,6 +178,22 @@ export const Header: React.FC<HeaderProps> = ({
               <span className={isDark ? 'text-stone-400' : 'text-stone-500'}>Protéines :</span>
               <span className="font-semibold text-stone-900 dark:text-stone-100">
                 {userSettings?.targetProtein ?? 165} g
+              </span>
+            </div>
+            <div className={`h-3 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-200'}`} />
+            <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums">
+              <span className="w-1.5 h-1.5 rounded-full bg-stone-500 dark:bg-stone-400" />
+              <span className={isDark ? 'text-stone-400' : 'text-stone-500'}>Glucides :</span>
+              <span className="font-semibold text-stone-900 dark:text-stone-100">
+                {userSettings?.targetCarbs ?? 390} g
+              </span>
+            </div>
+            <div className={`h-3 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-200'}`} />
+            <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums">
+              <span className="w-1.5 h-1.5 rounded-full bg-stone-400 dark:bg-stone-500" />
+              <span className={isDark ? 'text-stone-400' : 'text-stone-500'}>Lipides :</span>
+              <span className="font-semibold text-stone-900 dark:text-stone-100">
+                {userSettings?.targetFat ?? 90} g
               </span>
             </div>
           </button>
@@ -305,6 +322,22 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Calendar className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Semaine</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('recipes')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+                  activeTab === 'recipes'
+                    ? isDark
+                      ? 'bg-white text-stone-950 font-semibold shadow-md'
+                      : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
+                    : isDark
+                    ? 'text-stone-400 hover:text-white'
+                    : 'text-stone-700 hover:text-stone-950 font-medium'
+                }`}
+              >
+                <ChefHat className="w-3.5 h-3.5" />
+                <span>Recettes</span>
               </button>
 
               <button

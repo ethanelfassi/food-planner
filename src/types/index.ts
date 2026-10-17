@@ -161,6 +161,8 @@ export interface UserProfile {
   name: string;
   targetCalories: number;
   targetProtein: number;
+  targetCarbs?: number;
+  targetFat?: number;
   dietaryDescription: string;
   portionMultiplier: number;
 }
@@ -213,6 +215,8 @@ export interface UserCustomizationSettings {
   targetWeeklyBudget: number; // Ex: 135 $ CAD
   partnerCalories: number; // Ex: 1950 kcal
   partnerProtein: number; // Ex: 75 g
+  partnerCarbs?: number; // Ex: 230 g
+  partnerFat?: number; // Ex: 60 g
   goalName: string; // Ex: 'Prise de masse athlétique'
 }
 
@@ -224,6 +228,8 @@ export const DEFAULT_USER_SETTINGS: UserCustomizationSettings = {
   targetWeeklyBudget: 135,
   partnerCalories: 1950,
   partnerProtein: 75,
+  partnerCarbs: 230,
+  partnerFat: 60,
   goalName: 'Prise de masse athlétique',
 };
 
@@ -235,6 +241,8 @@ export const DEFAULT_LAURINE_SETTINGS: UserCustomizationSettings = {
   targetWeeklyBudget: 100,
   partnerCalories: 3050,
   partnerProtein: 165,
+  partnerCarbs: 390,
+  partnerFat: 90,
   goalName: 'Alimentation équilibrée & tonique',
 };
 

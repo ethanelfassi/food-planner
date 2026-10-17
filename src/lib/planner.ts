@@ -164,7 +164,7 @@ export function generateWeeklyPlan(
 export function replaceRecipeInPlan(
   plan: WeeklyPlan,
   dayIndex: number,
-  mealType: 'breakfast' | 'dinner' | 'snack',
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack',
   newRecipeId: string,
   customRecipes: Recipe[] = []
 ): WeeklyPlan {
@@ -177,6 +177,8 @@ export function replaceRecipeInPlan(
 
   if (mealType === 'breakfast') {
     targetDay.breakfast = candidate;
+  } else if (mealType === 'lunch') {
+    targetDay.lunch = candidate;
   } else if (mealType === 'dinner') {
     targetDay.dinner = candidate;
     const nextDayIndex = (dayIndex + 1) % 7;

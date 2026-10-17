@@ -28,15 +28,17 @@ import {
 import { DEFAULT_COUPLE_SETTINGS, calculateSplitCost } from '@/lib/couple-split';
 import { Header } from '@/components/Header';
 import { WeeklyPlannerView } from '@/components/WeeklyPlannerView';
+import { RecipeBookView } from '@/components/RecipeBookView';
 import { GroceryListView } from '@/components/GroceryListView';
 import { DealsAndPricesView } from '@/components/DealsAndPricesView';
 import { CalorieTrackerView } from '@/components/CalorieTrackerView';
 import { ProductPreferencesView } from '@/components/ProductPreferencesView';
 import { RecipeModal } from '@/components/RecipeModal';
 import { RecipeCreatorModal } from '@/components/RecipeCreatorModal';
+import { RECIPES } from '@/data/recipes';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'planner' | 'grocery' | 'prices' | 'tracker' | 'preferences'>('planner');
+  const [activeTab, setActiveTab] = useState<'planner' | 'recipes' | 'grocery' | 'prices' | 'tracker' | 'preferences'>('planner');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
@@ -421,9 +423,13 @@ export default function Home() {
     }));
   };
 
+  const allRecipes = React.useMemo(() => {
+    return [...RECIPES, ...(customRecipes || [])];
+  }, [customRecipes]);
+
   const handleReplaceRecipe = (
     dayIndex: number,
-    mealType: 'breakfast' | 'dinner' | 'snack',
+    mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack',
     newRecipeId: string
   ) => {
     if (!activePlan) return;
@@ -432,6 +438,33 @@ export default function Home() {
       ...prev,
       [activeAccountId]: updatedPlan,
     }));
+  };
+
+  const handlePlanRecipeToDay = (
+    dayIndex: number,
+    mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack',
+    recipeId: string
+  ) => {
+    handleReplaceRecipe(dayIndex, mealSlot, recipeId);
+  };
+
+  const handleEditRecipe = (recipe: Recipe) => {
+    setRecipeToEdit(recipe);
+    setIsRecipeCreatorOpen(true);
+  };
+
+  const handleDeleteRecipe = async (recipeId: string) => {
+    if (!confirm('Supprimer définitivement ce plat de votre base de données ?')) return;
+    try {
+      const res = await fetch(`/api/recipes?id=${encodeURIComponent(recipeId)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        handleDeleteCustomRecipe(recipeId);
+      }
+    } catch (err) {
+      console.error('Erreur suppression recette SQLite:', err);
+    }
   };
 
   // --- GESTION DE LA LISTE D'ÉPICERIE (COMMUNE VS INDIVIDUELLE) ---
@@ -591,6 +624,23 @@ export default function Home() {
               setRecipeToEdit(null);
               setIsRecipeCreatorOpen(true);
             }}
+          />
+        )}
+
+        {activeTab === 'recipes' && (
+          <RecipeBookView
+            allRecipes={allRecipes}
+            customRecipes={customRecipes}
+            preferences={activePreferences}
+            isDark={isDark}
+            onSelectRecipe={(recipe) => setSelectedRecipe(recipe)}
+            onOpenRecipeCreator={() => {
+              setRecipeToEdit(null);
+              setIsRecipeCreatorOpen(true);
+            }}
+            onEditRecipe={handleEditRecipe}
+            onDeleteRecipe={handleDeleteRecipe}
+            onPlanRecipeToDay={handlePlanRecipeToDay}
           />
         )}
 

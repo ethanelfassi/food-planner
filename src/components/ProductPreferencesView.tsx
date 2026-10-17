@@ -9,6 +9,7 @@ import {
   ProductPreferencesMap, 
   UserCustomizationSettings, 
   DEFAULT_USER_SETTINGS,
+  DEFAULT_LAURINE_SETTINGS,
   UserAccount,
   DEFAULT_ACCOUNTS 
 } from '@/types';
@@ -28,6 +29,8 @@ import {
   Pencil,
   Flame,
   Dumbbell,
+  Wheat,
+  Droplet,
   Users,
   Target,
   X
@@ -168,7 +171,8 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
   };
 
   const handleResetSettingsToDefault = () => {
-    setLocalSettings(DEFAULT_USER_SETTINGS);
+    const base = (activeAccountId === 'laurine' || activeAccountId === 'copine') ? DEFAULT_LAURINE_SETTINGS : DEFAULT_USER_SETTINGS;
+    setLocalSettings(base);
     setIsSettingsDirty(true);
   };
 
@@ -432,21 +436,32 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
               </div>
             </div>
 
-            {/* Sliders & Inputs Calories / Protéines Ethan */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
-              {/* Calories */}
-              <div className={`p-5 rounded-2xl border ${isDark ? 'bg-black/20 border-white/5' : 'bg-stone-50 border-stone-200'}`}>
+            {/* Sliders & Inputs des 4 Piliers Nutritionnels Profil Actif */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+              {/* 1. Calories */}
+              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-black/20 border-white/5' : 'bg-stone-50 border-stone-200'}`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-mono uppercase tracking-wider text-stone-600 dark:text-stone-400 font-semibold flex items-center gap-1.5">
-                    <Flame className="w-3.5 h-3.5 text-stone-700 dark:text-stone-300" /> Cible Calories Journalières
+                    <Flame className="w-3.5 h-3.5 text-stone-700 dark:text-stone-300" /> Calories
                   </span>
-                  <span className="font-mono tabular-nums text-lg font-semibold text-stone-950 dark:text-white">
-                    {localSettings.targetCalories} kcal
-                  </span>
+                  <input
+                    type="number"
+                    min="1500"
+                    max="4500"
+                    step="50"
+                    value={localSettings.targetCalories}
+                    onChange={(e) => {
+                      setLocalSettings((prev) => ({ ...prev, targetCalories: Number(e.target.value) || 0 }));
+                      setIsSettingsDirty(true);
+                    }}
+                    className={`w-20 text-right px-2 py-0.5 rounded-lg text-xs font-mono font-bold tabular-nums border ${
+                      isDark ? 'bg-white/10 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+                    }`}
+                  />
                 </div>
                 <input
                   type="range"
-                  min="2200"
+                  min="1800"
                   max="4200"
                   step="50"
                   value={localSettings.targetCalories}
@@ -457,26 +472,37 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
                   className="w-full accent-stone-900 dark:accent-white"
                 />
                 <div className="flex justify-between text-[10px] font-mono text-stone-400 mt-1">
-                  <span>2 200 kcal</span>
-                  <span>3 050 kcal (Recommandé)</span>
-                  <span>4 200 kcal</span>
+                  <span>1 800</span>
+                  <span className="font-semibold text-stone-700 dark:text-stone-300">kcal/jour</span>
+                  <span>4 200</span>
                 </div>
               </div>
 
-              {/* Protéines */}
-              <div className={`p-5 rounded-2xl border ${isDark ? 'bg-black/20 border-white/5' : 'bg-stone-50 border-stone-200'}`}>
+              {/* 2. Protéines */}
+              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-black/20 border-white/5' : 'bg-stone-50 border-stone-200'}`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-mono uppercase tracking-wider text-stone-600 dark:text-stone-400 font-semibold flex items-center gap-1.5">
-                    <Dumbbell className="w-3.5 h-3.5 text-stone-700 dark:text-stone-300" /> Cible Protéines Journalières
+                    <Dumbbell className="w-3.5 h-3.5 text-stone-700 dark:text-stone-300" /> Protéines
                   </span>
-                  <span className="font-mono tabular-nums text-lg font-semibold text-stone-950 dark:text-white">
-                    {localSettings.targetProtein} g
-                  </span>
+                  <input
+                    type="number"
+                    min="50"
+                    max="280"
+                    step="5"
+                    value={localSettings.targetProtein}
+                    onChange={(e) => {
+                      setLocalSettings((prev) => ({ ...prev, targetProtein: Number(e.target.value) || 0 }));
+                      setIsSettingsDirty(true);
+                    }}
+                    className={`w-16 text-right px-2 py-0.5 rounded-lg text-xs font-mono font-bold tabular-nums border ${
+                      isDark ? 'bg-white/10 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+                    }`}
+                  />
                 </div>
                 <input
                   type="range"
-                  min="120"
-                  max="240"
+                  min="60"
+                  max="260"
                   step="5"
                   value={localSettings.targetProtein}
                   onChange={(e) => {
@@ -486,47 +512,116 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
                   className="w-full accent-stone-900 dark:accent-white"
                 />
                 <div className="flex justify-between text-[10px] font-mono text-stone-400 mt-1">
-                  <span>120 g</span>
-                  <span>165 g (Recommandé)</span>
-                  <span>240 g</span>
+                  <span>60 g</span>
+                  <span className="font-semibold text-stone-700 dark:text-stone-300">g/jour</span>
+                  <span>260 g</span>
+                </div>
+              </div>
+
+              {/* 3. Glucides */}
+              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-black/20 border-white/5' : 'bg-stone-50 border-stone-200'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-mono uppercase tracking-wider text-stone-600 dark:text-stone-400 font-semibold flex items-center gap-1.5">
+                    <Wheat className="w-3.5 h-3.5 text-stone-700 dark:text-stone-300" /> Glucides
+                  </span>
+                  <input
+                    type="number"
+                    min="80"
+                    max="600"
+                    step="10"
+                    value={localSettings.targetCarbs}
+                    onChange={(e) => {
+                      setLocalSettings((prev) => ({ ...prev, targetCarbs: Number(e.target.value) || 0 }));
+                      setIsSettingsDirty(true);
+                    }}
+                    className={`w-16 text-right px-2 py-0.5 rounded-lg text-xs font-mono font-bold tabular-nums border ${
+                      isDark ? 'bg-white/10 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+                    }`}
+                  />
+                </div>
+                <input
+                  type="range"
+                  min="100"
+                  max="550"
+                  step="10"
+                  value={localSettings.targetCarbs}
+                  onChange={(e) => {
+                    setLocalSettings((prev) => ({ ...prev, targetCarbs: Number(e.target.value) }));
+                    setIsSettingsDirty(true);
+                  }}
+                  className="w-full accent-stone-900 dark:accent-white"
+                />
+                <div className="flex justify-between text-[10px] font-mono text-stone-400 mt-1">
+                  <span>100 g</span>
+                  <span className="font-semibold text-stone-700 dark:text-stone-300">g/jour</span>
+                  <span>550 g</span>
+                </div>
+              </div>
+
+              {/* 4. Lipides */}
+              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-black/20 border-white/5' : 'bg-stone-50 border-stone-200'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-mono uppercase tracking-wider text-stone-600 dark:text-stone-400 font-semibold flex items-center gap-1.5">
+                    <Droplet className="w-3.5 h-3.5 text-stone-700 dark:text-stone-300" /> Lipides
+                  </span>
+                  <input
+                    type="number"
+                    min="30"
+                    max="180"
+                    step="5"
+                    value={localSettings.targetFat}
+                    onChange={(e) => {
+                      setLocalSettings((prev) => ({ ...prev, targetFat: Number(e.target.value) || 0 }));
+                      setIsSettingsDirty(true);
+                    }}
+                    className={`w-16 text-right px-2 py-0.5 rounded-lg text-xs font-mono font-bold tabular-nums border ${
+                      isDark ? 'bg-white/10 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+                    }`}
+                  />
+                </div>
+                <input
+                  type="range"
+                  min="30"
+                  max="160"
+                  step="5"
+                  value={localSettings.targetFat}
+                  onChange={(e) => {
+                    setLocalSettings((prev) => ({ ...prev, targetFat: Number(e.target.value) }));
+                    setIsSettingsDirty(true);
+                  }}
+                  className="w-full accent-stone-900 dark:accent-white"
+                />
+                <div className="flex justify-between text-[10px] font-mono text-stone-400 mt-1">
+                  <span>30 g</span>
+                  <span className="font-semibold text-stone-700 dark:text-stone-300">g/jour</span>
+                  <span>160 g</span>
                 </div>
               </div>
             </div>
 
-            {/* Glucides & Lipides */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-mono uppercase tracking-wider text-stone-500 mb-1">
-                  Glucides Cible (g/j)
-                </label>
-                <input
-                  type="number"
-                  value={localSettings.targetCarbs}
-                  onChange={(e) => {
-                    setLocalSettings((prev) => ({ ...prev, targetCarbs: Number(e.target.value) || 0 }));
-                    setIsSettingsDirty(true);
-                  }}
-                  className={`w-full px-3.5 py-2 rounded-xl text-xs font-mono tabular-nums border ${
-                    isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
-                  }`}
-                />
+            {/* Répartition Mathématique des Macros Active */}
+            <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-xs ${
+              isDark ? 'bg-white/[0.02] border-white/5 text-stone-300' : 'bg-stone-100/70 border-stone-200 text-stone-700'
+            }`}>
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] uppercase tracking-wider text-stone-400 font-semibold">Répartition énergétique :</span>
+                <span className="font-bold text-stone-950 dark:text-white">
+                  {(localSettings.targetProtein * 4) + (localSettings.targetCarbs * 4) + (localSettings.targetFat * 9)} kcal calculées
+                </span>
               </div>
-
-              <div>
-                <label className="block text-xs font-mono uppercase tracking-wider text-stone-500 mb-1">
-                  Lipides Cible (g/j)
-                </label>
-                <input
-                  type="number"
-                  value={localSettings.targetFat}
-                  onChange={(e) => {
-                    setLocalSettings((prev) => ({ ...prev, targetFat: Number(e.target.value) || 0 }));
-                    setIsSettingsDirty(true);
-                  }}
-                  className={`w-full px-3.5 py-2 rounded-xl text-xs font-mono tabular-nums border ${
-                    isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
-                  }`}
-                />
+              <div className="flex items-center gap-4 text-[11px] tabular-nums">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-stone-900 dark:bg-stone-200" />
+                  <span>Protéines : {Math.round(((localSettings.targetProtein * 4) / Math.max(1, (localSettings.targetProtein * 4) + (localSettings.targetCarbs * 4) + (localSettings.targetFat * 9))) * 100)}%</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-stone-500 dark:bg-stone-400" />
+                  <span>Glucides : {Math.round(((localSettings.targetCarbs * 4) / Math.max(1, (localSettings.targetProtein * 4) + (localSettings.targetCarbs * 4) + (localSettings.targetFat * 9))) * 100)}%</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-stone-400 dark:bg-stone-500" />
+                  <span>Lipides : {Math.round(((localSettings.targetFat * 9) / Math.max(1, (localSettings.targetProtein * 4) + (localSettings.targetCarbs * 4) + (localSettings.targetFat * 9))) * 100)}%</span>
+                </span>
               </div>
             </div>
           </div>
@@ -572,7 +667,7 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
               </div>
             </div>
 
-            {/* Profil Laurine / Mode Couple */}
+            {/* Profil Laurine / Mode Couple - 4 Piliers */}
             <div className={`rounded-3xl p-6 sm:p-7 border space-y-4 ${cardGlassClass}`}>
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-stone-700 dark:text-stone-300" />
@@ -581,14 +676,17 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
                 </h3>
               </div>
               <p className="text-xs text-stone-500 dark:text-stone-400 font-sans">
-                Ajustez les besoins de Laurine. Ces cibles déterminent la pondération mathématique exacte du partage des coûts d'épicerie.
+                Ajustez les besoins métaboliques complets de Laurine (Calories, Protéines, Glucides, Lipides). Ces cibles pilotent la pondération mathématique exacte du partage des coûts d'épicerie.
               </p>
 
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
-                  <label className="block text-[11px] font-mono uppercase text-stone-500 mb-1">Calories (kcal/j)</label>
+                  <label className="block text-[11px] font-mono uppercase text-stone-500 mb-1 flex items-center gap-1">
+                    <Flame className="w-3 h-3" /> Calories (kcal)
+                  </label>
                   <input
                     type="number"
+                    step="50"
                     value={localSettings.partnerCalories}
                     onChange={(e) => {
                       setLocalSettings((prev) => ({ ...prev, partnerCalories: Number(e.target.value) || 0 }));
@@ -600,12 +698,49 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-mono uppercase text-stone-500 mb-1">Protéines (g/j)</label>
+                  <label className="block text-[11px] font-mono uppercase text-stone-500 mb-1 flex items-center gap-1">
+                    <Dumbbell className="w-3 h-3" /> Protéines (g)
+                  </label>
                   <input
                     type="number"
+                    step="5"
                     value={localSettings.partnerProtein}
                     onChange={(e) => {
                       setLocalSettings((prev) => ({ ...prev, partnerProtein: Number(e.target.value) || 0 }));
+                      setIsSettingsDirty(true);
+                    }}
+                    className={`w-full px-3 py-2 rounded-xl text-xs font-mono tabular-nums border ${
+                      isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-mono uppercase text-stone-500 mb-1 flex items-center gap-1">
+                    <Wheat className="w-3 h-3" /> Glucides (g)
+                  </label>
+                  <input
+                    type="number"
+                    step="10"
+                    value={localSettings.partnerCarbs ?? 230}
+                    onChange={(e) => {
+                      setLocalSettings((prev) => ({ ...prev, partnerCarbs: Number(e.target.value) || 0 }));
+                      setIsSettingsDirty(true);
+                    }}
+                    className={`w-full px-3 py-2 rounded-xl text-xs font-mono tabular-nums border ${
+                      isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-mono uppercase text-stone-500 mb-1 flex items-center gap-1">
+                    <Droplet className="w-3 h-3" /> Lipides (g)
+                  </label>
+                  <input
+                    type="number"
+                    step="5"
+                    value={localSettings.partnerFat ?? 60}
+                    onChange={(e) => {
+                      setLocalSettings((prev) => ({ ...prev, partnerFat: Number(e.target.value) || 0 }));
                       setIsSettingsDirty(true);
                     }}
                     className={`w-full px-3 py-2 rounded-xl text-xs font-mono tabular-nums border ${
