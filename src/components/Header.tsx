@@ -102,23 +102,24 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header
+    <>
+      <header
       className={`sticky top-0 z-40 transition-colors duration-300 border-b ${isDark
         ? 'bg-[#0B0C0E]/95 border-white/[0.08] text-white shadow-2xl shadow-black/40'
         : 'bg-white/95 border-stone-200/90 text-stone-900 shadow-xs'
         } backdrop-blur-md`}
     >
       <div className="max-w-[1536px] w-full mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18 gap-2 sm:gap-4 min-w-0">
+        <div className="flex items-center justify-between h-14 sm:h-18 gap-2 sm:gap-4 min-w-0">
           {/* Logo & Titre - Typo Éditoriale Nordic */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             <div
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center shrink-0 transition-all ${isDark
+              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 transition-all ${isDark
                 ? 'bg-gradient-to-b from-white/10 to-white/[0.02] border border-white/15 shadow-inner'
                 : 'bg-stone-950 text-white shadow-xs'
                 }`}
             >
-              <span className="font-serif italic font-semibold text-base sm:text-lg">fp</span>
+              <span className="font-serif italic font-semibold text-sm sm:text-lg">fp</span>
             </div>
 
             <div>
@@ -223,7 +224,7 @@ export const Header: React.FC<HeaderProps> = ({
               {/* Menu Déroulant Profils */}
               {isAccountMenuOpen && (
                 <div
-                  className={`absolute right-0 mt-2 w-64 rounded-3xl p-3 border shadow-2xl z-50 animate-in fade-in duration-150 ${isDark
+                  className={`fixed inset-x-3 top-16 sm:absolute sm:right-0 sm:top-auto sm:inset-x-auto sm:mt-2 sm:w-64 rounded-3xl p-3 border shadow-2xl z-50 animate-in fade-in duration-150 ${isDark
                     ? 'bg-stone-950/95 border-white/10 text-white backdrop-blur-2xl'
                     : 'bg-white/95 border-stone-200 text-stone-900 backdrop-blur-2xl shadow-xl'
                     }`}
@@ -293,9 +294,10 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            {/* Nav Pill Liquid Glass */}
+            {/* Desktop Navigation Pill */}
             <nav
-              className={`flex items-center p-1 rounded-2xl border transition-all shrink-0 ${isDark
+              aria-label="Navigation principale"
+              className={`hidden md:flex items-center p-1 rounded-2xl border transition-all shrink-0 ${isDark
                 ? 'bg-white/[0.04] border-white/10'
                 : 'bg-stone-200/60 border-stone-300/60'
                 }`}
@@ -524,5 +526,133 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       )}
     </header>
+
+    {/* Barre de Navigation Mobile Inférieure (Dockée en bas d'écran avec Safe Area iOS & Android) */}
+    <nav
+      aria-label="Navigation principale mobile"
+      className={`fixed bottom-0 left-0 right-0 z-40 md:hidden border-t transition-colors backdrop-blur-xl pb-safe ${
+        isDark
+          ? 'bg-[#0B0C0E]/95 border-white/10 text-stone-400 shadow-[0_-8px_30px_rgba(0,0,0,0.85)]'
+          : 'bg-white/95 border-stone-200/90 text-stone-500 shadow-[0_-8px_20px_rgba(0,0,0,0.06)]'
+      }`}
+    >
+      <div className="grid grid-cols-6 items-center h-15 px-1 max-w-lg mx-auto">
+        {/* 1. Semaine */}
+        <button
+          onClick={() => setActiveTab('planner')}
+          className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all active:scale-90 touch-manipulation ${
+            activeTab === 'planner'
+              ? isDark
+                ? 'text-white font-bold'
+                : 'text-stone-950 font-bold'
+              : 'hover:text-stone-900 dark:hover:text-white'
+          }`}
+        >
+          <Calendar className={`w-4 h-4 mb-0.5 shrink-0 ${activeTab === 'planner' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+          <span className="text-[10px] tracking-tight">Semaine</span>
+          {activeTab === 'planner' && (
+            <div className="w-1 h-1 rounded-full bg-stone-950 dark:bg-white mt-0.5" />
+          )}
+        </button>
+
+        {/* 2. Recettes */}
+        <button
+          onClick={() => setActiveTab('recipes')}
+          className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all active:scale-90 touch-manipulation ${
+            activeTab === 'recipes'
+              ? isDark
+                ? 'text-white font-bold'
+                : 'text-stone-950 font-bold'
+              : 'hover:text-stone-900 dark:hover:text-white'
+          }`}
+        >
+          <ChefHat className={`w-4 h-4 mb-0.5 shrink-0 ${activeTab === 'recipes' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+          <span className="text-[10px] tracking-tight">Recettes</span>
+          {activeTab === 'recipes' && (
+            <div className="w-1 h-1 rounded-full bg-stone-950 dark:bg-white mt-0.5" />
+          )}
+        </button>
+
+        {/* 3. Épicerie (avec Badge) */}
+        <button
+          onClick={() => setActiveTab('grocery')}
+          className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all relative active:scale-90 touch-manipulation ${
+            activeTab === 'grocery'
+              ? isDark
+                ? 'text-white font-bold'
+                : 'text-stone-950 font-bold'
+              : 'hover:text-stone-900 dark:hover:text-white'
+          }`}
+        >
+          <div className="relative">
+            <ShoppingBag className={`w-4 h-4 mb-0.5 shrink-0 ${activeTab === 'grocery' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+            {groceryCount > 0 && (
+              <span className="absolute -top-1.5 -right-2 text-[9px] font-mono px-1 py-0 rounded-full font-bold bg-stone-900 text-white dark:bg-white dark:text-stone-950 leading-tight">
+                {groceryCount}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] tracking-tight">Épicerie</span>
+          {activeTab === 'grocery' && (
+            <div className="w-1 h-1 rounded-full bg-stone-950 dark:bg-white mt-0.5" />
+          )}
+        </button>
+
+        {/* 4. Tracker */}
+        <button
+          onClick={() => setActiveTab('tracker')}
+          className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all active:scale-90 touch-manipulation ${
+            activeTab === 'tracker'
+              ? isDark
+                ? 'text-white font-bold'
+                : 'text-stone-950 font-bold'
+              : 'hover:text-stone-900 dark:hover:text-white'
+          }`}
+        >
+          <Activity className={`w-4 h-4 mb-0.5 shrink-0 ${activeTab === 'tracker' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+          <span className="text-[10px] tracking-tight">Tracker</span>
+          {activeTab === 'tracker' && (
+            <div className="w-1 h-1 rounded-full bg-stone-950 dark:bg-white mt-0.5" />
+          )}
+        </button>
+
+        {/* 5. Prix & Prot */}
+        <button
+          onClick={() => setActiveTab('prices')}
+          className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all active:scale-90 touch-manipulation ${
+            activeTab === 'prices'
+              ? isDark
+                ? 'text-white font-bold'
+                : 'text-stone-950 font-bold'
+              : 'hover:text-stone-900 dark:hover:text-white'
+          }`}
+        >
+          <Store className={`w-4 h-4 mb-0.5 shrink-0 ${activeTab === 'prices' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+          <span className="text-[10px] tracking-tight">Prix & Prot</span>
+          {activeTab === 'prices' && (
+            <div className="w-1 h-1 rounded-full bg-stone-950 dark:bg-white mt-0.5" />
+          )}
+        </button>
+
+        {/* 6. Réglages */}
+        <button
+          onClick={() => setActiveTab('preferences')}
+          className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all active:scale-90 touch-manipulation ${
+            activeTab === 'preferences'
+              ? isDark
+                ? 'text-white font-bold'
+                : 'text-stone-950 font-bold'
+              : 'hover:text-stone-900 dark:hover:text-white'
+          }`}
+        >
+          <SlidersHorizontal className={`w-4 h-4 mb-0.5 shrink-0 ${activeTab === 'preferences' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+          <span className="text-[10px] tracking-tight">Réglages</span>
+          {activeTab === 'preferences' && (
+            <div className="w-1 h-1 rounded-full bg-stone-950 dark:bg-white mt-0.5" />
+          )}
+        </button>
+      </div>
+    </nav>
+    </>
   );
 };

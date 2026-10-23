@@ -142,9 +142,9 @@ export const ProteinEfficiencyCalculator: React.FC<ProteinEfficiencyCalculatorPr
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
       {/* 1. Hero Banner Explicatif */}
-      <div className={`rounded-3xl p-6 sm:p-8 border transition-all ${cardGlassClass}`}>
+      <div className={`rounded-2xl sm:rounded-3xl p-4 sm:p-8 border transition-all ${cardGlassClass}`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
             <div className="flex items-center gap-2">
@@ -252,7 +252,7 @@ export const ProteinEfficiencyCalculator: React.FC<ProteinEfficiencyCalculatorPr
       </div>
 
       {/* 2. Simulateur Interactif en Direct */}
-      <div className={`rounded-3xl p-6 sm:p-8 border transition-all ${cardGlassClass}`}>
+      <div className={`rounded-2xl sm:rounded-3xl p-4 sm:p-8 border transition-all ${cardGlassClass}`}>
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-stone-900 text-white dark:bg-white dark:text-stone-950 flex items-center justify-center">
@@ -544,7 +544,7 @@ export const ProteinEfficiencyCalculator: React.FC<ProteinEfficiencyCalculatorPr
       </div>
 
       {/* 3. Le Palmarès du Catalogue (Leaderboard de Rentabilité Protéique) */}
-      <div className={`rounded-3xl p-6 sm:p-8 border transition-all ${cardGlassClass}`}>
+      <div className={`rounded-2xl sm:rounded-3xl p-4 sm:p-8 border transition-all ${cardGlassClass}`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <div className="flex items-center gap-2">

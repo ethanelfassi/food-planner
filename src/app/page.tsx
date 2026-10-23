@@ -664,7 +664,7 @@ export default function Home() {
         onToggleTheme={toggleTheme}
       />
 
-      <main className="flex-1 max-w-[1536px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className="flex-1 max-w-[1536px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24 md:pb-8">
         {activeTab === 'planner' && (
           <WeeklyPlannerView
             plan={activePlan}
@@ -796,7 +796,7 @@ export default function Home() {
       />
 
       <footer
-        className={`border-t py-8 text-center text-xs transition-colors ${isDark
+        className={`border-t py-8 pb-24 md:pb-8 text-center text-xs transition-colors ${isDark
             ? 'border-white/[0.08] bg-[#0B0C0E] text-stone-500'
             : 'border-stone-200 bg-white/70 text-stone-500'
           }`}

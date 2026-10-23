@@ -265,8 +265,8 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
 
       {/* Modale d'édition de prix d'un produit */}
       {editingPriceItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-150">
-          <div className={`rounded-3xl max-w-md w-full p-6 shadow-2xl border space-y-4 ${cardGlassClass}`}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-150 mb-safe sm:mb-0">
+          <div className={`rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border space-y-4 max-h-[90vh] overflow-y-auto ${cardGlassClass}`}>
             <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-white/10">
               <div className="flex items-center gap-2">
                 <DollarSign className="w-4 h-4 text-stone-700 dark:text-stone-300" />
@@ -420,10 +420,10 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
         </div>
 
         {/* Navigation Secondaire : Cibles vs Catalogue */}
-        <div className="flex items-center gap-2 mt-8 pt-6 border-t border-stone-200/60 dark:border-white/10 font-mono text-xs">
+        <div className="flex items-center gap-2 mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-stone-200/60 dark:border-white/10 font-mono text-xs overflow-x-auto scrollbar-none flex-nowrap">
           <button
             onClick={() => setActiveSubTab('catalog')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl transition-all shrink-0 ${
               activeSubTab === 'catalog'
                 ? isDark
                   ? 'bg-white text-stone-950 font-bold shadow-sm'
@@ -431,18 +431,18 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
                 : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
-            <ShoppingBag className="w-3.5 h-3.5" />
+            <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
             <span>Catalogue & Prix ({allIngredients.length})</span>
             {customPricesCount > 0 && (
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-semibold">
-                {customPricesCount} prix édité{customPricesCount > 1 ? 's' : ''}
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-semibold shrink-0">
+                {customPricesCount}
               </span>
             )}
           </button>
 
           <button
             onClick={() => setActiveSubTab('settings')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl transition-all shrink-0 ${
               activeSubTab === 'settings'
                 ? isDark
                   ? 'bg-white text-stone-950 font-bold shadow-sm'
@@ -450,8 +450,8 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
                 : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Variables Métaboliques & Budget</span>
+            <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
+            <span>Cibles & Budget</span>
           </button>
         </div>
       </div>
@@ -989,49 +989,51 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
                 <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Rechercher un produit... (ex: champignons, crème, dinde, bœuf, gruau)"
+                  placeholder="Rechercher un produit... (ex: champignons, dinde, gruau)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2.5 rounded-2xl text-xs border focus:outline-none focus:ring-1 focus:ring-stone-500 ${
+                  className={`w-full pl-10 pr-4 py-2.5 rounded-xl sm:rounded-2xl text-xs border focus:outline-none focus:ring-1 focus:ring-stone-500 ${
                     isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
                   }`}
                 />
               </div>
 
-              {/* Sélecteur de Tri */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className={`px-3 py-2.5 rounded-2xl border text-xs font-mono transition-all outline-hidden ${
-                    isDark
-                      ? 'bg-black/40 border-white/10 text-stone-200'
-                      : 'bg-white border-stone-300 text-stone-800 shadow-xs'
-                  }`}
-                  title="Trier la liste de produits"
-                >
-                  <option value="default">Tri : Par défaut (Rayon)</option>
-                  <option value="protein_ratio">Rentabilité Protéique ($/100g P)</option>
-                  <option value="protein_pct">Teneur en Protéine (% prot)</option>
-                  <option value="price_asc">Prix croissant ($)</option>
-                </select>
-              </div>
+              {/* Sélecteur de Tri & Action Code-barres */}
+              <div className="flex items-center gap-2">
+                <div className="flex-1 sm:flex-initial">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className={`w-full sm:w-auto px-3 py-2.5 rounded-xl sm:rounded-2xl border text-xs font-mono transition-all outline-hidden ${
+                      isDark
+                        ? 'bg-black/40 border-white/10 text-stone-200'
+                        : 'bg-white border-stone-300 text-stone-800 shadow-xs'
+                    }`}
+                    title="Trier la liste de produits"
+                  >
+                    <option value="default">Tri : Rayon</option>
+                    <option value="protein_ratio">Rentabilité ($/100g P)</option>
+                    <option value="protein_pct">Teneur (% prot)</option>
+                    <option value="price_asc">Prix ($)</option>
+                  </select>
+                </div>
 
-              {onOpenBarcodeModal && (
-                <button
-                  type="button"
-                  onClick={onOpenBarcodeModal}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-mono uppercase tracking-wider font-semibold transition-all border shrink-0 active:scale-95 shadow-sm ${
-                    isDark
-                      ? 'bg-white/10 hover:bg-white/15 border-white/15 text-white'
-                      : 'bg-white hover:bg-stone-50 border-stone-300 text-stone-900 shadow-xs'
-                  }`}
-                  title="Scanner ou entrer un code-barres pour ajouter un produit à la base"
-                >
-                  <ScanBarcode className="w-4 h-4 text-emerald-500" />
-                  <span className="hidden sm:inline">+ Code-barres</span>
-                </button>
-              )}
+                {onOpenBarcodeModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenBarcodeModal}
+                    className={`flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl sm:rounded-2xl text-xs font-mono uppercase tracking-wider font-semibold transition-all border shrink-0 active:scale-95 shadow-sm ${
+                      isDark
+                        ? 'bg-white/10 hover:bg-white/15 border-white/15 text-white'
+                        : 'bg-white hover:bg-stone-50 border-stone-300 text-stone-900 shadow-xs'
+                    }`}
+                    title="Scanner ou entrer un code-barres pour ajouter un produit à la base"
+                  >
+                    <ScanBarcode className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span className="text-[11px]">+ Code-barres</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Filtres par Rayons */}

@@ -251,9 +251,9 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-md animate-in fade-in duration-200 mb-safe sm:mb-0">
       <div
-        className={`rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border flex flex-col ${
+        className={`rounded-2xl sm:rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border flex flex-col ${
           isDark
             ? 'liquid-glass text-stone-100 border-white/15'
             : 'liquid-glass-light text-stone-900 border-stone-300'
@@ -262,7 +262,7 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
       >
         {/* Modal Header */}
         <div
-          className={`p-6 border-b flex items-start justify-between sticky top-0 z-20 backdrop-blur-2xl ${
+          className={`p-4 sm:p-6 border-b flex items-start justify-between sticky top-0 z-20 backdrop-blur-2xl ${
             isDark ? 'border-white/10 bg-[#0B0C0E]/95' : 'border-stone-200 bg-[#F7F7F6]/95'
           }`}
         >

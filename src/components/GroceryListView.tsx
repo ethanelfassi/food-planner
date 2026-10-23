@@ -185,24 +185,24 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
     <div className="space-y-8">
       {/* SÉLECTEUR DE LISTE : COMMUNE (PARTAGÉE) VS INDIVIDUELLE */}
       <div
-        className={`p-2 sm:p-2.5 rounded-3xl border transition-all ${
+        className={`p-2 sm:p-2.5 rounded-2xl sm:rounded-3xl border transition-all ${
           isDark ? 'liquid-glass' : 'liquid-glass-light'
         }`}
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none flex-nowrap sm:flex-wrap">
             <button
               onClick={() => onScopeChange?.('common')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 ${
+              className={`flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl sm:rounded-2xl text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 shrink-0 ${
                 scope === 'common'
                   ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-md'
                   : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
               }`}
             >
-              <Users className="w-3.5 h-3.5" />
-              <span>Liste Commune (Partagée)</span>
+              <Users className="w-3.5 h-3.5 shrink-0" />
+              <span>Liste Commune</span>
               {scope === 'common' && (
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-950">
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-950 shrink-0">
                   {totalItems}
                 </span>
               )}
@@ -214,14 +214,14 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                 <button
                   key={acc.id}
                   onClick={() => onScopeChange?.(acc.id)}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 ${
+                  className={`flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl sm:rounded-2xl text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 shrink-0 ${
                     isSelected
                       ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-md'
                       : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
                   }`}
                 >
                   <div
-                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${
                       isSelected
                         ? 'bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-950'
                         : 'bg-stone-200 text-stone-800 dark:bg-white/10 dark:text-stone-300'
@@ -229,9 +229,9 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                   >
                     {acc.avatarInitials}
                   </div>
-                  <span>Liste de {acc.name}</span>
+                  <span>Liste {acc.name}</span>
                   {isSelected && (
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-950">
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-950 shrink-0">
                       {totalItems}
                     </span>
                   )}
@@ -252,7 +252,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
       {/* CONTRÔLE QUALITÉ & VÉRIFICATION METRO */}
       <div
-        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-3xl border transition-all ${
+        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border transition-all ${
           isDark
             ? 'bg-white/[0.03] border-white/10 text-stone-200'
             : 'bg-white border-stone-200 text-stone-900 shadow-xs'
@@ -275,7 +275,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
           <div>
             <div className="text-xs font-mono font-semibold tracking-wide uppercase flex items-center gap-2">
               <span className="text-stone-900 dark:text-stone-100">
-                Metro QC • Catalogue & Tarifs synchronisés
+                Metro QC • Tarifs synchronisés
               </span>
               <span className="text-[10px] font-normal text-stone-500 dark:text-stone-400">
                 • {lastVerifiedTime}
@@ -290,7 +290,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
         <button
           onClick={handleRunVerification}
           disabled={isVerifying}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider shrink-0 transition-all border font-medium ${
+          className={`px-3.5 py-2 sm:py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider shrink-0 transition-all border font-medium active:scale-95 text-center ${
             isDark
               ? 'bg-white/5 hover:bg-white/10 text-stone-200 border-white/10'
               : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-200 shadow-xs'
@@ -302,15 +302,15 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
       {/* TICKET DE CAISSE FISCAL EXACT (Liquid Glass Apple Receipt Style) */}
       <div
-        className={`rounded-3xl p-6 sm:p-8 transition-all relative overflow-hidden border ${
+        className={`rounded-2xl sm:rounded-3xl p-4 sm:p-8 transition-all relative overflow-hidden border ${
           isDark
             ? 'liquid-glass'
             : 'liquid-glass-light'
         }`}
       >
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
           <div>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="font-mono text-[10px] uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-stone-100 dark:bg-white/10 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-white/10 flex items-center gap-1.5 font-semibold">
                 <Receipt className="w-3 h-3 text-stone-600 dark:text-stone-400" /> Reçu Fiscal Metro QC
               </span>
@@ -319,7 +319,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
               </span>
             </div>
 
-            <h1 className="font-serif text-3xl sm:text-4xl font-normal tracking-tight text-stone-900 dark:text-white">
+            <h1 className="font-serif text-2xl sm:text-4xl font-normal tracking-tight text-stone-900 dark:text-white">
               {scope === 'common' ? (
                 <>Liste d'Épicerie & <span className="italic">Ticket Commun</span></>
               ) : (
@@ -327,14 +327,14 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
               )}
             </h1>
 
-            <div className="flex items-baseline gap-3 mt-3">
-              <span className="font-mono tabular-nums text-4xl sm:text-5xl font-light tracking-tight text-stone-950 dark:text-white">
+            <div className="flex items-baseline gap-2 sm:gap-3 mt-3">
+              <span className="font-mono tabular-nums text-3xl sm:text-5xl font-light tracking-tight text-stone-950 dark:text-white">
                 {receipt.totalWithTax.toFixed(2)}
               </span>
-              <span className="font-mono text-lg text-stone-800 dark:text-stone-200 font-normal">
+              <span className="font-mono text-base sm:text-lg text-stone-800 dark:text-stone-200 font-normal">
                 $ CAD
               </span>
-              <span className="text-xs text-stone-500 dark:text-stone-400 font-sans font-medium">
+              <span className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 font-sans font-medium">
                 (Montant exact payable en caisse)
               </span>
             </div>
@@ -619,14 +619,14 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
       {/* Barre de Filtres et Ajout Manuel */}
       <div
-        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl border ${
+        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-3.5 rounded-2xl border ${
           isDark ? 'bg-white/[0.02] border-white/10' : 'bg-stone-200/50 border-stone-300/60'
         }`}
       >
-        <div className="flex items-center gap-1.5 text-xs font-mono">
+        <div className="grid grid-cols-3 sm:flex items-center gap-1.5 text-xs font-mono w-full sm:w-auto">
           <button
             onClick={() => setFilterMode('all')}
-            className={`px-3 py-1.5 rounded-xl transition-all ${
+            className={`py-2 sm:py-1.5 px-2 sm:px-3 rounded-xl transition-all text-center ${
               filterMode === 'all'
                 ? isDark
                   ? 'bg-white text-stone-950 font-bold'
@@ -638,7 +638,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
           </button>
           <button
             onClick={() => setFilterMode('pending')}
-            className={`px-3 py-1.5 rounded-xl transition-all ${
+            className={`py-2 sm:py-1.5 px-2 sm:px-3 rounded-xl transition-all text-center ${
               filterMode === 'pending'
                 ? isDark
                   ? 'bg-white text-stone-950 font-bold'
@@ -650,7 +650,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
           </button>
           <button
             onClick={() => setFilterMode('completed')}
-            className={`px-3 py-1.5 rounded-xl transition-all ${
+            className={`py-2 sm:py-1.5 px-2 sm:px-3 rounded-xl transition-all text-center ${
               filterMode === 'completed'
                 ? isDark
                   ? 'bg-white text-stone-950 font-bold'
@@ -662,22 +662,22 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
           <button
             onClick={() => setShowAddForm(!showAddForm)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20 hover:bg-stone-100 dark:hover:bg-white/10 transition-colors font-medium"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20 hover:bg-stone-100 dark:hover:bg-white/10 transition-colors font-medium active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Ajouter un article</span>
+            <span>Ajouter</span>
           </button>
 
           {checkedItems > 0 && (
             <button
               onClick={onClearChecked}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider text-stone-600 hover:text-stone-950 dark:text-stone-400 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-white/5 transition-colors"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider text-stone-600 hover:text-stone-950 dark:text-stone-400 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-white/5 transition-colors active:scale-95"
             >
               <CheckCheck className="w-3.5 h-3.5" />
-              <span>Tout décocher</span>
+              <span>Décocher tout</span>
             </button>
           )}
         </div>
@@ -842,17 +842,17 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                       }`}
                     >
                       <div className="flex items-start gap-3 min-w-0">
-                        {/* Checkbox minimaliste */}
+                        {/* Checkbox minimaliste ergonomique */}
                         <div
-                          className={`w-5 h-5 mt-1 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                          className={`w-6 h-6 mt-0.5 rounded-xl flex items-center justify-center shrink-0 transition-transform active:scale-90 ${
                             item.checked
-                              ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950'
+                              ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-xs'
                               : isDark
-                              ? 'border border-white/20 group-hover:border-white/40'
-                              : 'border border-stone-300 group-hover:border-stone-500'
+                              ? 'border-2 border-white/20 group-hover:border-white/40'
+                              : 'border-2 border-stone-300 group-hover:border-stone-500'
                           }`}
                         >
-                          {item.checked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          {item.checked && <Check className="w-4 h-4 stroke-[3]" />}
                         </div>
 
                         {/* Photo Produit */}
@@ -1109,12 +1109,58 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
         </div>
       )}
 
+      {/* BARRE FLOTTANTE D'ÉPICERIE MOBILE (Toujours accessible au pouce dans les allées) */}
+      {totalItems > 0 && (
+        <div className="fixed bottom-20 left-3 right-3 z-30 md:hidden pointer-events-none">
+          <div
+            className={`pointer-events-auto flex items-center justify-between px-3.5 py-2.5 rounded-2xl border shadow-xl backdrop-blur-xl transition-all ${
+              isDark
+                ? 'bg-stone-900/95 border-white/15 text-white shadow-black/60'
+                : 'bg-white/95 border-stone-300 text-stone-950 shadow-stone-500/15'
+            }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className={`w-9 h-9 rounded-xl flex items-center justify-center font-mono text-xs font-bold shrink-0 ${
+                  checkedItems === totalItems
+                    ? 'bg-emerald-500 text-white'
+                    : isDark
+                    ? 'bg-white/10 text-white'
+                    : 'bg-stone-100 text-stone-900'
+                }`}
+              >
+                {checkedItems}/{totalItems}
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-mono font-semibold truncate">
+                  {checkedItems === totalItems
+                    ? 'Panier complet ! 🎉'
+                    : `${totalItems - checkedItems} restant${totalItems - checkedItems > 1 ? 's' : ''}`}
+                </div>
+                <div className="text-[10px] text-stone-500 dark:text-stone-400 font-mono">
+                  {Math.round((checkedItems / totalItems) * 100)} % complété
+                </div>
+              </div>
+            </div>
+
+            <div className="text-right shrink-0">
+              <div className="font-mono tabular-nums text-sm font-bold text-stone-950 dark:text-white">
+                {receipt.totalWithTax.toFixed(2)} $
+              </div>
+              <div className="text-[10px] text-stone-500 dark:text-stone-400 font-mono">
+                Total TTC
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Édition Prix Personnalisé */}
       {editingPriceItem && onUpdateCustomPrice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 mb-safe sm:mb-0">
           <div
-            className={`w-full max-w-md rounded-3xl p-6 border shadow-2xl space-y-4 ${
-              isDark ? 'liquid-glass bg-stone-950/90 text-white border-white/10' : 'liquid-glass-light bg-white/95 text-stone-900 border-stone-200'
+            className={`w-full max-w-md rounded-2xl sm:rounded-3xl p-5 sm:p-6 border shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto ${
+              isDark ? 'liquid-glass bg-stone-950/95 text-white border-white/10' : 'liquid-glass-light bg-white/95 text-stone-900 border-stone-200'
             }`}
           >
             <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-white/10">

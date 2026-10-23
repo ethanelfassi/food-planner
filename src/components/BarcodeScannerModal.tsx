@@ -178,16 +178,16 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200 mb-safe sm:mb-0">
       <div
-        className={`w-full max-w-xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all ${
+        className={`w-full max-w-xl rounded-2xl sm:rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] transition-all ${
           isDark
             ? 'bg-stone-950/95 border-white/10 text-white'
             : 'bg-white/95 border-stone-200 text-stone-900 shadow-2xl'
         }`}
       >
         {/* Header Modal */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-200/80 dark:border-white/10">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-stone-200/80 dark:border-white/10">
           <div className="flex items-center gap-2.5">
             <div className={`p-2 rounded-xl ${isDark ? 'bg-white/10 text-white' : 'bg-stone-900 text-white'}`}>
               <ScanBarcode className="w-5 h-5" />

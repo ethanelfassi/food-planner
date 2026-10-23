@@ -82,14 +82,14 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
     <div className="space-y-8">
       {/* Hero Header Éditorial & Anneaux d'Objectif Apple Fitness */}
       <div
-        className={`rounded-3xl p-6 sm:p-8 transition-all ${
+        className={`rounded-2xl sm:rounded-3xl p-4 sm:p-8 transition-all ${
           isDark ? 'liquid-glass' : 'liquid-glass-light'
         }`}
       >
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="font-mono text-[11px] uppercase tracking-widest text-stone-700 dark:text-stone-300 font-semibold">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-stone-700 dark:text-stone-300 font-semibold">
                 Menu Personnalisé • Québec
               </span>
               <span className="text-stone-400 text-xs">•</span>
@@ -98,19 +98,19 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
               </span>
             </div>
 
-            <h1 className="font-serif text-3xl sm:text-4xl font-normal tracking-tight text-stone-900 dark:text-white">
+            <h1 className="font-serif text-2xl sm:text-4xl font-normal tracking-tight text-stone-900 dark:text-white">
               Semaine Nutritionnelle <span className="italic font-light">Sur-Mesure</span>
             </h1>
 
-            <p className="text-sm text-stone-600 dark:text-stone-300 mt-2 max-w-2xl font-sans leading-relaxed">
+            <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 mt-2 max-w-2xl font-sans leading-relaxed">
               Chaque souper est cuisiné frais le soir en portion double pour garnir automatiquement votre dîner du lendemain. Zéro perte de temps, 100 % d'aliments complets.
             </p>
           </div>
 
           {/* Synthèse Métabolique Minimaliste 4 Piliers */}
-          <div className="flex items-center gap-4 self-start lg:self-auto flex-wrap sm:flex-nowrap">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
             <div
-              className={`flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-2xl border ${
+              className={`grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 p-3 sm:p-4 rounded-2xl border flex-1 ${
                 isDark
                   ? 'bg-black/30 border-white/10'
                   : 'bg-white border-stone-200 shadow-xs'
@@ -120,60 +120,54 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                 <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
                   <Flame className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Énergie
                 </div>
-                <div className="font-mono tabular-nums text-lg sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyCalories} <span className="text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetCalories ?? 3050}</span>
+                <div className="font-mono tabular-nums text-base sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
+                  {plan.avgDailyCalories} <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetCalories ?? 3050}</span>
                 </div>
               </div>
-
-              <div className={`h-8 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-200'}`} />
 
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
                   <Dumbbell className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Protéines
                 </div>
-                <div className="font-mono tabular-nums text-lg sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyProtein}g <span className="text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetProtein ?? 165}g</span>
+                <div className="font-mono tabular-nums text-base sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
+                  {plan.avgDailyProtein}g <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetProtein ?? 165}g</span>
                 </div>
               </div>
-
-              <div className={`h-8 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-200'}`} />
 
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
                   <Wheat className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Glucides
                 </div>
-                <div className="font-mono tabular-nums text-lg sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyCarbs}g <span className="text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetCarbs ?? 390}g</span>
+                <div className="font-mono tabular-nums text-base sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
+                  {plan.avgDailyCarbs}g <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetCarbs ?? 390}g</span>
                 </div>
               </div>
-
-              <div className={`h-8 w-[1px] ${isDark ? 'bg-white/10' : 'bg-stone-200'}`} />
 
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
                   <Droplet className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Lipides
                 </div>
-                <div className="font-mono tabular-nums text-lg sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyFat}g <span className="text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetFat ?? 90}g</span>
+                <div className="font-mono tabular-nums text-base sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
+                  {plan.avgDailyFat}g <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetFat ?? 90}g</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
               {onOpenRecipeCreator && (
                 <button
                   onClick={onOpenRecipeCreator}
-                  className="flex items-center gap-1.5 px-3.5 py-3 rounded-2xl border text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 border-stone-300 dark:border-white/20 hover:bg-stone-100 dark:hover:bg-white/10 text-stone-900 dark:text-stone-100 shadow-xs"
+                  className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2.5 sm:py-3 rounded-2xl border text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 border-stone-300 dark:border-white/20 hover:bg-stone-100 dark:hover:bg-white/10 text-stone-900 dark:text-stone-100 shadow-xs"
                   title="Créer un nouveau repas personnalisé"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Créer un Repas</span>
+                  <span>Repas</span>
                 </button>
               )}
 
               <button
                 onClick={onRegenerateAll}
-                className={`p-3.5 rounded-2xl border transition-all active:scale-95 ${
+                className={`p-2.5 sm:p-3.5 rounded-2xl border transition-all active:scale-95 ${
                   isDark
                     ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
                     : 'bg-stone-900 hover:bg-stone-800 text-stone-50 border-stone-900 shadow-xs'
@@ -187,14 +181,14 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
         </div>
 
         {/* Sélecteur des 7 Jours (Nordic Minimalist Pills) */}
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2.5 mt-8 pt-6 border-t border-stone-200/60 dark:border-white/10">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-stone-200/60 dark:border-white/10">
           {plan.days.map((day, idx) => {
             const isSelected = selectedDayIndex === idx;
             return (
               <button
                 key={day.dayName}
                 onClick={() => setSelectedDayIndex(idx)}
-                className={`py-3 px-1 sm:px-2 rounded-2xl text-center transition-all flex flex-col items-center gap-1 ${
+                className={`py-2 sm:py-3 px-0.5 sm:px-2 rounded-xl sm:rounded-2xl text-center transition-all flex flex-col items-center gap-0.5 sm:gap-1 active:scale-95 touch-manipulation ${
                   isSelected
                     ? isDark
                       ? 'bg-white text-stone-950 font-bold shadow-xl shadow-black/30 ring-1 ring-white'
@@ -204,11 +198,11 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                     : 'bg-stone-100 hover:bg-stone-200 border border-stone-200 text-stone-700'
                 }`}
               >
-                <span className="font-mono text-[10px] sm:text-xs uppercase tracking-wider">
+                <span className="font-mono text-[9px] sm:text-xs uppercase tracking-wider font-semibold">
                   {day.dayName.slice(0, 3)}
                 </span>
                 <span
-                  className={`font-mono tabular-nums text-xs sm:text-sm font-semibold ${
+                  className={`font-mono tabular-nums text-[11px] sm:text-sm font-semibold ${
                     isSelected
                       ? isDark
                         ? 'text-stone-950'
@@ -233,16 +227,16 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
 
       {/* Détails du Jour Sélectionné */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-3">
-            <h2 className="font-serif text-2xl font-normal text-stone-900 dark:text-white">
+        <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1.5 sm:gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3">
+            <h2 className="font-serif text-xl sm:text-2xl font-normal text-stone-900 dark:text-white">
               Repas du <span className="italic">{currentDay.dayName}</span>
             </h2>
             <span className="font-mono text-xs text-stone-500 dark:text-stone-400 tabular-nums">
               {currentDay.dailyCalories} kcal • {currentDay.dailyProtein}g prot • {currentDay.dailyCarbs}g gluc • {currentDay.dailyFat}g lip
             </span>
           </div>
-          <span className="text-xs text-stone-400 hidden sm:block font-sans">
+          <span className="text-xs text-stone-400 hidden md:block font-sans">
             Sélectionnez une carte pour consulter les instructions
           </span>
         </div>
@@ -436,9 +430,9 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
 
       {/* Modal / Menu de Remplacement Liquid Glass */}
       {swapMealState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-150">
           <div
-            className={`rounded-3xl max-w-lg w-full p-6 shadow-2xl border ${
+            className={`rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border max-h-[85vh] overflow-y-auto mb-safe sm:mb-0 ${
               isDark ? 'liquid-glass' : 'liquid-glass-light'
             }`}
           >

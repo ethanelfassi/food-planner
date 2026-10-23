@@ -176,73 +176,73 @@ export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
 
       {/* Hero Header Éditorial */}
       <div
-        className={`rounded-3xl p-6 sm:p-8 transition-all ${
+        className={`rounded-2xl sm:rounded-3xl p-4 sm:p-8 transition-all ${
           isDark ? 'liquid-glass' : 'liquid-glass-light'
         }`}
       >
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="font-mono text-[11px] uppercase tracking-widest text-stone-700 dark:text-stone-300 font-semibold flex items-center gap-1.5">
-                <ChefHat className="w-3.5 h-3.5" /> Répertoire Culinaire • SQLite & Chef Metro
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-stone-700 dark:text-stone-300 font-semibold flex items-center gap-1.5">
+                <ChefHat className="w-3.5 h-3.5" /> Répertoire Culinaire
               </span>
               <span className="text-stone-400 text-xs">•</span>
-              <span className="text-xs text-stone-500 dark:text-stone-400 font-sans">
+              <span className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 font-sans">
                 {allRecipes.length} plats indexés ({customRecipes.length} créés maison)
               </span>
             </div>
 
-            <h1 className="font-serif text-3xl sm:text-4xl font-normal tracking-tight text-stone-900 dark:text-white">
+            <h1 className="font-serif text-2xl sm:text-4xl font-normal tracking-tight text-stone-900 dark:text-white">
               Livre de Plats & <span className="italic font-light">Recettes Personnalisées</span>
             </h1>
 
-            <p className="text-sm text-stone-600 dark:text-stone-300 mt-2 max-w-2xl font-sans leading-relaxed">
+            <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 mt-2 max-w-2xl font-sans leading-relaxed">
               Consultez, modifiez, supprimez et créez vos propres repas favoris à partir des produits exacts de Metro. Vous pouvez planifier n'importe quel plat directement dans votre semaine en un clic.
             </p>
           </div>
 
           {/* Boutons d'Action : Créer Repas & Ajouter Code-barres */}
-          <div className="flex items-center gap-2.5 self-start lg:self-auto flex-wrap">
+          <div className="flex items-center gap-2 w-full lg:w-auto">
             {onOpenBarcodeModal && (
               <button
                 onClick={onOpenBarcodeModal}
-                className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-mono uppercase tracking-wider transition-all border font-semibold active:scale-95 shadow-md ${
+                className={`flex-1 lg:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl text-xs font-mono uppercase tracking-wider transition-all border font-semibold active:scale-95 shadow-md ${
                   isDark
                     ? 'bg-white/10 text-white hover:bg-white/15 border-white/15'
                     : 'bg-white text-stone-900 hover:bg-stone-50 border-stone-300 shadow-xs'
                 }`}
                 title="Scanner ou entrer un code-barres pour ajouter un produit à la base"
               >
-                <ScanBarcode className="w-4 h-4 text-emerald-500" />
-                <span>+ Code-barres</span>
+                <ScanBarcode className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span className="truncate">+ Code-barres</span>
               </button>
             )}
 
             <button
               onClick={onOpenRecipeCreator}
-              className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-mono uppercase tracking-wider transition-all border font-semibold active:scale-95 shadow-lg ${
+              className={`flex-1 lg:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl text-xs font-mono uppercase tracking-wider transition-all border font-semibold active:scale-95 shadow-lg ${
                 isDark
                   ? 'bg-white text-stone-950 hover:bg-stone-200 border-white shadow-black/40'
                   : 'bg-stone-900 text-stone-50 hover:bg-stone-800 border-stone-900 shadow-stone-900/10'
               }`}
             >
-              <Plus className="w-4 h-4" />
-              <span>Créer un Repas</span>
+              <Plus className="w-4 h-4 shrink-0" />
+              <span className="truncate">Créer un Repas</span>
             </button>
           </div>
         </div>
 
         {/* Barre de Recherche & Filtres */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mt-8 pt-6 border-t border-stone-200/60 dark:border-white/10">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 sm:gap-3 mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-stone-200/60 dark:border-white/10">
           {/* Recherche */}
           <div className="md:col-span-5 relative">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
             <input
               type="text"
-              placeholder="Rechercher un plat, ingrédient (ex: champignons, poulet...)"
+              placeholder="Rechercher un plat, ingrédient (ex: poulet...)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2.5 rounded-2xl text-xs font-mono border transition-all ${
+              className={`w-full pl-10 pr-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-xs font-mono border transition-all ${
                 isDark
                   ? 'bg-black/30 border-white/10 text-white placeholder-stone-500 focus:border-white/30 focus:outline-hidden'
                   : 'bg-white border-stone-200 text-stone-900 placeholder-stone-400 focus:border-stone-400 focus:outline-hidden shadow-xs'
@@ -259,17 +259,17 @@ export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
           </div>
 
           {/* Filtre Type de Repas */}
-          <div className="md:col-span-4 flex items-center p-1 rounded-2xl border bg-stone-100/70 dark:bg-black/30 border-stone-200/80 dark:border-white/10 text-xs font-mono">
+          <div className="md:col-span-4 flex items-center p-1 rounded-xl sm:rounded-2xl border bg-stone-100/70 dark:bg-black/30 border-stone-200/80 dark:border-white/10 text-xs font-mono overflow-x-auto scrollbar-none">
             {[
               { id: 'all', label: 'Tous' },
               { id: 'dejeuner', label: 'Déjeuners' },
-              { id: 'souper', label: 'Dîners & Soupers' },
+              { id: 'souper', label: 'Dîners/Soupers' },
               { id: 'collation', label: 'Collations' },
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setMealTypeFilter(tab.id as 'all' | MealType)}
-                className={`flex-1 py-1.5 px-2 rounded-xl text-center transition-all ${
+                className={`flex-1 shrink-0 py-1.5 px-2 rounded-lg sm:rounded-xl text-center text-[11px] sm:text-xs transition-all ${
                   mealTypeFilter === tab.id
                     ? isDark
                       ? 'bg-white text-stone-950 font-bold shadow-xs'
@@ -283,7 +283,7 @@ export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
           </div>
 
           {/* Filtre Origine */}
-          <div className="md:col-span-3 flex items-center p-1 rounded-2xl border bg-stone-100/70 dark:bg-black/30 border-stone-200/80 dark:border-white/10 text-xs font-mono">
+          <div className="md:col-span-3 flex items-center p-1 rounded-xl sm:rounded-2xl border bg-stone-100/70 dark:bg-black/30 border-stone-200/80 dark:border-white/10 text-xs font-mono">
             {[
               { id: 'all', label: `Tous (${allRecipes.length})` },
               { id: 'custom', label: `Maison (${customRecipes.length})` },
@@ -292,7 +292,7 @@ export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
               <button
                 key={tab.id}
                 onClick={() => setSourceFilter(tab.id as 'all' | 'custom' | 'curated')}
-                className={`flex-1 py-1.5 px-2 rounded-xl text-center transition-all ${
+                className={`flex-1 py-1.5 px-2 rounded-lg sm:rounded-xl text-center text-[11px] sm:text-xs transition-all ${
                   sourceFilter === tab.id
                     ? isDark
                       ? 'bg-white text-stone-950 font-bold shadow-xs'
@@ -333,7 +333,7 @@ export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
             return (
               <div
                 key={recipe.id}
-                className={`rounded-3xl p-5 border transition-all flex flex-col justify-between group ${cardGlassClass} ${
+                className={`rounded-2xl sm:rounded-3xl p-4 sm:p-5 border transition-all flex flex-col justify-between group ${cardGlassClass} ${
                   isExcluded ? 'opacity-50 ring-1 ring-red-500/30' : ''
                 }`}
               >
@@ -488,9 +488,9 @@ export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
 
       {/* MODAL PLANIFIER UN PLAT DANS LA SEMAINE */}
       {planningRecipe && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 mb-safe sm:mb-0">
           <div
-            className={`w-full max-w-md rounded-3xl p-6 sm:p-7 border shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 ${
+            className={`w-full max-w-md rounded-2xl sm:rounded-3xl p-5 sm:p-7 border shadow-2xl space-y-4 sm:space-y-5 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto ${
               isDark ? 'bg-stone-950 border-white/15 text-white' : 'bg-white border-stone-200 text-stone-900'
             }`}
           >

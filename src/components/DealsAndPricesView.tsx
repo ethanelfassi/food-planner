@@ -39,10 +39,10 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({
     <div className="space-y-6">
       {/* Barre de Bascule des Sous-Onglets (Rabais vs Rentabilité Protéique) */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-stone-200/60 dark:bg-white/[0.04] border border-stone-300/60 dark:border-white/10 w-fit">
+        <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-stone-200/60 dark:bg-white/[0.04] border border-stone-300/60 dark:border-white/10 w-full sm:w-auto overflow-x-auto scrollbar-none flex-nowrap">
           <button
             onClick={() => setActiveSubTab('deals')}
-            className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all shrink-0 ${
               activeSubTab === 'deals'
                 ? isDark
                   ? 'bg-white text-stone-950 font-semibold shadow-md'
@@ -53,12 +53,12 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({
             }`}
           >
             <Store className="w-4 h-4 shrink-0" />
-            <span>Circulaires & Magasins</span>
+            <span className="truncate">Circulaires & Magasins</span>
           </button>
 
           <button
             onClick={() => setActiveSubTab('protein')}
-            className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all shrink-0 ${
               activeSubTab === 'protein'
                 ? isDark
                   ? 'bg-white text-stone-950 font-semibold shadow-md'
@@ -69,7 +69,7 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({
             }`}
           >
             <Dumbbell className="w-4 h-4 shrink-0" />
-            <span>Rentabilité Protéique ($/100g P)</span>
+            <span className="truncate">Rentabilité Protéique</span>
             <span className="hidden sm:inline-block px-1.5 py-0.2 rounded-md text-[10px] font-mono uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
               Nouveau
             </span>
@@ -93,9 +93,9 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({
 
       {/* Vue 2 : Comparateur de Magasins & Circulaires Metro */}
       {activeSubTab === 'deals' && (
-        <div className="space-y-8 animate-in fade-in duration-200">
+        <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-200">
           {/* En-tête */}
-          <div className={`rounded-3xl p-6 sm:p-8 transition-all border ${cardGlassClass}`}>
+          <div className={`rounded-2xl sm:rounded-3xl p-4 sm:p-8 transition-all border ${cardGlassClass}`}>
             <div className="flex items-center gap-2 mb-2">
               <span className="font-mono text-[10px] uppercase tracking-widest text-stone-700 dark:text-stone-300 font-semibold">
                 Intelligence de Marché • Québec
