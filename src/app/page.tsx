@@ -1,15 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  CoupleSettings, 
-  GroceryItem, 
+import {
+  CoupleSettings,
+  GroceryItem,
   Ingredient,
-  MetroAisle, 
-  ProductPreferenceStatus, 
-  ProductPreferencesMap, 
-  Recipe, 
-  SplitCostReport, 
+  MetroAisle,
+  ProductPreferenceStatus,
+  ProductPreferencesMap,
+  Recipe,
+  SplitCostReport,
   WeeklyPlan,
   CustomPricesMap,
   UserCustomizationSettings,
@@ -20,11 +20,11 @@ import {
   GroceryViewScope
 } from '@/types';
 import { generateWeeklyPlan, replaceRecipeInPlan } from '@/lib/planner';
-import { 
-  generateGroceryList, 
-  generateCommonGroceryList, 
+import {
+  generateGroceryList,
+  generateCommonGroceryList,
   calculateCommonListSplit,
-  AccountSplitSummary 
+  AccountSplitSummary
 } from '@/lib/grocery';
 import { DEFAULT_COUPLE_SETTINGS, calculateSplitCost } from '@/lib/couple-split';
 import { Header } from '@/components/Header';
@@ -633,9 +633,8 @@ export default function Home() {
   if (Object.keys(plansByAccount).length === 0 || !activePlan) {
     return (
       <div
-        className={`min-h-screen flex items-center justify-center transition-colors ${
-          isDark ? 'bg-[#0B0C0E] text-stone-300' : 'bg-[#F7F7F6] text-stone-800'
-        }`}
+        className={`min-h-screen flex items-center justify-center transition-colors ${isDark ? 'bg-[#0B0C0E] text-stone-300' : 'bg-[#F7F7F6] text-stone-800'
+          }`}
       >
         <div className="flex items-center gap-3">
           <div className="w-5 h-5 border-2 border-stone-800 dark:border-stone-200 border-t-transparent rounded-full animate-spin" />
@@ -647,9 +646,8 @@ export default function Home() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 w-full overflow-x-hidden ${
-        isDark ? 'bg-[#0B0C0E] text-stone-100' : 'bg-[#F7F7F6] text-stone-900'
-      }`}
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 w-full overflow-x-hidden ${isDark ? 'bg-[#0B0C0E] text-stone-100' : 'bg-[#F7F7F6] text-stone-900'
+        }`}
     >
       <Header
         activeTab={activeTab}
@@ -798,14 +796,13 @@ export default function Home() {
       />
 
       <footer
-        className={`border-t py-8 text-center text-xs transition-colors ${
-          isDark
+        className={`border-t py-8 text-center text-xs transition-colors ${isDark
             ? 'border-white/[0.08] bg-[#0B0C0E] text-stone-500'
             : 'border-stone-200 bg-white/70 text-stone-500'
-        }`}
+          }`}
       >
         <p className="font-serif italic text-sm">
-          FoodPlanner QC • Profil : {activeAccount.name} ({activeSettings.targetCalories} kcal & {activeSettings.targetProtein}g P) • Base de Données SQLite locale
+          FoodPlanner • Profil : {activeAccount.name} ({activeSettings.targetCalories} kcal & {activeSettings.targetProtein}g P) • Base de Données SQLite locale
         </p>
       </footer>
     </div>

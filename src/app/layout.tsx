@@ -19,7 +19,7 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "FoodPlanner QC • Nutrition & Épicerie",
+  title: "FoodPlanner • Nutrition & Épicerie",
   description: "Planificateur de repas sportif et d'épicerie Metro Québec",
 };
 
