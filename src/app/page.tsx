@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   CoupleSettings,
   GroceryItem,
@@ -431,6 +431,11 @@ export default function Home() {
     }));
   };
 
+  const handleCloseRecipeCreator = useCallback(() => {
+    setIsRecipeCreatorOpen(false);
+    setRecipeToEdit(null);
+  }, []);
+
   // --- GESTION DES PRODUITS PERSONNALISÉS (CODE-BARRES SQLITE) ---
 
   const handleProductAddedFromBarcode = (product: Ingredient) => {
@@ -776,10 +781,7 @@ export default function Home() {
 
       <RecipeCreatorModal
         isOpen={isRecipeCreatorOpen}
-        onClose={() => {
-          setIsRecipeCreatorOpen(false);
-          setRecipeToEdit(null);
-        }}
+        onClose={handleCloseRecipeCreator}
         recipeToEdit={recipeToEdit}
         onSaveRecipe={handleSaveCustomRecipe}
         onDeleteRecipe={handleDeleteCustomRecipe}

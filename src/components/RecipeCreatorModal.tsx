@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { Recipe, RecipeIngredientItem, MealType } from '@/types';
+import React, { useState, useMemo, useEffect, useCallback, useDeferredValue } from 'react';
+import { Recipe, RecipeIngredientItem, MealType, Ingredient } from '@/types';
 import { INGREDIENTS } from '@/data/ingredients';
 import { calculateRecipeNutrients } from '@/lib/nutrition';
 import { 
@@ -15,7 +15,6 @@ import {
   Search, 
   Check, 
   Sparkles,
-  DollarSign,
   UtensilsCrossed
 } from 'lucide-react';
 
@@ -27,7 +26,7 @@ interface RecipeCreatorModalProps {
   onDeleteRecipe?: (recipeId: string) => void;
   isDark: boolean;
   activeAccountId?: string;
-  customProducts?: import('@/types').Ingredient[];
+  customProducts?: Ingredient[];
 }
 
 const COMMON_UNITS = [
@@ -39,7 +38,244 @@ const COMMON_UNITS = [
   { value: 'canne', label: 'Boîte / Canne (~400g)' },
 ];
 
-export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
+interface IngredientSelectorProps {
+  catalog: Record<string, Ingredient>;
+  catalogList: Ingredient[];
+  isDark: boolean;
+  onAddIngredient: (item: RecipeIngredientItem) => void;
+  onError: (msg: string) => void;
+}
+
+/**
+ * Sélecteur d'ingrédients isolé pour éviter de re-render tout le formulaire
+ * sur chaque frappe de touche dans le champ de recherche.
+ */
+const IngredientSelector: React.FC<IngredientSelectorProps> = React.memo(({
+  catalog,
+  catalogList,
+  isDark,
+  onAddIngredient,
+  onError,
+}) => {
+  const [ingredientSearch, setIngredientSearch] = useState('');
+  const [selectedIngredientId, setSelectedIngredientId] = useState('');
+  const [ingredientQty, setIngredientQty] = useState<number | string>(100);
+  const [ingredientUnit, setIngredientUnit] = useState('g');
+  const [ingredientNotes, setIngredientNotes] = useState('');
+
+  // useDeferredValue garantit que la saisie dans l'input reste à 120 FPS
+  const deferredSearch = useDeferredValue(ingredientSearch);
+
+  const { filteredResults, totalMatches } = useMemo(() => {
+    const q = deferredSearch.trim().toLowerCase();
+    if (!q) {
+      return {
+        filteredResults: catalogList.slice(0, 15),
+        totalMatches: catalogList.length,
+      };
+    }
+
+    const matches: Ingredient[] = [];
+    // Priorité 1 : Le nom commence par le mot recherché
+    for (const item of catalogList) {
+      if (item.name.toLowerCase().startsWith(q)) {
+        matches.push(item);
+      }
+    }
+    // Priorité 2 : Le nom contient le mot recherché
+    for (const item of catalogList) {
+      if (!item.name.toLowerCase().startsWith(q) && item.name.toLowerCase().includes(q)) {
+        matches.push(item);
+      }
+    }
+    // Priorité 3 : Le rayon contient le mot recherché (si peu de résultats)
+    if (matches.length < 5) {
+      for (const item of catalogList) {
+        if (!item.name.toLowerCase().includes(q) && item.aisle.toLowerCase().includes(q)) {
+          matches.push(item);
+        }
+      }
+    }
+
+    return {
+      filteredResults: matches.slice(0, 20),
+      totalMatches: matches.length,
+    };
+  }, [catalogList, deferredSearch]);
+
+  const handleSelectCatalogItem = (ingId: string) => {
+    setSelectedIngredientId(ingId);
+    const ing = catalog[ingId];
+    if (ing) {
+      setIngredientUnit(ing.baseUnit || 'g');
+      if (ing.baseUnit === 'unite') {
+        setIngredientQty(1);
+      } else if (ing.baseUnit === 'ml') {
+        setIngredientQty(150);
+      } else {
+        setIngredientQty(150);
+      }
+    }
+  };
+
+  const handleConfirmAdd = () => {
+    if (!selectedIngredientId) {
+      onError('Veuillez sélectionner un produit du catalogue.');
+      return;
+    }
+    const numQty = Number(ingredientQty);
+    if (!numQty || numQty <= 0) {
+      onError('La quantité doit être supérieure à zéro.');
+      return;
+    }
+
+    onAddIngredient({
+      ingredientId: selectedIngredientId,
+      quantity: numQty,
+      unit: ingredientUnit,
+      notes: ingredientNotes.trim() || undefined,
+    });
+
+    setSelectedIngredientId('');
+    setIngredientSearch('');
+    setIngredientNotes('');
+  };
+
+  return (
+    <div
+      className={`p-4 rounded-2xl border space-y-3 ${
+        isDark ? 'bg-white/[0.02] border-white/10' : 'bg-white border-stone-200'
+      }`}
+    >
+      <div className="relative">
+        <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          placeholder="Rechercher un produit... (ex: pâtes, champignons, crème, poulet)"
+          value={ingredientSearch}
+          onChange={(e) => setIngredientSearch(e.target.value)}
+          className={`w-full pl-9 pr-3 py-2 rounded-xl text-xs border focus:outline-none transition-colors ${
+            isDark ? 'bg-black/30 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
+          }`}
+        />
+      </div>
+
+      {/* Résultats / Sélection (Plafonné à 20 éléments max pour une fluidité absolue) */}
+      <div className="max-h-36 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
+        {filteredResults.length === 0 ? (
+          <div className="text-center py-3 text-stone-400 text-xs font-mono">
+            Aucun aliment trouvé pour « {deferredSearch} »
+          </div>
+        ) : (
+          filteredResults.map((ing) => {
+            const isSelected = selectedIngredientId === ing.id;
+            return (
+              <button
+                key={ing.id}
+                type="button"
+                onClick={() => handleSelectCatalogItem(ing.id)}
+                className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition-colors border ${
+                  isSelected
+                    ? isDark
+                      ? 'bg-white/15 border-white text-white font-bold'
+                      : 'bg-stone-900 text-white border-stone-900 font-bold'
+                    : isDark
+                    ? 'bg-white/[0.02] border-transparent text-stone-300 hover:bg-white/[0.06]'
+                    : 'bg-stone-50 border-transparent text-stone-800 hover:bg-stone-100'
+                }`}
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <span className="truncate">{ing.name}</span>
+                  {ing.barcode && (
+                    <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0 font-semibold">
+                      Code-barres
+                    </span>
+                  )}
+                  <span className="text-[10px] font-mono text-stone-400 shrink-0">
+                    ({ing.packaging.exactPriceMetro.toFixed(2)}$ / {ing.packaging.label})
+                  </span>
+                </div>
+                <div className="text-[10px] font-mono text-stone-400 shrink-0 ml-2">
+                  {ing.macrosPer100g.calories} kcal • {ing.macrosPer100g.protein}g P
+                </div>
+              </button>
+            );
+          })
+        )}
+
+        {totalMatches > 20 && (
+          <div className="text-center py-1 text-[10px] font-mono text-stone-400 italic">
+            + {totalMatches - 20} autres produits disponibles... affinez votre recherche
+          </div>
+        )}
+      </div>
+
+      {/* Configuration de la quantité et validation */}
+      {selectedIngredientId && (
+        <div className="pt-2 border-t border-stone-200 dark:border-white/10 flex flex-wrap items-center gap-2.5">
+          <div className="flex-1 min-w-[120px]">
+            <span className="text-[10px] font-mono text-stone-400 block mb-0.5">Quantité</span>
+            <input
+              type="number"
+              step="any"
+              min="0.1"
+              value={ingredientQty}
+              onChange={(e) => setIngredientQty(e.target.value)}
+              className={`w-full px-3 py-1.5 rounded-xl text-xs font-mono border focus:outline-none ${
+                isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
+              }`}
+            />
+          </div>
+
+          <div className="flex-1 min-w-[140px]">
+            <span className="text-[10px] font-mono text-stone-400 block mb-0.5">Unité</span>
+            <select
+              value={ingredientUnit}
+              onChange={(e) => setIngredientUnit(e.target.value)}
+              className={`w-full px-3 py-1.5 rounded-xl text-xs border focus:outline-none ${
+                isDark ? 'bg-stone-900 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
+              }`}
+            >
+              {COMMON_UNITS.map((u) => (
+                <option key={u.value} value={u.value}>
+                  {u.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex-[2] min-w-[160px]">
+            <span className="text-[10px] font-mono text-stone-400 block mb-0.5">Note (facultatif)</span>
+            <input
+              type="text"
+              placeholder="Ex: Émincés et dorés à la poêle"
+              value={ingredientNotes}
+              onChange={(e) => setIngredientNotes(e.target.value)}
+              className={`w-full px-3 py-1.5 rounded-xl text-xs border focus:outline-none ${
+                isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
+              }`}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleConfirmAdd}
+            className={`px-4 py-2 mt-3 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold transition-colors flex items-center gap-1.5 active:scale-95 ${
+              isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
+            }`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Ajouter</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+});
+
+IngredientSelector.displayName = 'IngredientSelector';
+
+export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = React.memo(({
   isOpen,
   onClose,
   recipeToEdit,
@@ -60,13 +296,6 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Sélecteur d'ingrédient
-  const [ingredientSearch, setIngredientSearch] = useState('');
-  const [selectedIngredientId, setSelectedIngredientId] = useState('');
-  const [ingredientQty, setIngredientQty] = useState<number | string>(100);
-  const [ingredientUnit, setIngredientUnit] = useState('g');
-  const [ingredientNotes, setIngredientNotes] = useState('');
-
   // Initialisation lors de l'ouverture
   useEffect(() => {
     if (recipeToEdit) {
@@ -79,7 +308,6 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
       setInstructionsText((recipeToEdit.instructions || []).join('\n'));
       setTagsText((recipeToEdit.tags || []).join(', '));
     } else {
-      // Nouvelle recette par défaut (ex: style Pâtes aux champignons)
       setTitle('');
       setMealType('souper');
       setServings(2);
@@ -103,71 +331,30 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
     return Object.values(catalog).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   }, [catalog]);
 
-  const filteredCatalog = useMemo(() => {
-    if (!ingredientSearch.trim()) return catalogList.slice(0, 15);
-    const q = ingredientSearch.toLowerCase();
-    return catalogList.filter(
-      (item) => item.name.toLowerCase().includes(q) || item.aisle.toLowerCase().includes(q)
-    );
-  }, [catalogList, ingredientSearch]);
-
   // Calcul temps réel des macronutriments et du coût
   const liveNutrients = useMemo(() => {
     return calculateRecipeNutrients(ingredients, servings, catalog);
   }, [ingredients, servings, catalog]);
 
-  if (!isOpen) return null;
-
-  const handleSelectCatalogItem = (ingId: string) => {
-    setSelectedIngredientId(ingId);
-    const ing = catalog[ingId];
-    if (ing) {
-      setIngredientUnit(ing.baseUnit || 'g');
-      if (ing.baseUnit === 'unite') {
-        setIngredientQty(1);
-      } else if (ing.baseUnit === 'ml') {
-        setIngredientQty(150);
-      } else {
-        setIngredientQty(150);
-      }
-    }
-  };
-
-  const handleAddIngredient = () => {
-    if (!selectedIngredientId) {
-      setErrorMessage('Veuillez sélectionner un produit du catalogue.');
-      return;
-    }
-    const numQty = Number(ingredientQty);
-    if (!numQty || numQty <= 0) {
-      setErrorMessage('La quantité doit être supérieure à zéro.');
-      return;
-    }
-
-    const newItem: RecipeIngredientItem = {
-      ingredientId: selectedIngredientId,
-      quantity: numQty,
-      unit: ingredientUnit,
-      notes: ingredientNotes.trim() || undefined,
-    };
-
-    setIngredients((prev) => [...prev, newItem]);
-    setSelectedIngredientId('');
-    setIngredientSearch('');
-    setIngredientNotes('');
+  const handleAddIngredient = useCallback((item: RecipeIngredientItem) => {
+    setIngredients((prev) => [...prev, item]);
     setErrorMessage(null);
-  };
+  }, []);
 
-  const handleRemoveIngredient = (index: number) => {
+  const handleError = useCallback((msg: string) => {
+    setErrorMessage(msg);
+  }, []);
+
+  const handleRemoveIngredient = useCallback((index: number) => {
     setIngredients((prev) => prev.filter((_, i) => i !== index));
-  };
+  }, []);
 
-  const handleUpdateIngredientQty = (index: number, newQty: number) => {
+  const handleUpdateIngredientQty = useCallback((index: number, newQty: number) => {
     if (newQty <= 0) return;
     setIngredients((prev) =>
       prev.map((item, i) => (i === index ? { ...item, quantity: newQty } : item))
     );
-  };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,20 +437,22 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-md animate-in fade-in duration-200 mb-safe sm:mb-0">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150 mb-safe sm:mb-0">
       <div
         className={`rounded-2xl sm:rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border flex flex-col ${
           isDark
-            ? 'liquid-glass text-stone-100 border-white/15'
-            : 'liquid-glass-light text-stone-900 border-stone-300'
+            ? 'bg-stone-950 text-stone-100 border-white/10'
+            : 'bg-white text-stone-900 border-stone-200'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
         <div
-          className={`p-4 sm:p-6 border-b flex items-start justify-between sticky top-0 z-20 backdrop-blur-2xl ${
-            isDark ? 'border-white/10 bg-[#0B0C0E]/95' : 'border-stone-200 bg-[#F7F7F6]/95'
+          className={`p-4 sm:p-6 border-b flex items-start justify-between sticky top-0 z-20 ${
+            isDark ? 'border-white/10 bg-stone-950/98' : 'border-stone-200 bg-white/98'
           }`}
         >
           <div>
@@ -290,7 +479,7 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 sm:space-y-6">
           {errorMessage && (
             <div className="p-3.5 rounded-2xl bg-stone-200/80 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-400/50 dark:border-white/20 text-xs font-mono">
               ⚠️ {errorMessage}
@@ -308,7 +497,7 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
                 placeholder="Ex: Pâtes aux champignons, crème & lardons québécois"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className={`w-full px-4 py-2.5 rounded-2xl text-sm border focus:outline-none focus:ring-1 focus:ring-stone-500 ${
+                className={`w-full px-4 py-2.5 rounded-2xl text-sm border focus:outline-none focus:ring-1 focus:ring-stone-500 transition-colors ${
                   isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
                 }`}
                 required
@@ -452,123 +641,14 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
               </span>
             </div>
 
-            {/* Sélecteur d'ingrédient */}
-            <div
-              className={`p-4 rounded-2xl border space-y-3 ${
-                isDark ? 'bg-white/[0.02] border-white/10' : 'bg-white border-stone-200'
-              }`}
-            >
-              <div className="relative">
-                <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Rechercher un produit... (ex: pâtes, champignons, crème, lardons, poulet)"
-                  value={ingredientSearch}
-                  onChange={(e) => setIngredientSearch(e.target.value)}
-                  className={`w-full pl-9 pr-3 py-2 rounded-xl text-xs border focus:outline-none ${
-                    isDark ? 'bg-black/30 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
-                  }`}
-                />
-              </div>
-
-              {/* Résultats / Sélection */}
-              <div className="max-h-36 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
-                {filteredCatalog.map((ing) => {
-                  const isSelected = selectedIngredientId === ing.id;
-                  return (
-                    <button
-                      key={ing.id}
-                      type="button"
-                      onClick={() => handleSelectCatalogItem(ing.id)}
-                      className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition-all border ${
-                        isSelected
-                          ? isDark
-                            ? 'bg-white/15 border-white text-white font-bold'
-                            : 'bg-stone-900 text-white border-stone-900 font-bold'
-                          : isDark
-                          ? 'bg-white/[0.02] border-transparent text-stone-300 hover:bg-white/[0.06]'
-                          : 'bg-stone-50 border-transparent text-stone-800 hover:bg-stone-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="truncate">{ing.name}</span>
-                        {ing.barcode && (
-                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0 font-semibold">
-                            Code-barres
-                          </span>
-                        )}
-                        <span className="text-[10px] font-mono text-stone-400 shrink-0">
-                          ({ing.packaging.exactPriceMetro.toFixed(2)}$ / {ing.packaging.label})
-                        </span>
-                      </div>
-                      <div className="text-[10px] font-mono text-stone-400 shrink-0 ml-2">
-                        {ing.macrosPer100g.calories} kcal • {ing.macrosPer100g.protein}g P
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Configuration de la quantité et validation */}
-              {selectedIngredientId && (
-                <div className="pt-2 border-t border-stone-200 dark:border-white/10 flex flex-wrap items-center gap-2.5">
-                  <div className="flex-1 min-w-[120px]">
-                    <span className="text-[10px] font-mono text-stone-400 block mb-0.5">Quantité</span>
-                    <input
-                      type="number"
-                      step="any"
-                      min="0.1"
-                      value={ingredientQty}
-                      onChange={(e) => setIngredientQty(e.target.value)}
-                      className={`w-full px-3 py-1.5 rounded-xl text-xs font-mono border focus:outline-none ${
-                        isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
-                      }`}
-                    />
-                  </div>
-
-                  <div className="flex-1 min-w-[140px]">
-                    <span className="text-[10px] font-mono text-stone-400 block mb-0.5">Unité</span>
-                    <select
-                      value={ingredientUnit}
-                      onChange={(e) => setIngredientUnit(e.target.value)}
-                      className={`w-full px-3 py-1.5 rounded-xl text-xs border focus:outline-none ${
-                        isDark ? 'bg-stone-900 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
-                      }`}
-                    >
-                      {COMMON_UNITS.map((u) => (
-                        <option key={u.value} value={u.value}>
-                          {u.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex-[2] min-w-[160px]">
-                    <span className="text-[10px] font-mono text-stone-400 block mb-0.5">Note (facultatif)</span>
-                    <input
-                      type="text"
-                      placeholder="Ex: Émincés et dorés à la poêle"
-                      value={ingredientNotes}
-                      onChange={(e) => setIngredientNotes(e.target.value)}
-                      className={`w-full px-3 py-1.5 rounded-xl text-xs border focus:outline-none ${
-                        isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
-                      }`}
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleAddIngredient}
-                    className={`px-4 py-2 mt-3 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold transition-all flex items-center gap-1.5 ${
-                      isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
-                    }`}
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Ajouter</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            {/* Composant sélecteur ultra-rapide */}
+            <IngredientSelector
+              catalog={catalog}
+              catalogList={catalogList}
+              isDark={isDark}
+              onAddIngredient={handleAddIngredient}
+              onError={handleError}
+            />
 
             {/* Liste des Ingrédients Sélectionnés */}
             {ingredients.length > 0 ? (
@@ -577,7 +657,7 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
                   const ing = catalog[item.ingredientId];
                   return (
                     <div
-                      key={index}
+                      key={`${item.ingredientId}-${index}`}
                       className={`flex items-center justify-between p-3 rounded-2xl border text-xs ${
                         isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-stone-200 shadow-xs'
                       }`}
@@ -595,7 +675,7 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
                         <div className="flex items-center gap-1">
                           <input
                             type="number"
-                            min="1"
+                            min="0.1"
                             step="any"
                             value={item.quantity}
                             onChange={(e) => handleUpdateIngredientQty(index, Number(e.target.value))}
@@ -636,7 +716,23 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
               placeholder="Ex:&#10;1. Cuire les pâtes al dente.&#10;2. Faire dorer les lardons et champignons dans une poêle.&#10;3. Ajouter la crème et mélanger avec les pâtes et le parmesan."
               value={instructionsText}
               onChange={(e) => setInstructionsText(e.target.value)}
-              className={`w-full p-3 rounded-2xl text-xs border focus:outline-none focus:ring-1 focus:ring-stone-500 font-sans leading-relaxed ${
+              className={`w-full p-3 rounded-2xl text-xs border focus:outline-none focus:ring-1 focus:ring-stone-500 font-sans leading-relaxed transition-colors ${
+                isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+              }`}
+            />
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="block text-xs font-mono uppercase tracking-wider text-stone-600 dark:text-stone-400 mb-1.5 font-semibold">
+              Tags / Mots-clés (séparés par des virgules)
+            </label>
+            <input
+              type="text"
+              placeholder="Ex: rapide, italien, riche en protéines, batch cooking"
+              value={tagsText}
+              onChange={(e) => setTagsText(e.target.value)}
+              className={`w-full px-4 py-2 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-stone-500 transition-colors ${
                 isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
               }`}
             />
@@ -669,7 +765,7 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
               <button
                 type="submit"
                 disabled={isSaving}
-                className={`px-5 py-2.5 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold transition-all flex items-center gap-2 shadow-sm ${
+                className={`px-5 py-2.5 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold transition-all flex items-center gap-2 shadow-sm active:scale-95 ${
                   isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
                 }`}
               >
@@ -688,4 +784,6 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = ({
       </div>
     </div>
   );
-};
+});
+
+RecipeCreatorModal.displayName = 'RecipeCreatorModal';
