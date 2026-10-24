@@ -268,7 +268,9 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                 {currentDay.breakfast.title}
               </h3>
               <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 line-clamp-2 font-sans">
-                {currentDay.breakfast.ingredients.slice(0, 4).map((i) => i.ingredientId.replace(/_/g, ' ')).join(', ')}...
+                {currentDay.breakfast.ingredients.length > 0
+                  ? `${currentDay.breakfast.ingredients.slice(0, 4).map((i) => i.ingredientId.replace(/_/g, ' ')).join(', ')}...`
+                  : 'Aucun ingrédient défini'}
               </p>
             </div>
 
@@ -363,7 +365,9 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                 {currentDay.dinner.title}
               </h3>
               <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 line-clamp-2 font-sans">
-                {currentDay.dinner.ingredients.slice(0, 4).map((i) => i.ingredientId.replace(/_/g, ' ')).join(', ')}...
+                {currentDay.dinner.ingredients.length > 0
+                  ? `${currentDay.dinner.ingredients.slice(0, 4).map((i) => i.ingredientId.replace(/_/g, ' ')).join(', ')}...`
+                  : 'Aucun ingrédient défini'}
               </p>
             </div>
 
@@ -444,42 +448,48 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
             </p>
 
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {availableReplacements.map((rec) => (
-                <button
-                  key={rec.id}
-                  onClick={() => {
-                    onReplaceRecipe(swapMealState.dayIndex, swapMealState.mealType, rec.id);
-                    setSwapMealState(null);
-                  }}
-                  className={`w-full text-left p-3.5 rounded-2xl border transition-colors flex items-center justify-between ${
-                    isDark
-                      ? 'bg-white/[0.03] hover:bg-white/[0.08] border-white/5'
-                      : 'bg-white/80 hover:bg-white border-stone-200'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-serif font-medium text-sm text-stone-900 dark:text-white">
-                        {rec.title}
-                      </span>
-                      {rec.isCustom && (
-                        <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold">
-                          Maison
+              {availableReplacements.length === 0 ? (
+                <div className="py-8 text-center text-xs text-stone-500 dark:text-stone-400 font-mono">
+                  Aucune alternative disponible. Créez des repas dans l&apos;onglet Recettes !
+                </div>
+              ) : (
+                availableReplacements.map((rec) => (
+                  <button
+                    key={rec.id}
+                    onClick={() => {
+                      onReplaceRecipe(swapMealState.dayIndex, swapMealState.mealType, rec.id);
+                      setSwapMealState(null);
+                    }}
+                    className={`w-full text-left p-3.5 rounded-2xl border transition-colors flex items-center justify-between ${
+                      isDark
+                        ? 'bg-white/[0.03] hover:bg-white/[0.08] border-white/5'
+                        : 'bg-white/80 hover:bg-white border-stone-200'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-serif font-medium text-sm text-stone-900 dark:text-white">
+                          {rec.title}
                         </span>
-                      )}
-                      {calculateRecipeScore(rec, preferences).likedCount > 0 && (
-                        <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
-                          <Heart className="w-2.5 h-2.5 fill-current" /> Favori
-                        </span>
-                      )}
+                        {rec.isCustom && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold">
+                            Maison
+                          </span>
+                        )}
+                        {calculateRecipeScore(rec, preferences).likedCount > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
+                            <Heart className="w-2.5 h-2.5 fill-current" /> Favori
+                          </span>
+                        )}
+                      </div>
+                      <div className="font-mono tabular-nums text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                        {rec.caloriesPerServing} kcal • {rec.proteinPerServing}g protéines
+                      </div>
                     </div>
-                    <div className="font-mono tabular-nums text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                      {rec.caloriesPerServing} kcal • {rec.proteinPerServing}g protéines
-                    </div>
-                  </div>
-                  <Check className="w-4 h-4 text-stone-700 dark:text-stone-300 opacity-80" />
-                </button>
-              ))}
+                    <Check className="w-4 h-4 text-stone-700 dark:text-stone-300 opacity-80" />
+                  </button>
+                ))
+              )}
             </div>
 
             <div className="mt-5 pt-3 border-t border-stone-200/60 dark:border-white/10 flex justify-end">

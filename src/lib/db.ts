@@ -180,53 +180,6 @@ export function getDatabase(): DatabaseSync {
           upsertSetting.run('laurine', k, String(v), now);
         }
       }
-
-      // 2. Initialiser la recette personnalisée exemple si la table custom_recipes est vide
-      const customRecipeCountRow = dbInstance.prepare('SELECT COUNT(*) as count FROM custom_recipes').get() as { count: number } | undefined;
-      if ((customRecipeCountRow?.count ?? 0) === 0) {
-        const seedIngredients: RecipeIngredientItem[] = [
-          { ingredientId: 'pates_penne', quantity: 200, unit: 'g', notes: 'Penne ou Rigatoni Barilla' },
-          { ingredientId: 'champignons_blancs', quantity: 200, unit: 'g', notes: 'Émincés et dorés à la poêle' },
-          { ingredientId: 'lardons_bacon', quantity: 150, unit: 'g', notes: 'Lardons fumés québécois croustillants' },
-          { ingredientId: 'creme_15', quantity: 150, unit: 'ml', notes: 'Crème à cuisson 15% Québon' },
-          { ingredientId: 'parmesan_rape', quantity: 30, unit: 'g', notes: 'Parmesan râpé à incorporer en fin de cuisson' },
-        ];
-        const seedInstructions = [
-          'Faire bouillir une grande casserole d\'eau salée et cuire les pâtes al dente selon les instructions.',
-          'Dans une poêle chaude, faire dorer les lardons à feu vif jusqu\'à ce qu\'ils soient dorés et croustillants.',
-          'Ajouter les champignons émincés dans la poêle et les faire revenir 4 à 5 minutes avec les sucs des lardons.',
-          'Verser la crème à cuisson 15%, mélanger et laisser mijoter à feu doux 2 minutes pour épaissir la sauce.',
-          'Égoutter les pâtes, les incorporer directement dans la sauce chaude, puis saupoudrer de parmesan râpé.',
-          'Poivrer généreusement et servir chaud.'
-        ];
-        const nutrients = calculateRecipeNutrients(seedIngredients, 2);
-        const now = new Date().toISOString();
-        const insertSeed = dbInstance.prepare(`
-          INSERT INTO custom_recipes (
-            id, title, meal_type, prep_time_minutes, cook_time_minutes, servings,
-            calories_per_serving, protein_per_serving, carbs_per_serving, fat_per_serving,
-            ingredients_json, instructions_json, tags_json, created_by, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-        insertSeed.run(
-          'custom_pates_champignons_creme_lardons',
-          'Pâtes aux champignons, crème & lardons québécois',
-          'souper',
-          10,
-          15,
-          2,
-          nutrients.caloriesPerServing,
-          nutrients.proteinPerServing,
-          nutrients.carbsPerServing,
-          nutrients.fatPerServing,
-          JSON.stringify(seedIngredients),
-          JSON.stringify(seedInstructions),
-          JSON.stringify(['fait-maison', 'pâtes', 'réconfortant', 'italien-québécois', 'rapide']),
-          'ethan',
-          now,
-          now
-        );
-      }
     } catch (migErr) {
       console.warn('Note sur l\'initialisation SQLite:', migErr);
     }
@@ -717,6 +670,13 @@ export function deleteCustomRecipe(id: string): boolean {
   const db = getDatabase();
   const stmt = db.prepare('DELETE FROM custom_recipes WHERE id = ?');
   const res = stmt.run(id);
+  return (res as unknown as { changes: number }).changes > 0;
+}
+
+export function deleteAllCustomRecipes(): boolean {
+  const db = getDatabase();
+  const stmt = db.prepare('DELETE FROM custom_recipes');
+  const res = stmt.run();
   return (res as unknown as { changes: number }).changes > 0;
 }
 

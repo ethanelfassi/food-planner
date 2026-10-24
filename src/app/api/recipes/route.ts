@@ -4,6 +4,7 @@ import {
   getCustomRecipeById, 
   saveCustomRecipe, 
   deleteCustomRecipe,
+  deleteAllCustomRecipes,
   calculateRecipeNutrients 
 } from '@/lib/db';
 
@@ -33,7 +34,15 @@ export async function POST(request: Request) {
       });
     }
 
-    // 2. Suppression d'une recette
+    // 2. Suppression de recettes
+    if (body.action === 'delete_all') {
+      deleteAllCustomRecipes();
+      return NextResponse.json({
+        success: true,
+        recipes: getAllCustomRecipes(),
+      });
+    }
+
     if (body.action === 'delete' && body.id) {
       deleteCustomRecipe(body.id);
       return NextResponse.json({
@@ -69,8 +78,12 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    if (!id) {
-      return NextResponse.json({ error: 'ID de recette manquant' }, { status: 400 });
+    if (id === 'all' || !id) {
+      deleteAllCustomRecipes();
+      return NextResponse.json({
+        success: true,
+        recipes: getAllCustomRecipes(),
+      });
     }
 
     deleteCustomRecipe(id);

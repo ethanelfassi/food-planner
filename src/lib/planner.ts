@@ -44,6 +44,23 @@ export function calculateRecipeScore(
   return { isExcluded, score, likedCount };
 }
 
+const createEmptyMeal = (mealType: 'dejeuner' | 'diner' | 'souper' | 'collation', title: string): Recipe => ({
+  id: `empty_${mealType}`,
+  title,
+  mealType,
+  prepTimeMinutes: 0,
+  cookTimeMinutes: 0,
+  servings: 1,
+  caloriesPerServing: 0,
+  proteinPerServing: 0,
+  carbsPerServing: 0,
+  fatPerServing: 0,
+  tags: [],
+  ingredients: [],
+  instructions: [],
+  isCustom: true,
+});
+
 export function generateWeeklyPlan(
   preferences: ProductPreferencesMap = {},
   customRecipes: Recipe[] = []
@@ -81,10 +98,21 @@ export function generateWeeklyPlan(
     validSnacks = scoredRecipes.filter((r) => r.mealType === 'collation');
   }
 
+  // Fallbacks si aucune recette n'existe dans le catalogue
+  const defaultEmptyBreakfast = createEmptyMeal('dejeuner', 'Aucun déjeuner planifié');
+  const defaultEmptyDinner = createEmptyMeal('souper', 'Aucun souper planifié');
+  const defaultEmptySnack = createEmptyMeal('collation', 'Aucune collation planifiée');
+
   // Trier par score décroissant (produits aimés + promos en premier)
-  const sortedBreakfasts = [...validBreakfasts].sort((a, b) => b.recipeScore - a.recipeScore);
-  const sortedDinners = [...validDinners].sort((a, b) => b.recipeScore - a.recipeScore);
-  const sortedSnacks = [...validSnacks].sort((a, b) => b.recipeScore - a.recipeScore);
+  const sortedBreakfasts = validBreakfasts.length > 0
+    ? [...validBreakfasts].sort((a, b) => b.recipeScore - a.recipeScore)
+    : [defaultEmptyBreakfast];
+  const sortedDinners = validDinners.length > 0
+    ? [...validDinners].sort((a, b) => b.recipeScore - a.recipeScore)
+    : [defaultEmptyDinner];
+  const sortedSnacks = validSnacks.length > 0
+    ? [...validSnacks].sort((a, b) => b.recipeScore - a.recipeScore)
+    : [defaultEmptySnack];
 
   // Construire la sélection des soupers avec variété
   const dinnerSelection: Recipe[] = [];
@@ -99,7 +127,7 @@ export function generateWeeklyPlan(
     const dinner = dinnerSelection[i];
 
     // Le midi : portion de la veille au soir
-    const lunch = i === 0 ? dinnerSelection[dinnerSelection.length - 1] : dinnerSelection[i - 1];
+    const lunch = i === 0 ? (dinnerSelection[dinnerSelection.length - 1] || defaultEmptyDinner) : (dinnerSelection[i - 1] || defaultEmptyDinner);
 
     const dailyCalories =
       breakfast.caloriesPerServing +
