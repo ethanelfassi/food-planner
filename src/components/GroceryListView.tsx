@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { 
   CoupleSettings, 
   GroceryItem, 
@@ -69,7 +69,295 @@ interface GroceryListViewProps {
   onUpdateCustomPrice?: (ingredientId: string, price: number | null) => void;
 }
 
-export const GroceryListView: React.FC<GroceryListViewProps> = ({
+// Subcomposant mémoïsé pour chaque ligne d'article (évite le re-render des ~50 articles au toggle d'un seul)
+const GroceryItemRow = React.memo<{
+  item: GroceryItem;
+  isDark: boolean;
+  preference?: ProductPreferenceStatus;
+  scope: GroceryViewScope;
+  neededByAccountName?: string;
+  forAccountName?: string;
+  onToggle: (id: string) => void;
+  onPreference?: (ingredientId: string, status: ProductPreferenceStatus) => void;
+  onOpenEditPrice?: (item: GroceryItem) => void;
+  onRemove?: (id: string) => void;
+}>(({
+  item,
+  isDark,
+  preference,
+  scope,
+  neededByAccountName,
+  forAccountName,
+  onToggle,
+  onPreference,
+  onOpenEditPrice,
+  onRemove,
+}) => {
+  const macros = item.macrosPer100g || (item.ingredientId ? INGREDIENTS[item.ingredientId]?.macrosPer100g : undefined);
+
+  return (
+    <div
+      onClick={() => onToggle(item.id)}
+      className={`flex items-start justify-between p-3.5 rounded-2xl border transition-colors cursor-pointer group ${
+        item.checked
+          ? 'opacity-50 grayscale bg-black/5 dark:bg-black/30 border-transparent'
+          : isDark
+          ? 'bg-white/[0.02] hover:bg-white/[0.06] border-white/5 hover:border-white/15'
+          : 'bg-white/70 hover:bg-white border-stone-200/80 shadow-xs'
+      }`}
+    >
+      <div className="flex items-start gap-3 min-w-0">
+        {/* Checkbox minimaliste ergonomique */}
+        <div
+          className={`w-6 h-6 mt-0.5 rounded-xl flex items-center justify-center shrink-0 transition-transform active:scale-90 ${
+            item.checked
+              ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-xs'
+              : isDark
+              ? 'border-2 border-white/20 group-hover:border-white/40'
+              : 'border-2 border-stone-300 group-hover:border-stone-500'
+          }`}
+        >
+          {item.checked && <Check className="w-4 h-4 stroke-[3]" />}
+        </div>
+
+        {/* Photo Produit */}
+        {item.imageUrl && (
+          <div
+            className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 border relative ${
+              isDark ? 'border-white/10 bg-black/40' : 'border-stone-200 bg-stone-100'
+            }`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={item.imageUrl}
+              alt={item.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        )}
+
+        {/* Informations Produit */}
+        <div className="min-w-0 pr-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className={`text-sm font-medium truncate ${
+                item.checked
+                  ? 'line-through text-stone-400'
+                  : 'text-stone-900 dark:text-white'
+              }`}
+            >
+              {item.name}
+            </span>
+
+            {preference === 'liked' && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
+                <Heart className="w-2.5 h-2.5 fill-current" /> Favori
+              </span>
+            )}
+
+            {preference === 'disliked' && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-300 dark:border-stone-700 font-semibold">
+                <Ban className="w-2.5 h-2.5" /> Exclu
+              </span>
+            )}
+            {item.isCustomPrice && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
+                <Pencil className="w-2.5 h-2.5" /> Prix Modifié
+              </span>
+            )}
+            {scope === 'common' && item.neededBy && item.neededBy.length > 1 && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-100 text-stone-900 dark:bg-white/10 dark:text-white font-semibold border border-stone-300 dark:border-white/20">
+                <Users className="w-2.5 h-2.5" /> Commun
+              </span>
+            )}
+            {scope === 'common' && neededByAccountName && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold border border-stone-300 dark:border-stone-700">
+                <User className="w-2.5 h-2.5" /> Pour {neededByAccountName}
+              </span>
+            )}
+            {scope === 'common' && forAccountName && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold border border-stone-300 dark:border-stone-700">
+                <User className="w-2.5 h-2.5" /> Pour {forAccountName}
+              </span>
+            )}
+          </div>
+
+          <div className="text-xs text-stone-700 dark:text-stone-300 mt-0.5 truncate font-sans">
+            {item.packageDescription}
+          </div>
+
+          {/* Prix au 100g, Statut Vérifié & Badge Taxe */}
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap font-mono text-[11px]">
+            {item.unitPriceLabel && (
+              <span className="font-semibold text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-white/10 border border-stone-300 dark:border-white/20 px-2 py-0.5 rounded-md">
+                {item.unitPriceLabel}
+              </span>
+            )}
+            <span className="text-[10px] text-stone-600 dark:text-stone-400">
+              {item.isTaxable ? 'Taxé (14.975%)' : '0% Taxe'}
+            </span>
+            <span className="text-[10px] text-stone-700 dark:text-stone-400 flex items-center gap-0.5 font-medium">
+              <Check className="w-2.5 h-2.5" /> Fiche active
+            </span>
+          </div>
+
+          {/* Badge Membre Moi */}
+          {item.isMoiMemberPrice && (
+            <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-stone-900 dark:text-white bg-stone-100 dark:bg-white/10 px-2 py-0.5 rounded-md mt-1.5 border border-stone-300 dark:border-white/20 font-semibold">
+              <Crown className="w-3 h-3 text-stone-700 dark:text-stone-300" />
+              <span>{item.moiPriceLabel || 'Prix Membre Moi'}</span>
+            </div>
+          )}
+
+          {/* Accès Direct aux Macros du Produit */}
+          {macros && (
+            <div className="flex items-center gap-1 mt-2 flex-wrap text-[10px] font-mono">
+              <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-white/10 font-medium">
+                🔥 {macros.calories} kcal
+              </span>
+              <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-white/10 font-medium">
+                🥩 {macros.protein}g P
+              </span>
+              <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-white/10">
+                🌾 {macros.carbs}g G
+              </span>
+              <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-white/10">
+                🥑 {macros.fat}g L
+              </span>
+              <span className="text-[9px] text-stone-400">/ 100g</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Prix Exact & Actions */}
+      <div className="text-right shrink-0 ml-2 flex flex-col items-end justify-between self-stretch">
+        <div>
+          <div className="font-mono tabular-nums text-sm font-semibold text-stone-950 dark:text-white">
+            {item.exactPriceMetro.toFixed(2)} $
+          </div>
+          {item.savingsAmount > 0 && (
+            <div className="font-mono text-[10px] text-stone-500 dark:text-stone-400 line-through">
+              {item.regularPriceMetro.toFixed(2)} $
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 mt-2">
+          {/* Boutons Préférences Rapides J'aime / Exclure */}
+          {item.ingredientId && onPreference && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPreference(item.ingredientId!, preference === 'liked' ? 'neutral' : 'liked');
+                }}
+                className={`p-1.5 rounded-xl border transition-colors active:scale-90 ${
+                  preference === 'liked'
+                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white'
+                    : isDark
+                    ? 'bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border-white/10'
+                    : 'bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 border-stone-200'
+                }`}
+                title={preference === 'liked' ? 'Produit favori (cliquer pour retirer)' : 'Aimer ce produit'}
+              >
+                <Heart
+                  className={`w-3 h-3 ${
+                    preference === 'liked'
+                      ? 'fill-current text-white dark:text-stone-950'
+                      : 'text-stone-600 dark:text-stone-400'
+                  }`}
+                />
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPreference(item.ingredientId!, preference === 'disliked' ? 'neutral' : 'disliked');
+                }}
+                className={`p-1.5 rounded-xl border transition-colors active:scale-90 ${
+                  preference === 'disliked'
+                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white shadow-xs'
+                    : isDark
+                    ? 'bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border-white/10'
+                    : 'bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 border-stone-200'
+                }`}
+                title={preference === 'disliked' ? 'Produit exclu (cliquer pour réautoriser)' : 'Exclure ce produit (ne plus acheter)'}
+              >
+                <Ban
+                  className={`w-3 h-3 ${
+                    preference === 'disliked'
+                      ? 'text-white dark:text-stone-950'
+                      : 'text-stone-600 dark:text-stone-400'
+                  }`}
+                />
+              </button>
+            </div>
+          )}
+
+          {/* Bouton Personnaliser le Prix */}
+          {item.ingredientId && onOpenEditPrice && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenEditPrice(item);
+              }}
+              className={`p-1.5 rounded-xl border transition-colors active:scale-90 ${
+                item.isCustomPrice
+                  ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white shadow-xs'
+                  : isDark
+                  ? 'bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border-white/10'
+                  : 'bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 border-stone-200'
+              }`}
+              title={item.isCustomPrice ? 'Prix personnalisé actif (cliquer pour modifier)' : 'Définir un prix personnalisé pour cet article'}
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+          )}
+
+          {item.metroProductUrl && (
+            <a
+              href={item.metroProductUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-1 rounded-xl border transition-colors active:scale-95 ${
+                item.metroProductUrl.includes('/p/')
+                  ? isDark
+                    ? 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+                    : 'bg-stone-900 hover:bg-stone-800 text-white border-stone-900 shadow-xs'
+                  : isDark
+                  ? 'bg-white/5 hover:bg-white/15 text-stone-200 border-white/10'
+                  : 'bg-stone-100 hover:bg-stone-200 text-stone-900 border-stone-300 shadow-xs'
+              }`}
+              title={item.metroProductUrl.includes('/p/') ? "Fiche produit directe Metro.ca (UPC certifié)" : "Rechercher sur Metro.ca"}
+            >
+              <span>{item.metroProductUrl.includes('/p/') ? 'Fiche Metro' : 'Recherche'}</span>
+              <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+            </a>
+          )}
+
+          {item.isCustom && onRemove && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(item.id);
+              }}
+              className="text-stone-400 hover:text-rose-500 p-1 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+GroceryItemRow.displayName = 'GroceryItemRow';
+
+const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
   items,
   coupleSettings,
   splitReport,
@@ -109,6 +397,30 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   const [isVerifying, setIsVerifying] = useState(false);
   const [lastVerifiedTime, setLastVerifiedTime] = useState<string>("À l'instant");
   const [verificationFeedback, setVerificationFeedback] = useState(false);
+
+  const handleToggleItem = useCallback((id: string) => {
+    onToggleItem(id);
+  }, [onToggleItem]);
+
+  const handleOpenEditPrice = useCallback((item: GroceryItem) => {
+    const defaultIngredient = INGREDIENTS[item.ingredientId!];
+    setEditingPriceItem({
+      ingredientId: item.ingredientId!,
+      name: item.name,
+      currentPrice: item.exactPriceMetro,
+      defaultPrice: defaultIngredient?.packaging.exactPriceMetro ?? item.exactPriceMetro,
+      packageDescription: item.packageDescription,
+    });
+    setCustomPriceInput(item.exactPriceMetro.toFixed(2));
+  }, []);
+
+  const handleRemoveItem = useCallback((id: string) => {
+    onRemoveItem(id);
+  }, [onRemoveItem]);
+
+  const handlePreference = useCallback((ingredientId: string, status: ProductPreferenceStatus) => {
+    onUpdatePreference?.(ingredientId, status);
+  }, [onUpdatePreference]);
 
   const handleRunVerification = () => {
     setIsVerifying(true);
@@ -829,279 +1141,32 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
                 {/* Grille des articles avec Liens Canoniques Directs */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {aisleItems.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => onToggleItem(item.id)}
-                      className={`flex items-start justify-between p-3.5 rounded-2xl border transition-all cursor-pointer group ${
-                        item.checked
-                          ? 'opacity-50 grayscale bg-black/5 dark:bg-black/30 border-transparent'
-                          : isDark
-                          ? 'bg-white/[0.02] hover:bg-white/[0.06] border-white/5 hover:border-white/15'
-                          : 'bg-white/70 hover:bg-white border-stone-200/80 shadow-xs'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3 min-w-0">
-                        {/* Checkbox minimaliste ergonomique */}
-                        <div
-                          className={`w-6 h-6 mt-0.5 rounded-xl flex items-center justify-center shrink-0 transition-transform active:scale-90 ${
-                            item.checked
-                              ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-xs'
-                              : isDark
-                              ? 'border-2 border-white/20 group-hover:border-white/40'
-                              : 'border-2 border-stone-300 group-hover:border-stone-500'
-                          }`}
-                        >
-                          {item.checked && <Check className="w-4 h-4 stroke-[3]" />}
-                        </div>
+                  {aisleItems.map((item) => {
+                    const neededByAccountName =
+                      scope === 'common' && item.neededBy && item.neededBy.length === 1
+                        ? accounts.find((a) => a.id === item.neededBy![0])?.name || item.neededBy[0]
+                        : undefined;
+                    const forAccountName =
+                      scope === 'common' && item.isCustom && item.forAccount && item.forAccount !== 'common'
+                        ? accounts.find((a) => a.id === item.forAccount)?.name || item.forAccount
+                        : undefined;
 
-                        {/* Photo Produit */}
-                        {item.imageUrl && (
-                          <div
-                            className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 border relative ${
-                              isDark ? 'border-white/10 bg-black/40' : 'border-stone-200 bg-stone-100'
-                            }`}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={item.imageUrl}
-                              alt={item.name}
-                              className="w-full h-full object-cover transition-opacity"
-                              loading="lazy"
-                            />
-                          </div>
-                        )}
-
-                        {/* Informations Produit */}
-                        <div className="min-w-0 pr-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                              className={`text-sm font-medium truncate ${
-                                item.checked
-                                  ? 'line-through text-stone-400'
-                                  : 'text-stone-900 dark:text-white'
-                              }`}
-                            >
-                              {item.name}
-                            </span>
-
-                            {item.ingredientId && preferences[item.ingredientId] === 'liked' && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
-                                <Heart className="w-2.5 h-2.5 fill-current" /> Favori
-                              </span>
-                            )}
-
-                            {item.ingredientId && preferences[item.ingredientId] === 'disliked' && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-300 dark:border-stone-700 font-semibold">
-                                <Ban className="w-2.5 h-2.5" /> Exclu
-                              </span>
-                            )}
-                            {item.isCustomPrice && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
-                                <Pencil className="w-2.5 h-2.5" /> Prix Modifié
-                              </span>
-                            )}
-                            {scope === 'common' && item.neededBy && item.neededBy.length > 1 && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-100 text-stone-900 dark:bg-white/10 dark:text-white font-semibold border border-stone-300 dark:border-white/20">
-                                <Users className="w-2.5 h-2.5" /> Commun
-                              </span>
-                            )}
-                            {scope === 'common' && item.neededBy && item.neededBy.length === 1 && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold border border-stone-300 dark:border-stone-700">
-                                <User className="w-2.5 h-2.5" /> Pour {accounts.find((a) => a.id === item.neededBy![0])?.name || item.neededBy[0]}
-                              </span>
-                            )}
-                            {scope === 'common' && item.isCustom && item.forAccount && item.forAccount !== 'common' && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold border border-stone-300 dark:border-stone-700">
-                                <User className="w-2.5 h-2.5" /> Pour {accounts.find((a) => a.id === item.forAccount)?.name || item.forAccount}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="text-xs text-stone-700 dark:text-stone-300 mt-0.5 truncate font-sans">
-                            {item.packageDescription}
-                          </div>
-
-                          {/* Prix au 100g, Statut Vérifié & Badge Taxe */}
-                          <div className="flex items-center gap-2 mt-1.5 flex-wrap font-mono text-[11px]">
-                            {item.unitPriceLabel && (
-                              <span className="font-semibold text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-white/10 border border-stone-300 dark:border-white/20 px-2 py-0.5 rounded-md">
-                                {item.unitPriceLabel}
-                              </span>
-                            )}
-                            <span className="text-[10px] text-stone-600 dark:text-stone-400">
-                              {item.isTaxable ? 'Taxé (14.975%)' : '0% Taxe'}
-                            </span>
-                            <span className="text-[10px] text-stone-700 dark:text-stone-400 flex items-center gap-0.5 font-medium">
-                              <Check className="w-2.5 h-2.5" /> Fiche active
-                            </span>
-                          </div>
-
-                          {/* Badge Membre Moi & Circulaire (Harmonie Graphite / VIP Monochrome) */}
-                          {item.isMoiMemberPrice && (
-                            <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-stone-900 dark:text-white bg-stone-100 dark:bg-white/10 px-2 py-0.5 rounded-md mt-1.5 border border-stone-300 dark:border-white/20 font-semibold">
-                              <Crown className="w-3 h-3 text-stone-700 dark:text-stone-300" />
-                              <span>{item.moiPriceLabel || 'Prix Membre Moi'}</span>
-                            </div>
-                          )}
-
-                          {/* Accès Direct aux Macros du Produit */}
-                          {(() => {
-                            const macros = item.macrosPer100g || (item.ingredientId ? INGREDIENTS[item.ingredientId]?.macrosPer100g : undefined);
-                            if (!macros) return null;
-                            return (
-                              <div className="flex items-center gap-1 mt-2 flex-wrap text-[10px] font-mono">
-                                <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-white/10 font-medium">
-                                  🔥 {macros.calories} kcal
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-white/10 font-medium">
-                                  🥩 {macros.protein}g P
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-white/10">
-                                  🌾 {macros.carbs}g G
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-white/10">
-                                  🥑 {macros.fat}g L
-                                </span>
-                                <span className="text-[9px] text-stone-400">/ 100g</span>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </div>
-
-                      {/* Prix Exact & Actions */}
-                      <div className="text-right shrink-0 ml-2 flex flex-col items-end justify-between self-stretch">
-                        <div>
-                          <div className="font-mono tabular-nums text-sm font-semibold text-stone-950 dark:text-white">
-                            {item.exactPriceMetro.toFixed(2)} $
-                          </div>
-                          {item.savingsAmount > 0 && (
-                            <div className="font-mono text-[10px] text-stone-500 dark:text-stone-400 line-through">
-                              {item.regularPriceMetro.toFixed(2)} $
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1.5 mt-2">
-                          {/* Boutons Préférences Rapides J'aime / Exclure */}
-                          {item.ingredientId && onUpdatePreference && (
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const current = preferences[item.ingredientId!] || 'neutral';
-                                  onUpdatePreference(item.ingredientId!, current === 'liked' ? 'neutral' : 'liked');
-                                }}
-                                className={`p-1.5 rounded-xl border transition-all active:scale-90 ${
-                                  preferences[item.ingredientId] === 'liked'
-                                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white'
-                                    : isDark
-                                    ? 'bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border-white/10'
-                                    : 'bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 border-stone-200'
-                                }`}
-                                title={preferences[item.ingredientId] === 'liked' ? 'Produit favori (cliquer pour retirer)' : 'Aimer ce produit'}
-                              >
-                                <Heart
-                                  className={`w-3 h-3 ${
-                                    preferences[item.ingredientId] === 'liked'
-                                      ? 'fill-current text-white dark:text-stone-950'
-                                      : 'text-stone-600 dark:text-stone-400'
-                                  }`}
-                                />
-                              </button>
-
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const current = preferences[item.ingredientId!] || 'neutral';
-                                  onUpdatePreference(item.ingredientId!, current === 'disliked' ? 'neutral' : 'disliked');
-                                }}
-                                className={`p-1.5 rounded-xl border transition-all active:scale-90 ${
-                                  preferences[item.ingredientId] === 'disliked'
-                                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white shadow-xs'
-                                    : isDark
-                                    ? 'bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border-white/10'
-                                    : 'bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 border-stone-200'
-                                }`}
-                                title={preferences[item.ingredientId] === 'disliked' ? 'Produit exclu (cliquer pour réautoriser)' : 'Exclure ce produit (ne plus acheter)'}
-                              >
-                                <Ban
-                                  className={`w-3 h-3 ${
-                                    preferences[item.ingredientId] === 'disliked'
-                                      ? 'text-white dark:text-stone-950'
-                                      : 'text-stone-600 dark:text-stone-400'
-                                  }`}
-                                />
-                              </button>
-                            </div>
-                          )}
-
-                          {/* Bouton Personnaliser le Prix */}
-                          {item.ingredientId && onUpdateCustomPrice && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const defaultIngredient = INGREDIENTS[item.ingredientId!];
-                                setEditingPriceItem({
-                                  ingredientId: item.ingredientId!,
-                                  name: item.name,
-                                  currentPrice: item.exactPriceMetro,
-                                  defaultPrice: defaultIngredient?.packaging.exactPriceMetro ?? item.exactPriceMetro,
-                                  packageDescription: item.packageDescription,
-                                });
-                                setCustomPriceInput(item.exactPriceMetro.toFixed(2));
-                              }}
-                              className={`p-1.5 rounded-xl border transition-all active:scale-90 ${
-                                item.isCustomPrice
-                                  ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white shadow-xs'
-                                  : isDark
-                                  ? 'bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border-white/10'
-                                  : 'bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 border-stone-200'
-                              }`}
-                              title={item.isCustomPrice ? 'Prix personnalisé actif (cliquer pour modifier)' : 'Définir un prix personnalisé pour cet article'}
-                            >
-                              <Pencil className="w-3 h-3" />
-                            </button>
-                          )}
-
-                          {item.metroProductUrl && (
-                            <a
-                              href={item.metroProductUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-1 rounded-xl border transition-all active:scale-95 ${
-                                item.metroProductUrl.includes('/p/')
-                                  ? isDark
-                                    ? 'bg-white/10 hover:bg-white/20 text-white border-white/20'
-                                    : 'bg-stone-900 hover:bg-stone-800 text-white border-stone-900 shadow-xs'
-                                  : isDark
-                                  ? 'bg-white/5 hover:bg-white/15 text-stone-200 border-white/10'
-                                  : 'bg-stone-100 hover:bg-stone-200 text-stone-900 border-stone-300 shadow-xs'
-                              }`}
-                              title={item.metroProductUrl.includes('/p/') ? "Fiche produit directe Metro.ca (UPC certifié)" : "Rechercher sur Metro.ca"}
-                            >
-                              <span>{item.metroProductUrl.includes('/p/') ? 'Fiche Metro' : 'Recherche'}</span>
-                              <ExternalLink className="w-2.5 h-2.5 opacity-70" />
-                            </a>
-                          )}
-
-                          {item.isCustom && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onRemoveItem(item.id);
-                              }}
-                              className="text-stone-400 hover:text-rose-500 p-1 transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    return (
+                      <GroceryItemRow
+                        key={item.id}
+                        item={item}
+                        isDark={isDark}
+                        preference={item.ingredientId ? preferences[item.ingredientId] : undefined}
+                        scope={scope}
+                        neededByAccountName={neededByAccountName}
+                        forAccountName={forAccountName}
+                        onToggle={handleToggleItem}
+                        onPreference={onUpdatePreference ? handlePreference : undefined}
+                        onOpenEditPrice={onUpdateCustomPrice ? handleOpenEditPrice : undefined}
+                        onRemove={handleRemoveItem}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -1113,10 +1178,10 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
       {totalItems > 0 && (
         <div className="fixed bottom-20 left-3 right-3 z-30 md:hidden pointer-events-none">
           <div
-            className={`pointer-events-auto flex items-center justify-between px-3.5 py-2.5 rounded-2xl border shadow-xl backdrop-blur-xl transition-all ${
+            className={`pointer-events-auto flex items-center justify-between px-3.5 py-2.5 rounded-2xl border shadow-xl transition-colors ${
               isDark
-                ? 'bg-stone-900/95 border-white/15 text-white shadow-black/60'
-                : 'bg-white/95 border-stone-300 text-stone-950 shadow-stone-500/15'
+                ? 'bg-stone-900 border-white/15 text-white shadow-2xl shadow-black/80'
+                : 'bg-white border-stone-300 text-stone-950 shadow-xl shadow-stone-500/20'
             }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
@@ -1157,7 +1222,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
       {/* Modal Édition Prix Personnalisé */}
       {editingPriceItem && onUpdateCustomPrice && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 mb-safe sm:mb-0">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/75 animate-in fade-in duration-150 mb-safe sm:mb-0">
           <div
             className={`w-full max-w-md rounded-2xl sm:rounded-3xl p-5 sm:p-6 border shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto ${
               isDark ? 'liquid-glass bg-stone-950/95 text-white border-white/10' : 'liquid-glass-light bg-white/95 text-stone-900 border-stone-200'
@@ -1253,3 +1318,5 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
     </div>
   );
 };
+
+export const GroceryListView = React.memo(GroceryListViewComponent);

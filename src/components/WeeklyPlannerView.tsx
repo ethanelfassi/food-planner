@@ -33,7 +33,7 @@ interface WeeklyPlannerViewProps {
   onOpenRecipeCreator?: () => void;
 }
 
-export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
+const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
   plan,
   preferences = {},
   userSettings,
@@ -188,7 +188,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
               <button
                 key={day.dayName}
                 onClick={() => setSelectedDayIndex(idx)}
-                className={`py-2 sm:py-3 px-0.5 sm:px-2 rounded-xl sm:rounded-2xl text-center transition-all flex flex-col items-center gap-0.5 sm:gap-1 active:scale-95 touch-manipulation ${
+                className={`py-2 sm:py-3 px-0.5 sm:px-2 rounded-xl sm:rounded-2xl text-center transition-colors flex flex-col items-center gap-0.5 sm:gap-1 active:scale-95 touch-manipulation ${
                   isSelected
                     ? isDark
                       ? 'bg-white text-stone-950 font-bold shadow-xl shadow-black/30 ring-1 ring-white'
@@ -246,7 +246,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
           {/* 1. DÉJEUNER */}
           <div
             onClick={() => onSelectRecipe(currentDay.breakfast)}
-            className={`p-5 rounded-3xl border transition-all cursor-pointer flex flex-col justify-between group ${cardGlassClass}`}
+            className={`p-5 rounded-3xl border transition-colors cursor-pointer flex flex-col justify-between group ${cardGlassClass}`}
           >
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -290,7 +290,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
           {/* 2. DÎNER (MIDI) - Portion de la veille */}
           <div
             onClick={() => onSelectRecipe(currentDay.lunch)}
-            className={`p-5 rounded-3xl border transition-all cursor-pointer flex flex-col justify-between group ${cardGlassClass}`}
+            className={`p-5 rounded-3xl border transition-colors cursor-pointer flex flex-col justify-between group ${cardGlassClass}`}
           >
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -328,7 +328,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
           {/* 3. SOUPER (SOIR) - Cuisiné en 2 portions */}
           <div
             onClick={() => onSelectRecipe(currentDay.dinner)}
-            className={`p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between group ${
+            className={`p-5 rounded-3xl border-2 transition-colors cursor-pointer flex flex-col justify-between group ${
               isDark
                 ? 'liquid-glass border-white/20 hover:border-white/40'
                 : 'liquid-glass-light border-stone-400 hover:border-stone-800 shadow-xs'
@@ -385,7 +385,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
           {/* 4. COLLATION SPORTIVE */}
           <div
             onClick={() => onSelectRecipe(currentDay.snack)}
-            className={`p-5 rounded-3xl border transition-all cursor-pointer flex flex-col justify-between group ${cardGlassClass}`}
+            className={`p-5 rounded-3xl border transition-colors cursor-pointer flex flex-col justify-between group ${cardGlassClass}`}
           >
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -430,7 +430,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
 
       {/* Modal / Menu de Remplacement Liquid Glass */}
       {swapMealState && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-2 sm:p-4 bg-black/75 animate-in fade-in duration-150">
           <div
             className={`rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border max-h-[85vh] overflow-y-auto mb-safe sm:mb-0 ${
               isDark ? 'liquid-glass' : 'liquid-glass-light'
@@ -451,7 +451,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                     onReplaceRecipe(swapMealState.dayIndex, swapMealState.mealType, rec.id);
                     setSwapMealState(null);
                   }}
-                  className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between ${
+                  className={`w-full text-left p-3.5 rounded-2xl border transition-colors flex items-center justify-between ${
                     isDark
                       ? 'bg-white/[0.03] hover:bg-white/[0.08] border-white/5'
                       : 'bg-white/80 hover:bg-white border-stone-200'
@@ -496,3 +496,5 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
     </div>
   );
 };
+
+export const WeeklyPlannerView = React.memo(WeeklyPlannerViewComponent);

@@ -37,7 +37,7 @@ const AISLE_OPTIONS: { id: MetroAisle; label: string }[] = [
   { id: 'DIVERS', label: 'Divers' },
 ];
 
-export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
+const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
   isOpen,
   onClose,
   onProductAdded,
@@ -178,7 +178,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200 mb-safe sm:mb-0">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/75 animate-in fade-in duration-150 mb-safe sm:mb-0">
       <div
         className={`w-full max-w-xl rounded-2xl sm:rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] transition-all ${
           isDark
@@ -563,3 +563,5 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     </div>
   );
 };
+
+export const BarcodeScannerModal = React.memo(BarcodeScannerModalComponent);

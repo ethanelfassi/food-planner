@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useDeferredValue } from 'react';
 import { Recipe, MealType, ProductPreferencesMap } from '@/types';
 import { INGREDIENTS } from '@/data/ingredients';
 import { calculateRecipeScore } from '@/lib/planner';
@@ -53,7 +53,7 @@ const DAYS = [
   'Dimanche',
 ];
 
-export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
+const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
   allRecipes,
   customRecipes,
   preferences = {},
@@ -66,6 +66,7 @@ export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
   onPlanRecipeToDay,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearch = useDeferredValue(searchQuery);
   const [mealTypeFilter, setMealTypeFilter] = useState<'all' | MealType>('all');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'custom' | 'curated'>('all');
   const [planningRecipe, setPlanningRecipe] = useState<Recipe | null>(null);
@@ -79,6 +80,7 @@ export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
 
   // Filtrage des recettes
   const filteredRecipes = useMemo(() => {
+    const q = deferredSearch.toLowerCase().trim();
     return allRecipes.filter((recipe) => {
       // 1. Filtre par type de repas
       if (mealTypeFilter !== 'all') {
@@ -96,8 +98,7 @@ export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
       if (sourceFilter === 'curated' && recipe.isCustom) return false;
 
       // 3. Recherche textuelle
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
+      if (q) {
         const matchesTitle = recipe.title.toLowerCase().includes(q);
         const matchesTag = recipe.tags?.some((t) => t.toLowerCase().includes(q));
         const matchesIngredient = recipe.ingredients?.some((item) => {
@@ -110,7 +111,7 @@ export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
 
       return true;
     });
-  }, [allRecipes, mealTypeFilter, sourceFilter, searchQuery]);
+  }, [allRecipes, mealTypeFilter, sourceFilter, deferredSearch]);
 
   // Estimation du coût par portion
   const getRecipeCostPerServing = (recipe: Recipe): number => {
@@ -488,7 +489,7 @@ export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
 
       {/* MODAL PLANIFIER UN PLAT DANS LA SEMAINE */}
       {planningRecipe && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 mb-safe sm:mb-0">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/75 animate-in fade-in duration-150 mb-safe sm:mb-0">
           <div
             className={`w-full max-w-md rounded-2xl sm:rounded-3xl p-5 sm:p-7 border shadow-2xl space-y-4 sm:space-y-5 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto ${
               isDark ? 'bg-stone-950 border-white/15 text-white' : 'bg-white border-stone-200 text-stone-900'
@@ -612,3 +613,5 @@ export const RecipeBookView: React.FC<RecipeBookViewProps> = ({
     </div>
   );
 };
+
+export const RecipeBookView = React.memo(RecipeBookViewComponent);

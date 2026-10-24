@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useDeferredValue } from 'react';
 import { INGREDIENTS } from '@/data/ingredients';
 import { AISLE_LABELS } from '@/lib/grocery';
 import { 
@@ -59,7 +59,7 @@ interface ProductPreferencesViewProps {
   onApplyPreferencesToPlan: () => void;
 }
 
-export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
+const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = ({
   preferences,
   customPrices = {},
   userSettings = DEFAULT_USER_SETTINGS,
@@ -78,6 +78,7 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'catalog' | 'settings'>('catalog');
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearch = useDeferredValue(searchQuery);
   const [selectedAisle, setSelectedAisle] = useState<string>('all');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'liked' | 'disliked' | 'neutral'>('all');
   const [sortBy, setSortBy] = useState<'default' | 'protein_ratio' | 'protein_pct' | 'price_asc'>('default');
@@ -135,7 +136,7 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
 
   useEffect(() => {
     setDisplayLimit(30);
-  }, [searchQuery, selectedAisle, selectedFilter, sortBy]);
+  }, [deferredSearch, selectedAisle, selectedFilter, sortBy]);
 
   // Compteurs
   const likedCount = allIngredients.filter((i: Ingredient) => preferences[i.id] === 'liked').length;
@@ -145,11 +146,13 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
 
   // Filtrage et tri du catalogue
   const filteredIngredients = useMemo(() => {
+    const query = deferredSearch.trim().toLowerCase();
     const list = allIngredients.filter((item: Ingredient) => {
       const matchesSearch =
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.packaging.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.barcode && item.barcode.includes(searchQuery));
+        !query ||
+        item.name.toLowerCase().includes(query) ||
+        item.packaging.label.toLowerCase().includes(query) ||
+        (item.barcode && item.barcode.includes(query));
 
       if (!matchesSearch) return false;
 
@@ -185,7 +188,7 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
     }
 
     return list;
-  }, [allIngredients, searchQuery, selectedAisle, preferences, selectedFilter, sortBy, customPrices, proteinEfficiencyMap]);
+  }, [allIngredients, deferredSearch, selectedAisle, preferences, selectedFilter, sortBy, customPrices, proteinEfficiencyMap]);
 
   const handleSelectPreference = (id: string, newStatus: ProductPreferenceStatus, name: string) => {
     onUpdatePreference(id, newStatus);
@@ -265,7 +268,7 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
 
       {/* Modale d'édition de prix d'un produit */}
       {editingPriceItem && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-150 mb-safe sm:mb-0">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/75 animate-in fade-in duration-150 mb-safe sm:mb-0">
           <div className={`rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border space-y-4 max-h-[90vh] overflow-y-auto ${cardGlassClass}`}>
             <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-white/10">
               <div className="flex items-center gap-2">
@@ -1322,3 +1325,5 @@ export const ProductPreferencesView: React.FC<ProductPreferencesViewProps> = ({
     </div>
   );
 };
+
+export const ProductPreferencesView = React.memo(ProductPreferencesViewComponent);

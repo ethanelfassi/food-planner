@@ -16,7 +16,7 @@ interface DealsAndPricesViewProps {
   initialSubTab?: 'deals' | 'protein';
 }
 
-export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({
+const DealsAndPricesViewComponent: React.FC<DealsAndPricesViewProps> = ({
   groceryItems,
   isDark,
   customProducts = [],
@@ -334,3 +334,5 @@ export const DealsAndPricesView: React.FC<DealsAndPricesViewProps> = ({
     </div>
   );
 };
+
+export const DealsAndPricesView = React.memo(DealsAndPricesViewComponent);

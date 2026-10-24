@@ -19,7 +19,7 @@ interface CustomEntry {
   fat?: number;
 }
 
-export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentDayPlan, userSettings, isDark }) => {
+const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ currentDayPlan, userSettings, isDark }) => {
   const [eatenMeals, setEatenMeals] = useState<Record<string, boolean>>({
     breakfast: true,
     lunch: true,
@@ -244,7 +244,7 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
           {/* Déjeuner */}
           <div
             onClick={() => toggleMeal('breakfast')}
-            className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 ${
+            className={`p-3.5 sm:p-4 rounded-2xl border transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 ${
               eatenMeals.breakfast
                 ? isDark
                   ? 'bg-white/[0.08] border-white/30 ring-1 ring-white/20'
@@ -282,7 +282,7 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
           {/* Dîner */}
           <div
             onClick={() => toggleMeal('lunch')}
-            className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 ${
+            className={`p-3.5 sm:p-4 rounded-2xl border transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 ${
               eatenMeals.lunch
                 ? isDark
                   ? 'bg-white/[0.08] border-white/30 ring-1 ring-white/20'
@@ -320,7 +320,7 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
           {/* Souper */}
           <div
             onClick={() => toggleMeal('dinner')}
-            className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 ${
+            className={`p-3.5 sm:p-4 rounded-2xl border transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 ${
               eatenMeals.dinner
                 ? isDark
                   ? 'bg-white/[0.08] border-white/30 ring-1 ring-white/20'
@@ -358,7 +358,7 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
           {/* Collation */}
           <div
             onClick={() => toggleMeal('snack')}
-            className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 ${
+            className={`p-3.5 sm:p-4 rounded-2xl border transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 ${
               eatenMeals.snack
                 ? isDark
                   ? 'bg-white/[0.08] border-white/30 ring-1 ring-white/20'
@@ -481,3 +481,5 @@ export const CalorieTrackerView: React.FC<CalorieTrackerViewProps> = ({ currentD
     </div>
   );
 };
+
+export const CalorieTrackerView = React.memo(CalorieTrackerViewComponent);

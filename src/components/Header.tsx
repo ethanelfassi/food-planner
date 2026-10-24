@@ -39,7 +39,7 @@ interface HeaderProps {
   onToggleTheme: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({
+export const Header: React.FC<HeaderProps> = React.memo(({
   activeTab,
   setActiveTab,
   groceryCount,
@@ -104,10 +104,10 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <>
       <header
-      className={`sticky top-0 z-40 transition-colors duration-300 border-b ${isDark
-        ? 'bg-[#0B0C0E]/95 border-white/[0.08] text-white shadow-2xl shadow-black/40'
-        : 'bg-white/95 border-stone-200/90 text-stone-900 shadow-xs'
-        } backdrop-blur-md`}
+      className={`sticky top-0 z-40 border-b ${isDark
+        ? 'bg-[#0B0C0E]/98 border-white/[0.08] text-white shadow-xl shadow-black/50'
+        : 'bg-white/98 border-stone-200/90 text-stone-900 shadow-xs'
+        }`}
     >
       <div className="max-w-[1536px] w-full mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-18 gap-2 sm:gap-4 min-w-0">
@@ -225,8 +225,8 @@ export const Header: React.FC<HeaderProps> = ({
               {isAccountMenuOpen && (
                 <div
                   className={`fixed inset-x-3 top-16 sm:absolute sm:right-0 sm:top-auto sm:inset-x-auto sm:mt-2 sm:w-64 rounded-3xl p-3 border shadow-2xl z-50 animate-in fade-in duration-150 ${isDark
-                    ? 'bg-stone-950/95 border-white/10 text-white backdrop-blur-2xl'
-                    : 'bg-white/95 border-stone-200 text-stone-900 backdrop-blur-2xl shadow-xl'
+                    ? 'bg-stone-950 border-white/10 text-white shadow-2xl shadow-black/90'
+                    : 'bg-white border-stone-200 text-stone-900 shadow-xl'
                     }`}
                 >
                   <div className="px-3 py-2 border-b border-stone-200/60 dark:border-white/10 mb-2">
@@ -431,7 +431,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Modal Renommer le Compte */}
       {isRenameModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 animate-in fade-in duration-150">
           <form
             onSubmit={handleSaveRename}
             className={`w-full max-w-sm rounded-3xl p-6 border shadow-2xl space-y-4 ${isDark ? 'liquid-glass bg-stone-950/90 text-white border-white/10' : 'liquid-glass-light bg-white/95 text-stone-900 border-stone-200'
@@ -479,7 +479,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Modal Créer un Profil */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 animate-in fade-in duration-150">
           <form
             onSubmit={handleSaveCreate}
             className={`w-full max-w-sm rounded-3xl p-6 border shadow-2xl space-y-4 ${isDark ? 'liquid-glass bg-stone-950/90 text-white border-white/10' : 'liquid-glass-light bg-white/95 text-stone-900 border-stone-200'
@@ -530,10 +530,10 @@ export const Header: React.FC<HeaderProps> = ({
     {/* Barre de Navigation Mobile Inférieure (Dockée en bas d'écran avec Safe Area iOS & Android) */}
     <nav
       aria-label="Navigation principale mobile"
-      className={`fixed bottom-0 left-0 right-0 z-40 md:hidden border-t transition-colors backdrop-blur-xl pb-safe ${
+      className={`fixed bottom-0 left-0 right-0 z-40 md:hidden border-t pb-safe ${
         isDark
-          ? 'bg-[#0B0C0E]/95 border-white/10 text-stone-400 shadow-[0_-8px_30px_rgba(0,0,0,0.85)]'
-          : 'bg-white/95 border-stone-200/90 text-stone-500 shadow-[0_-8px_20px_rgba(0,0,0,0.06)]'
+          ? 'bg-[#0B0C0E]/98 border-white/10 text-stone-400 shadow-[0_-8px_30px_rgba(0,0,0,0.85)]'
+          : 'bg-white/98 border-stone-200/90 text-stone-500 shadow-[0_-8px_20px_rgba(0,0,0,0.06)]'
       }`}
     >
       <div className="grid grid-cols-6 items-center h-15 px-1 max-w-lg mx-auto">
@@ -655,4 +655,6 @@ export const Header: React.FC<HeaderProps> = ({
     </nav>
     </>
   );
-};
+});
+
+Header.displayName = 'Header';

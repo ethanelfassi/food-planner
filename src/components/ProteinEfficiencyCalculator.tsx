@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useDeferredValue } from 'react';
 import { 
   Dumbbell, 
   Flame, 
@@ -46,7 +46,7 @@ const CATEGORY_FILTERS = [
   { id: 'CUSTOM', label: 'Ajoutés par Code-barres' },
 ];
 
-export const ProteinEfficiencyCalculator: React.FC<ProteinEfficiencyCalculatorProps> = ({
+const ProteinEfficiencyCalculatorComponent: React.FC<ProteinEfficiencyCalculatorProps> = ({
   customProducts = [],
   customPrices = {},
   userSettings,
@@ -65,13 +65,14 @@ export const ProteinEfficiencyCalculator: React.FC<ProteinEfficiencyCalculatorPr
 
   // --- ÉTAT DU PALMARÈS DU CATALOGUE ---
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearch = useDeferredValue(searchQuery);
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState<'cost_protein_asc' | 'protein_per_dollar_desc' | 'protein_pct_desc' | 'price_asc'>('cost_protein_asc');
   const [displayLimit, setDisplayLimit] = useState<number>(30);
 
   React.useEffect(() => {
     setDisplayLimit(30);
-  }, [searchQuery, categoryFilter, sortBy]);
+  }, [deferredSearch, categoryFilter, sortBy]);
 
   // Calcul du résultat du simulateur
   const simResult: ProteinEfficiencyResult = useMemo(() => {
@@ -106,8 +107,8 @@ export const ProteinEfficiencyCalculator: React.FC<ProteinEfficiencyCalculatorPr
     }
 
     // Filtre de recherche texte
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
+    if (deferredSearch.trim()) {
+      const q = deferredSearch.toLowerCase().trim();
       list = list.filter(
         (i) => i.name.toLowerCase().includes(q) || i.packageLabel.toLowerCase().includes(q) || (i.barcode && i.barcode.includes(q))
       );
@@ -814,3 +815,5 @@ export const ProteinEfficiencyCalculator: React.FC<ProteinEfficiencyCalculatorPr
     </div>
   );
 };
+
+export const ProteinEfficiencyCalculator = React.memo(ProteinEfficiencyCalculatorComponent);

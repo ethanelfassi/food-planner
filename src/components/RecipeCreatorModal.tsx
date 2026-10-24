@@ -440,7 +440,7 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = React.memo(
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150 mb-safe sm:mb-0">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-5 bg-black/75 animate-in fade-in duration-150 mb-safe sm:mb-0">
       <div
         className={`rounded-2xl sm:rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border flex flex-col ${
           isDark

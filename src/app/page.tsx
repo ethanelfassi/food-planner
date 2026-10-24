@@ -589,19 +589,24 @@ export default function Home() {
     return generateCommonGroceryList(commonAccountPlans, customPrices, customProducts);
   }, [commonAccountPlans, customPrices, customProducts]);
 
-  const commonItemsWithCustom = React.useMemo(() => {
+  // Le calcul du split dépend UNIQUEMENT des prix et besoins des paquets, JAMAIS de l'état coché !
+  const baseCommonItems = React.useMemo(() => {
     return [
       ...customManualItems.filter((i) => !i.forAccount || i.forAccount === 'common' || accounts.some(a => a.id === i.forAccount)),
       ...commonGroceryItems,
-    ].map((item) => ({
+    ];
+  }, [customManualItems, accounts, commonGroceryItems]);
+
+  const commonSplitReport = React.useMemo(() => {
+    return calculateCommonListSplit(baseCommonItems, accounts);
+  }, [baseCommonItems, accounts]);
+
+  const commonItemsWithCustom = React.useMemo(() => {
+    return baseCommonItems.map((item) => ({
       ...item,
       checked: checkedItemsMap[item.id] || false,
     }));
-  }, [customManualItems, accounts, commonGroceryItems, checkedItemsMap]);
-
-  const commonSplitReport = React.useMemo(() => {
-    return calculateCommonListSplit(commonItemsWithCustom, accounts);
-  }, [commonItemsWithCustom, accounts]);
+  }, [baseCommonItems, checkedItemsMap]);
 
   // 2. Détermination des articles visibles selon le scope
   const displayedGroceryItems = React.useMemo<GroceryItem[]>(() => {
@@ -651,7 +656,7 @@ export default function Home() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 w-full overflow-x-hidden ${isDark ? 'bg-[#0B0C0E] text-stone-100' : 'bg-[#F7F7F6] text-stone-900'
+      className={`min-h-screen flex flex-col font-sans w-full overflow-x-hidden ${isDark ? 'bg-[#0B0C0E] text-stone-100' : 'bg-[#F7F7F6] text-stone-900'
         }`}
     >
       <Header
