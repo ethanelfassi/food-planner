@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1A1C20"/>
+      <stop offset="50%" stop-color="#0E0F12"/>
+      <stop offset="100%" stop-color="#070809"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.04"/>
+    </linearGradient>
+    <radialGradient id="innerGlow" cx="50%" cy="46%" r="55%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Solid background -->
+  <rect width="512" height="512" fill="#0B0C0E"/>
+  <rect width="512" height="512" fill="url(#bgGrad)"/>
+  <rect width="512" height="512" fill="url(#innerGlow)"/>
+
+  <!-- Subtle border outline -->
+  <rect x="3" y="3" 
+        width="507" height="507" 
+        fill="none" stroke="url(#borderGrad)" stroke-width="3"/>
+
+  <!-- Typography 'fp' in Serif Italic -->
+  <text 
+    x="50%" 
+    y="276" 
+    text-anchor="middle" 
+    dominant-baseline="central"
+    font-family="Georgia, 'Times New Roman', 'Newsreader', serif" 
+    font-size="246" 
+    font-style="italic" 
+    font-weight="700" 
+    fill="#FFFFFF" 
+    letter-spacing="-8"
+  >fp</text>
+</svg>
