@@ -782,6 +782,7 @@ export default function Home() {
         onCreateAccount={handleCreateAccount}
         theme={theme}
         onToggleTheme={toggleTheme}
+        onBackupRestored={initAppData}
       />
 
       <main className="flex-1 max-w-[1536px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24 md:pb-8">

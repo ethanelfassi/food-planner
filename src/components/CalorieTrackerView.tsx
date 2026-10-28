@@ -146,19 +146,34 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-stone-200/60 dark:border-white/10">
           {/* 1. Énergie / Calories */}
           <div
-            className={`p-4 rounded-2xl border ${
+            className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col justify-between ${
               isDark ? 'bg-black/30 border-white/5' : 'bg-white border-stone-200 shadow-xs'
             }`}
           >
-            <div className="flex justify-between items-center mb-2 font-mono text-xs">
-              <span className="text-stone-700 dark:text-stone-300 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
-                <Flame className="w-3.5 h-3.5 text-stone-700 dark:text-stone-300" /> Calories
+            <div className="flex items-center justify-between font-mono mb-1.5 sm:mb-2">
+              <span className="text-stone-700 dark:text-stone-300 flex items-center gap-1.5 text-xs uppercase tracking-wider font-semibold">
+                <Flame className="w-3.5 h-3.5 shrink-0" /> Calories
               </span>
-              <span className="tabular-nums font-semibold text-stone-950 dark:text-white">
-                {consumedCalories} / {targetCalories} ({calPercent}%)
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md font-bold bg-stone-100 dark:bg-white/10 text-stone-800 dark:text-stone-200">
+                {calPercent}%
               </span>
             </div>
-            <div className="h-2 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
+            <div className="my-1 sm:my-2">
+              <div className="flex items-baseline gap-1 flex-wrap">
+                <span className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-stone-950 dark:text-white tabular-nums">
+                  {consumedCalories}
+                </span>
+                <span className="font-mono text-[11px] sm:text-xs text-stone-500 dark:text-stone-400">
+                  / {targetCalories} kcal
+                </span>
+              </div>
+              <div className="text-[10px] font-mono text-stone-400 dark:text-stone-500 truncate mt-0.5">
+                {targetCalories - consumedCalories > 0
+                  ? `${targetCalories - consumedCalories} kcal restantes`
+                  : 'Cible atteinte 🎉'}
+              </div>
+            </div>
+            <div className="h-1.5 sm:h-2 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden mt-1">
               <div
                 className="bg-stone-800 dark:bg-stone-200 h-full transition-all duration-300 rounded-full"
                 style={{ width: `${calPercent}%` }}
@@ -168,19 +183,34 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
 
           {/* 2. Protéines */}
           <div
-            className={`p-4 rounded-2xl border ${
+            className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col justify-between ${
               isDark ? 'bg-black/30 border-white/5' : 'bg-white border-stone-200 shadow-xs'
             }`}
           >
-            <div className="flex justify-between items-center mb-2 font-mono text-xs">
-              <span className="text-stone-700 dark:text-stone-300 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
-                <Dumbbell className="w-3.5 h-3.5 text-stone-700 dark:text-stone-300" /> Protéines
+            <div className="flex items-center justify-between font-mono mb-1.5 sm:mb-2">
+              <span className="text-stone-700 dark:text-stone-300 flex items-center gap-1.5 text-xs uppercase tracking-wider font-semibold">
+                <Dumbbell className="w-3.5 h-3.5 shrink-0" /> Protéines
               </span>
-              <span className="tabular-nums font-semibold text-stone-950 dark:text-white">
-                {consumedProtein} / {targetProtein}g ({protPercent}%)
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md font-bold bg-stone-100 dark:bg-white/10 text-stone-800 dark:text-stone-200">
+                {protPercent}%
               </span>
             </div>
-            <div className="h-2 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
+            <div className="my-1 sm:my-2">
+              <div className="flex items-baseline gap-1 flex-wrap">
+                <span className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-stone-950 dark:text-white tabular-nums">
+                  {consumedProtein}
+                </span>
+                <span className="font-mono text-[11px] sm:text-xs text-stone-500 dark:text-stone-400">
+                  / {targetProtein}g
+                </span>
+              </div>
+              <div className="text-[10px] font-mono text-stone-400 dark:text-stone-500 truncate mt-0.5">
+                {targetProtein - consumedProtein > 0
+                  ? `${targetProtein - consumedProtein}g restants`
+                  : 'Cible atteinte 🎉'}
+              </div>
+            </div>
+            <div className="h-1.5 sm:h-2 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden mt-1">
               <div
                 className="bg-stone-950 dark:bg-white h-full transition-all duration-300 rounded-full"
                 style={{ width: `${protPercent}%` }}
@@ -190,19 +220,34 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
 
           {/* 3. Glucides */}
           <div
-            className={`p-4 rounded-2xl border ${
+            className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col justify-between ${
               isDark ? 'bg-black/30 border-white/5' : 'bg-white border-stone-200 shadow-xs'
             }`}
           >
-            <div className="flex justify-between items-center mb-2 font-mono text-xs">
-              <span className="text-stone-700 dark:text-stone-300 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
-                <Wheat className="w-3.5 h-3.5 text-stone-700 dark:text-stone-300" /> Glucides
+            <div className="flex items-center justify-between font-mono mb-1.5 sm:mb-2">
+              <span className="text-stone-700 dark:text-stone-300 flex items-center gap-1.5 text-xs uppercase tracking-wider font-semibold">
+                <Wheat className="w-3.5 h-3.5 shrink-0" /> Glucides
               </span>
-              <span className="tabular-nums font-semibold text-stone-950 dark:text-white">
-                {consumedCarbs} / {targetCarbs}g ({carbsPercent}%)
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md font-bold bg-stone-100 dark:bg-white/10 text-stone-800 dark:text-stone-200">
+                {carbsPercent}%
               </span>
             </div>
-            <div className="h-2 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
+            <div className="my-1 sm:my-2">
+              <div className="flex items-baseline gap-1 flex-wrap">
+                <span className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-stone-950 dark:text-white tabular-nums">
+                  {consumedCarbs}
+                </span>
+                <span className="font-mono text-[11px] sm:text-xs text-stone-500 dark:text-stone-400">
+                  / {targetCarbs}g
+                </span>
+              </div>
+              <div className="text-[10px] font-mono text-stone-400 dark:text-stone-500 truncate mt-0.5">
+                {targetCarbs - consumedCarbs > 0
+                  ? `${targetCarbs - consumedCarbs}g restants`
+                  : 'Cible atteinte 🎉'}
+              </div>
+            </div>
+            <div className="h-1.5 sm:h-2 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden mt-1">
               <div
                 className="bg-stone-600 dark:bg-stone-400 h-full transition-all duration-300 rounded-full"
                 style={{ width: `${carbsPercent}%` }}
@@ -212,19 +257,34 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
 
           {/* 4. Lipides */}
           <div
-            className={`p-4 rounded-2xl border ${
+            className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col justify-between ${
               isDark ? 'bg-black/30 border-white/5' : 'bg-white border-stone-200 shadow-xs'
             }`}
           >
-            <div className="flex justify-between items-center mb-2 font-mono text-xs">
-              <span className="text-stone-700 dark:text-stone-300 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
-                <Droplet className="w-3.5 h-3.5 text-stone-700 dark:text-stone-300" /> Lipides
+            <div className="flex items-center justify-between font-mono mb-1.5 sm:mb-2">
+              <span className="text-stone-700 dark:text-stone-300 flex items-center gap-1.5 text-xs uppercase tracking-wider font-semibold">
+                <Droplet className="w-3.5 h-3.5 shrink-0" /> Lipides
               </span>
-              <span className="tabular-nums font-semibold text-stone-950 dark:text-white">
-                {consumedFat} / {targetFat}g ({fatPercent}%)
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md font-bold bg-stone-100 dark:bg-white/10 text-stone-800 dark:text-stone-200">
+                {fatPercent}%
               </span>
             </div>
-            <div className="h-2 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
+            <div className="my-1 sm:my-2">
+              <div className="flex items-baseline gap-1 flex-wrap">
+                <span className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-stone-950 dark:text-white tabular-nums">
+                  {consumedFat}
+                </span>
+                <span className="font-mono text-[11px] sm:text-xs text-stone-500 dark:text-stone-400">
+                  / {targetFat}g
+                </span>
+              </div>
+              <div className="text-[10px] font-mono text-stone-400 dark:text-stone-500 truncate mt-0.5">
+                {targetFat - consumedFat > 0
+                  ? `${targetFat - consumedFat}g restants`
+                  : 'Cible atteinte 🎉'}
+              </div>
+            </div>
+            <div className="h-1.5 sm:h-2 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden mt-1">
               <div
                 className="bg-stone-500 dark:bg-stone-500 h-full transition-all duration-300 rounded-full"
                 style={{ width: `${fatPercent}%` }}
@@ -271,10 +331,10 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
                 </div>
               </div>
             </div>
-            <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-200/60 dark:border-white/5 font-mono tabular-nums text-xs shrink-0">
-              <div className="text-stone-700 dark:text-stone-300">{currentDayPlan.breakfast.caloriesPerServing} kcal</div>
-              <div className="text-stone-950 dark:text-white font-semibold">
-                {currentDayPlan.breakfast.proteinPerServing}g P • {currentDayPlan.breakfast.carbsPerServing}g G • {currentDayPlan.breakfast.fatPerServing}g L
+            <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-200/60 dark:border-white/5 font-mono tabular-nums text-xs shrink-0 gap-0.5">
+              <div className="text-stone-900 dark:text-stone-100 font-semibold">{currentDayPlan.breakfast.caloriesPerServing} kcal</div>
+              <div className="text-[11px] text-stone-600 dark:text-stone-400">
+                <span className="font-semibold text-stone-900 dark:text-stone-200">{currentDayPlan.breakfast.proteinPerServing}g P</span> • {currentDayPlan.breakfast.carbsPerServing}g G • {currentDayPlan.breakfast.fatPerServing}g L
               </div>
             </div>
           </div>
@@ -309,10 +369,10 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
                 </div>
               </div>
             </div>
-            <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-200/60 dark:border-white/5 font-mono tabular-nums text-xs shrink-0">
-              <div className="text-stone-700 dark:text-stone-300">{currentDayPlan.lunch.caloriesPerServing} kcal</div>
-              <div className="text-stone-950 dark:text-white font-semibold">
-                {currentDayPlan.lunch.proteinPerServing}g P • {currentDayPlan.lunch.carbsPerServing}g G • {currentDayPlan.lunch.fatPerServing}g L
+            <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-200/60 dark:border-white/5 font-mono tabular-nums text-xs shrink-0 gap-0.5">
+              <div className="text-stone-900 dark:text-stone-100 font-semibold">{currentDayPlan.lunch.caloriesPerServing} kcal</div>
+              <div className="text-[11px] text-stone-600 dark:text-stone-400">
+                <span className="font-semibold text-stone-900 dark:text-stone-200">{currentDayPlan.lunch.proteinPerServing}g P</span> • {currentDayPlan.lunch.carbsPerServing}g G • {currentDayPlan.lunch.fatPerServing}g L
               </div>
             </div>
           </div>
@@ -347,10 +407,10 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
                 </div>
               </div>
             </div>
-            <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-200/60 dark:border-white/5 font-mono tabular-nums text-xs shrink-0">
-              <div className="text-stone-700 dark:text-stone-300 font-medium">{currentDayPlan.dinner.caloriesPerServing} kcal</div>
-              <div className="text-stone-950 dark:text-white font-semibold">
-                {currentDayPlan.dinner.proteinPerServing}g P • {currentDayPlan.dinner.carbsPerServing}g G • {currentDayPlan.dinner.fatPerServing}g L
+            <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-200/60 dark:border-white/5 font-mono tabular-nums text-xs shrink-0 gap-0.5">
+              <div className="text-stone-900 dark:text-stone-100 font-semibold">{currentDayPlan.dinner.caloriesPerServing} kcal</div>
+              <div className="text-[11px] text-stone-600 dark:text-stone-400">
+                <span className="font-semibold text-stone-900 dark:text-stone-200">{currentDayPlan.dinner.proteinPerServing}g P</span> • {currentDayPlan.dinner.carbsPerServing}g G • {currentDayPlan.dinner.fatPerServing}g L
               </div>
             </div>
           </div>
@@ -385,10 +445,10 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
                 </div>
               </div>
             </div>
-            <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-200/60 dark:border-white/5 font-mono tabular-nums text-xs shrink-0">
-              <div className="text-stone-700 dark:text-stone-300">{currentDayPlan.snack.caloriesPerServing} kcal</div>
-              <div className="text-stone-950 dark:text-white font-semibold">
-                {currentDayPlan.snack.proteinPerServing}g P • {currentDayPlan.snack.carbsPerServing}g G • {currentDayPlan.snack.fatPerServing}g L
+            <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-200/60 dark:border-white/5 font-mono tabular-nums text-xs shrink-0 gap-0.5">
+              <div className="text-stone-900 dark:text-stone-100 font-semibold">{currentDayPlan.snack.caloriesPerServing} kcal</div>
+              <div className="text-[11px] text-stone-600 dark:text-stone-400">
+                <span className="font-semibold text-stone-900 dark:text-stone-200">{currentDayPlan.snack.proteinPerServing}g P</span> • {currentDayPlan.snack.carbsPerServing}g G • {currentDayPlan.snack.fatPerServing}g L
               </div>
             </div>
           </div>
@@ -401,13 +461,13 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
           Ajouter une collation libre ou extra
         </h3>
 
-        <form onSubmit={handleAddExtra} className="grid grid-cols-1 sm:grid-cols-6 gap-2.5">
+        <form onSubmit={handleAddExtra} className="grid grid-cols-2 sm:grid-cols-6 gap-2 sm:gap-2.5">
           <input
             type="text"
             placeholder="Nom (ex: 2 œufs durs, poignée d'amandes...)"
             value={extraName}
             onChange={(e) => setExtraName(e.target.value)}
-            className={`sm:col-span-2 px-3 py-2 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-stone-500 ${
+            className={`col-span-2 sm:col-span-2 px-3 py-2 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-stone-500 ${
               isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
             }`}
           />
@@ -447,10 +507,10 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
               isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
             }`}
           />
-          <div className="sm:col-span-6 flex justify-end">
+          <div className="col-span-2 sm:col-span-6 flex justify-end">
             <button
               type="submit"
-              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold ${
+              className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold ${
                 isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-stone-50 hover:bg-stone-800'
               }`}
             >

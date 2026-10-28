@@ -21,7 +21,11 @@ import {
   Dumbbell,
   Wheat,
   Droplet,
-  BookOpen
+  BookOpen,
+  Settings,
+  Download,
+  Upload,
+  Database
 } from 'lucide-react';
 import { UserCustomizationSettings, UserAccount, DEFAULT_ACCOUNTS } from '@/types';
 
@@ -38,6 +42,7 @@ interface HeaderProps {
   onCreateAccount?: (name: string) => void;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
+  onBackupRestored?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = React.memo(({
@@ -53,8 +58,12 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   onCreateAccount,
   theme,
   onToggleTheme,
+  onBackupRestored,
 }) => {
   const isDark = theme === 'dark';
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [backupToast, setBackupToast] = useState<string | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -62,6 +71,38 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const activeAccount = accounts.find((a) => a.id === activeAccountId) || accounts[0] || DEFAULT_ACCOUNTS[0];
+
+  const handleRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsRestoring(true);
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+
+      const res = await fetch('/api/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'Erreur lors de la restauration');
+        return;
+      }
+
+      setBackupToast('Base de données restaurée avec succès !');
+      onBackupRestored?.();
+      setTimeout(() => setBackupToast(null), 3500);
+    } catch (err: any) {
+      alert('Fichier invalide : ' + err.message);
+    } finally {
+      setIsRestoring(false);
+      e.target.value = '';
+    }
+  };
 
   // Fermer le menu lors d'un clic extérieur
   useEffect(() => {
@@ -113,7 +154,21 @@ export const Header: React.FC<HeaderProps> = React.memo(({
       <div className="max-w-[1536px] w-full mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-18 gap-2 sm:gap-4 min-w-0">
           {/* Logo & Titre - Typo Éditoriale Nordic */}
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            {/* Bouton Paramètres (en haut à gauche) */}
+            <button
+              onClick={() => setIsSettingsModalOpen(true)}
+              className={`p-2 rounded-xl sm:rounded-2xl border transition-all active:scale-95 shrink-0 ${
+                isDark
+                  ? 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-stone-300 hover:text-white'
+                  : 'bg-white hover:bg-stone-50 border-stone-200 text-stone-700 hover:text-stone-900 shadow-xs'
+              }`}
+              title="Paramètres, Thème & Sauvegarde BD"
+              aria-label="Ouvrir les paramètres"
+            >
+              <Settings className="w-4 h-4 shrink-0" />
+            </button>
+
             <div
               className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 transition-all ${isDark
                 ? 'bg-gradient-to-b from-white/10 to-white/[0.02] border border-white/15 shadow-inner'
@@ -526,6 +581,167 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Modal Paramètres & Données (Thème + Base de Données SQLite) */}
+      {isSettingsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 animate-in fade-in duration-150 mb-safe sm:mb-0">
+          <div
+            className={`w-full max-w-md rounded-2xl sm:rounded-3xl p-5 sm:p-6 border shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto ${
+              isDark ? 'liquid-glass bg-stone-950/95 text-white border-white/10' : 'liquid-glass-light bg-white/95 text-stone-900 border-stone-200'
+            }`}
+          >
+            {/* En-tête */}
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center border ${
+                    isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-stone-100 border-stone-200 text-stone-900'
+                  }`}
+                >
+                  <Settings className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-medium">Paramètres</h3>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400 font-sans">
+                    Affichage et base de données SQLite
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-900 dark:hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {backupToast && (
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-medium flex items-center gap-2">
+                <Check className="w-4 h-4 shrink-0" />
+                <span>{backupToast}</span>
+              </div>
+            )}
+
+            {/* 1. Thème d'affichage */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 font-semibold block">
+                Thème d'affichage
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isDark) onToggleTheme();
+                  }}
+                  className={`flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all ${
+                    !isDark
+                      ? 'bg-stone-900 text-white border-stone-900 shadow-sm'
+                      : 'bg-white/[0.02] border-white/10 text-stone-400 hover:text-white'
+                  }`}
+                >
+                  <Sun className="w-4 h-4 shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold">Mode Jour</div>
+                    <div className="text-[10px] opacity-75 font-mono">Clair</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isDark) onToggleTheme();
+                  }}
+                  className={`flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all ${
+                    isDark
+                      ? 'bg-white text-stone-950 border-white shadow-sm font-semibold'
+                      : 'bg-stone-50 border-stone-200 text-stone-600 hover:text-stone-900'
+                  }`}
+                >
+                  <Moon className="w-4 h-4 shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold">Mode Nuit</div>
+                    <div className="text-[10px] opacity-75 font-mono">Obsidian</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Base de données SQLite */}
+            <div className="space-y-2.5 pt-2 border-t border-stone-200/60 dark:border-white/10">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 font-semibold flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5 text-emerald-500" />
+                  Base de données locale
+                </span>
+                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-medium">
+                  Active
+                </span>
+              </div>
+
+              <div
+                className={`p-3 rounded-2xl border text-xs font-mono ${
+                  isDark ? 'bg-black/40 border-white/5 text-stone-400' : 'bg-stone-50 border-stone-200 text-stone-600'
+                }`}
+              >
+                Fichier : <span className="text-stone-900 dark:text-stone-200 font-semibold">data/food_planner.sqlite</span>
+                <p className="text-[11px] font-sans text-stone-500 dark:text-stone-400 mt-1">
+                  Vos profils, recettes créées, préférences, articles d'épicerie et garde-manger sont sauvegardés dans SQLite.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                <a
+                  href="/api/backup"
+                  download
+                  className={`flex items-center justify-center gap-2 p-3 rounded-2xl text-xs font-mono uppercase tracking-wider font-semibold border transition-all active:scale-95 ${
+                    isDark
+                      ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
+                      : 'bg-white hover:bg-stone-50 border-stone-300 text-stone-900 shadow-xs'
+                  }`}
+                  title="Télécharger une sauvegarde complète de la base SQLite en JSON"
+                >
+                  <Download className="w-4 h-4 text-blue-500" />
+                  <span>Sauvegarder BD</span>
+                </a>
+
+                <label
+                  className={`flex items-center justify-center gap-2 p-3 rounded-2xl text-xs font-mono uppercase tracking-wider font-semibold border transition-all cursor-pointer active:scale-95 ${
+                    isDark
+                      ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
+                      : 'bg-white hover:bg-stone-50 border-stone-300 text-stone-900 shadow-xs'
+                  }`}
+                  title="Restaurer vos données depuis un fichier JSON"
+                >
+                  <Upload className="w-4 h-4 text-amber-500" />
+                  <span>{isRestoring ? 'Restauration...' : 'Restaurer BD'}</span>
+                  <input
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={handleRestoreFile}
+                    disabled={isRestoring}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Pied de modal */}
+            <div className="pt-2 border-t border-stone-200/60 dark:border-white/10 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsSettingsModalOpen(false)}
+                className={`px-4 py-2 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold ${
+                  isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
+                }`}
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </header>

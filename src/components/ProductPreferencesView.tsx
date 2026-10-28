@@ -456,46 +456,15 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
             )}
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 self-start lg:self-auto flex-wrap">
-            <a
-              href="/api/backup"
-              download
-              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-mono uppercase tracking-wider font-semibold transition-all border shrink-0 ${
-                isDark
-                  ? 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-stone-200'
-                  : 'bg-white hover:bg-stone-50 border-stone-200 text-stone-800 shadow-xs'
-              }`}
-              title="Télécharger une copie de sauvegarde JSON complète de votre base SQLite"
-            >
-              <Download className="w-3.5 h-3.5 text-blue-400" />
-              <span>Sauvegarder BD</span>
-            </a>
-
-            <label
-              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-mono uppercase tracking-wider font-semibold transition-all border shrink-0 cursor-pointer ${
-                isDark
-                  ? 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-stone-200'
-                  : 'bg-white hover:bg-stone-50 border-stone-200 text-stone-800 shadow-xs'
-              }`}
-              title="Restaurer vos données depuis un fichier de sauvegarde JSON"
-            >
-              <Upload className="w-3.5 h-3.5 text-amber-400" />
-              <span>Restaurer</span>
-              <input
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={handleRestoreBackupFile}
-              />
-            </label>
-
+          <div className="flex items-center gap-2 self-start sm:self-auto">
             <button
               onClick={onApplyPreferencesToPlan}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-mono uppercase tracking-wider transition-all border active:scale-95 font-semibold ${
+              className={`flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-xs font-mono uppercase tracking-wider transition-all border active:scale-95 font-semibold shrink-0 ${
                 isDark
                   ? 'bg-white text-stone-950 hover:bg-stone-200 border-white'
                   : 'bg-stone-900 text-stone-50 hover:bg-stone-800 border-stone-900 shadow-xs'
               }`}
+              title="Régénérer le planning selon vos préférences"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Actualiser le menu</span>
@@ -1142,7 +1111,7 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
                     title="Ajouter manuellement un aliment sans code-barres"
                   >
                     <Plus className="w-4 h-4 shrink-0" />
-                    <span className="text-[11px]">+ Produit</span>
+                    <span className="text-[11px]">Produit</span>
                   </button>
                 )}
 
