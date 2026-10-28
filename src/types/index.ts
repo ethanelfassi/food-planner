@@ -278,5 +278,12 @@ export interface DatabaseBackup {
   customProducts: Ingredient[];
   pantryItems: string[];
   customGroceryItems?: GroceryItem[];
+  scheduledMeals?: {
+    accountId: string;
+    dayIndex: number;
+    mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+    recipeId: string;
+    updatedAt?: string;
+  }[];
 }
 

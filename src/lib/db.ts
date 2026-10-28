@@ -122,6 +122,15 @@ export function getDatabase(): DatabaseSync {
         ingredient_id TEXT,
         created_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS scheduled_meals (
+        account_id TEXT NOT NULL,
+        day_index INTEGER NOT NULL CHECK(day_index >= 0 AND day_index <= 6),
+        meal_slot TEXT NOT NULL CHECK(meal_slot IN ('breakfast', 'lunch', 'dinner', 'snack')),
+        recipe_id TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (account_id, day_index, meal_slot)
+      );
     `);
 
     // Migration custom_products pour supporter code-barres, photos, macros et poids
@@ -965,6 +974,56 @@ export function clearCheckedCustomGroceryItems(): boolean {
   return true;
 }
 
+// --- PROGRAMMATION & PLANNING HEBDOMADAIRE (SQLITE) ---
+
+export interface ScheduledMealRecord {
+  accountId: string;
+  dayIndex: number;
+  mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  recipeId: string;
+  updatedAt: string;
+}
+
+export function getScheduledMeals(accountId?: string): ScheduledMealRecord[] {
+  const db = getDatabase();
+  if (accountId) {
+    return db.prepare('SELECT account_id as accountId, day_index as dayIndex, meal_slot as mealSlot, recipe_id as recipeId, updated_at as updatedAt FROM scheduled_meals WHERE account_id = ? ORDER BY day_index ASC').all(accountId) as unknown as ScheduledMealRecord[];
+  }
+  return db.prepare('SELECT account_id as accountId, day_index as dayIndex, meal_slot as mealSlot, recipe_id as recipeId, updated_at as updatedAt FROM scheduled_meals ORDER BY account_id, day_index ASC').all() as unknown as ScheduledMealRecord[];
+}
+
+export function setScheduledMeal(
+  accountId: string,
+  dayIndex: number,
+  mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack',
+  recipeId: string
+): boolean {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO scheduled_meals (account_id, day_index, meal_slot, recipe_id, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(account_id, day_index, meal_slot) DO UPDATE SET recipe_id = excluded.recipe_id, updated_at = excluded.updated_at
+  `).run(accountId, dayIndex, mealSlot, recipeId, now);
+  return true;
+}
+
+export function deleteScheduledMeal(
+  accountId: string,
+  dayIndex: number,
+  mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack'
+): boolean {
+  const db = getDatabase();
+  const res = db.prepare('DELETE FROM scheduled_meals WHERE account_id = ? AND day_index = ? AND meal_slot = ?').run(accountId, dayIndex, mealSlot);
+  return (res as unknown as { changes: number }).changes > 0;
+}
+
+export function clearDaySchedule(accountId: string, dayIndex: number): boolean {
+  const db = getDatabase();
+  const res = db.prepare('DELETE FROM scheduled_meals WHERE account_id = ? AND day_index = ?').run(accountId, dayIndex);
+  return (res as unknown as { changes: number }).changes > 0;
+}
+
 // --- SAUVEGARDE & RESTAURATION COMPLÈTE DE LA BASE DE DONNÉES ---
 
 export function exportDatabaseBackup(): DatabaseBackup {
@@ -978,6 +1037,7 @@ export function exportDatabaseBackup(): DatabaseBackup {
   const pantryMap = getPantryMap();
   const pantryItems = Object.keys(pantryMap);
   const customGroceryItems = getCustomGroceryItems();
+  const scheduledMeals = getScheduledMeals();
 
   return {
     version: 1,
@@ -991,6 +1051,7 @@ export function exportDatabaseBackup(): DatabaseBackup {
     customProducts,
     pantryItems,
     customGroceryItems,
+    scheduledMeals,
   };
 }
 
@@ -1007,6 +1068,7 @@ export function importDatabaseBackup(backup: Partial<DatabaseBackup>): { success
     products: 0,
     pantry: 0,
     groceryItems: 0,
+    scheduledMeals: 0,
   };
 
   db.exec('BEGIN TRANSACTION');
@@ -1100,6 +1162,17 @@ export function importDatabaseBackup(backup: Partial<DatabaseBackup>): { success
         if (gi.name) {
           saveCustomGroceryItem(gi);
           stats.groceryItems++;
+        }
+      }
+    }
+
+    // 9. Scheduled Meals
+    if (backup.scheduledMeals && Array.isArray(backup.scheduledMeals)) {
+      const stmt = db.prepare('INSERT INTO scheduled_meals (account_id, day_index, meal_slot, recipe_id, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(account_id, day_index, meal_slot) DO UPDATE SET recipe_id = excluded.recipe_id, updated_at = excluded.updated_at');
+      for (const sm of backup.scheduledMeals) {
+        if (sm.accountId && sm.recipeId && sm.mealSlot !== undefined && sm.dayIndex !== undefined) {
+          stmt.run(sm.accountId, sm.dayIndex, sm.mealSlot, sm.recipeId, now);
+          stats.scheduledMeals++;
         }
       }
     }
