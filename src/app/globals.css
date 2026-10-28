@@ -82,3 +82,31 @@ html, body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(150, 150, 150, 0.4);
 }
+
+/* Scanner Caméra Direct & Laser de visée */
+@keyframes scan-laser {
+  0%, 100% {
+    top: 10%;
+    opacity: 0.4;
+  }
+  50% {
+    top: 90%;
+    opacity: 1;
+  }
+}
+
+.animate-scan-laser {
+  animation: scan-laser 2.2s ease-in-out infinite;
+}
+
+#barcode-camera-viewport {
+  overflow: hidden !important;
+  border-radius: 1.25rem !important;
+}
+
+#barcode-camera-viewport video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 1.25rem !important;
+}
