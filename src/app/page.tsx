@@ -62,7 +62,10 @@ export default function Home() {
     ethan: DEFAULT_USER_SETTINGS,
     laurine: DEFAULT_LAURINE_SETTINGS,
   });
-  const [plansByAccount, setPlansByAccount] = useState<Record<string, WeeklyPlan>>({});
+  const [plansByAccount, setPlansByAccount] = useState<Record<string, WeeklyPlan>>(() => ({
+    ethan: generateWeeklyPlan({}, []),
+    laurine: generateWeeklyPlan({}, []),
+  }));
 
   // Recettes personnalisées créées par les utilisateurs dans SQLite
   const [customRecipes, setCustomRecipes] = useState<Recipe[]>([]);
@@ -91,89 +94,99 @@ export default function Home() {
 
     // Chargement SQLite
     const initAppData = async () => {
-      let loadedAccounts = DEFAULT_ACCOUNTS;
-      let activeAcc = 'ethan';
-      let loadedPrefs: Record<string, ProductPreferencesMap> = { ethan: {}, laurine: {} };
-      let loadedSettings: Record<string, UserCustomizationSettings> = {
-        ethan: DEFAULT_USER_SETTINGS,
-        laurine: DEFAULT_LAURINE_SETTINGS,
-      };
-      let loadedPrices: CustomPricesMap = {};
-      let loadedCustomRecipes: Recipe[] = [];
-      let loadedCustomProducts: Ingredient[] = [];
-
       try {
-        const [res, prodRes] = await Promise.all([
-          fetch('/api/preferences'),
-          fetch('/api/products')
-        ]);
+        let loadedAccounts = DEFAULT_ACCOUNTS;
+        let activeAcc = 'ethan';
+        let loadedPrefs: Record<string, ProductPreferencesMap> = { ethan: {}, laurine: {} };
+        let loadedSettings: Record<string, UserCustomizationSettings> = {
+          ethan: DEFAULT_USER_SETTINGS,
+          laurine: DEFAULT_LAURINE_SETTINGS,
+        };
+        let loadedPrices: CustomPricesMap = {};
+        let loadedCustomRecipes: Recipe[] = [];
+        let loadedCustomProducts: Ingredient[] = [];
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.accounts && data.accounts.length > 0) {
-            loadedAccounts = data.accounts;
+        try {
+          const [res, prodRes] = await Promise.all([
+            fetch('/api/preferences'),
+            fetch('/api/products')
+          ]);
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.accounts && Array.isArray(data.accounts) && data.accounts.length > 0) {
+              loadedAccounts = data.accounts;
+            }
+            if (data.activeAccountId) {
+              activeAcc = data.activeAccountId;
+            }
+            if (data.preferences) {
+              loadedPrefs = data.preferences;
+            }
+            if (data.settings) {
+              loadedSettings = data.settings;
+            }
+            if (data.customPrices) {
+              loadedPrices = data.customPrices;
+            }
+            if (data.customRecipes && Array.isArray(data.customRecipes)) {
+              loadedCustomRecipes = data.customRecipes;
+            }
           }
-          if (data.activeAccountId) {
-            activeAcc = data.activeAccountId;
+
+          if (prodRes.ok) {
+            const prodData = await prodRes.json();
+            if (prodData.products && Array.isArray(prodData.products)) {
+              loadedCustomProducts = prodData.products;
+            }
           }
-          if (data.preferences) {
-            loadedPrefs = data.preferences;
-          }
-          if (data.settings) {
-            loadedSettings = data.settings;
-          }
-          if (data.customPrices) {
-            loadedPrices = data.customPrices;
-          }
-          if (data.customRecipes) {
-            loadedCustomRecipes = data.customRecipes;
-          }
+        } catch (err) {
+          console.warn('Impossible de charger les données SQLite, fallback local:', err);
         }
 
-        if (prodRes.ok) {
-          const prodData = await prodRes.json();
-          if (prodData.products) {
-            loadedCustomProducts = prodData.products;
-          }
+        setAccounts(loadedAccounts);
+        setActiveAccountId(activeAcc);
+        setPreferencesByAccount(loadedPrefs);
+        setSettingsByAccount(loadedSettings);
+        setCustomPrices(loadedPrices);
+        setCustomRecipes(loadedCustomRecipes);
+        setCustomProducts(loadedCustomProducts);
+
+        // Générer les plans de chaque compte selon leurs préférences et recettes personnalisées
+        const initialPlans: Record<string, WeeklyPlan> = {};
+        for (const acc of loadedAccounts) {
+          const userPrefs = loadedPrefs[acc.id] || {};
+          initialPlans[acc.id] = generateWeeklyPlan(userPrefs, loadedCustomRecipes);
         }
-      } catch (err) {
-        console.warn('Impossible de charger les données SQLite, fallback local:', err);
+        if (!initialPlans['ethan']) {
+          initialPlans['ethan'] = generateWeeklyPlan(loadedPrefs['ethan'] || {}, loadedCustomRecipes);
+        }
+        if (!initialPlans['laurine']) {
+          initialPlans['laurine'] = generateWeeklyPlan(loadedPrefs['laurine'] || {}, loadedCustomRecipes);
+        }
+        setPlansByAccount(initialPlans);
+
+        // Mettre à jour coupleSettings pour Ethan & Laurine
+        const ethanSett = loadedSettings['ethan'] || DEFAULT_USER_SETTINGS;
+        const laurineSett = loadedSettings['laurine'] || loadedSettings['copine'] || DEFAULT_LAURINE_SETTINGS;
+        setCoupleSettings({
+          coupleModeEnabled: true,
+          user1: {
+            ...DEFAULT_COUPLE_SETTINGS.user1,
+            targetCalories: ethanSett.targetCalories,
+            targetProtein: ethanSett.targetProtein,
+          },
+          user2: {
+            ...DEFAULT_COUPLE_SETTINGS.user2,
+            name: 'Laurine',
+            id: 'laurine',
+            targetCalories: laurineSett.targetCalories,
+            targetProtein: laurineSett.targetProtein,
+          },
+        });
+      } catch (fatalErr) {
+        console.error('Erreur critique dans initAppData:', fatalErr);
       }
-
-      setAccounts(loadedAccounts);
-      setActiveAccountId(activeAcc);
-      setPreferencesByAccount(loadedPrefs);
-      setSettingsByAccount(loadedSettings);
-      setCustomPrices(loadedPrices);
-      setCustomRecipes(loadedCustomRecipes);
-      setCustomProducts(loadedCustomProducts);
-
-      // Générer les plans de chaque compte selon leurs préférences et recettes personnalisées
-      const initialPlans: Record<string, WeeklyPlan> = {};
-      for (const acc of loadedAccounts) {
-        const userPrefs = loadedPrefs[acc.id] || {};
-        initialPlans[acc.id] = generateWeeklyPlan(userPrefs, loadedCustomRecipes);
-      }
-      setPlansByAccount(initialPlans);
-
-      // Mettre à jour coupleSettings pour Ethan & Laurine
-      const ethanSett = loadedSettings['ethan'] || DEFAULT_USER_SETTINGS;
-      const laurineSett = loadedSettings['laurine'] || loadedSettings['copine'] || DEFAULT_LAURINE_SETTINGS;
-      setCoupleSettings({
-        coupleModeEnabled: true,
-        user1: {
-          ...DEFAULT_COUPLE_SETTINGS.user1,
-          targetCalories: ethanSett.targetCalories,
-          targetProtein: ethanSett.targetProtein,
-        },
-        user2: {
-          ...DEFAULT_COUPLE_SETTINGS.user2,
-          name: 'Laurine',
-          id: 'laurine',
-          targetCalories: laurineSett.targetCalories,
-          targetProtein: laurineSett.targetProtein,
-        },
-      });
     };
 
     initAppData();
@@ -196,9 +209,9 @@ export default function Home() {
 
   // Profil et réglages actifs
   const activeAccount = accounts.find((a) => a.id === activeAccountId) || accounts[0] || DEFAULT_ACCOUNTS[0];
-  const activeSettings = settingsByAccount[activeAccountId] || DEFAULT_USER_SETTINGS;
-  const activePreferences = preferencesByAccount[activeAccountId] || {};
-  const activePlan = plansByAccount[activeAccountId] || plansByAccount['ethan'];
+  const activeSettings = settingsByAccount[activeAccountId] || settingsByAccount['ethan'] || DEFAULT_USER_SETTINGS;
+  const activePreferences = preferencesByAccount[activeAccountId] || preferencesByAccount['ethan'] || {};
+  const activePlan = plansByAccount[activeAccountId] || plansByAccount['ethan'] || Object.values(plansByAccount)[0] || generateWeeklyPlan({}, []);
 
   // --- ACTIONS MULTI-COMPTES ---
 
@@ -638,21 +651,6 @@ export default function Home() {
   const singleSplitReport: SplitCostReport = React.useMemo(() => {
     return calculateSplitCost(displayedGroceryItems, coupleSettings);
   }, [displayedGroceryItems, coupleSettings]);
-
-  // Attente du chargement initial des plans (Placé APRÈS tous les hooks)
-  if (Object.keys(plansByAccount).length === 0 || !activePlan) {
-    return (
-      <div
-        className={`min-h-screen flex items-center justify-center transition-colors ${isDark ? 'bg-[#0B0C0E] text-stone-300' : 'bg-[#F7F7F6] text-stone-800'
-          }`}
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-5 h-5 border-2 border-stone-800 dark:border-stone-200 border-t-transparent rounded-full animate-spin" />
-          <span className="font-serif italic text-base">Chargement des profils & menus d'épicerie...</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div
