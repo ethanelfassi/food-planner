@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { 
   ScanBarcode, 
   Search, 
@@ -18,11 +18,7 @@ import {
   ExternalLink, 
   Plus,
   Camera,
-  CameraOff,
-  SwitchCamera,
-  Zap,
-  ZapOff,
-  Upload,
+  ImageIcon,
   RefreshCw,
   Sparkles
 } from 'lucide-react';
@@ -48,13 +44,13 @@ const AISLE_OPTIONS: { id: MetroAisle; label: string }[] = [
 
 /**
  * Extrait les chiffres du code-barres (8 à 14 chiffres)
- * Supporte aussi bien les codes-barres 1D bruts que les QR codes contenant une URL (Open Food Facts, Metro, GS1).
+ * Compatible codes-barres 1D et QR codes contenant une URL (Open Food Facts, Metro, GS1).
  */
 function extractBarcode(raw: string): string {
   if (!raw) return '';
   const trimmed = raw.trim();
 
-  // 1. Déjà un code purement numérique entre 8 et 14 chiffres
+  // 1. Déjà purement numérique entre 8 et 14 chiffres
   if (/^\d{8,14}$/.test(trimmed)) {
     return trimmed;
   }
@@ -85,23 +81,15 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
   onProductAdded,
   isDark,
 }) => {
-  const [scanMode, setScanMode] = useState<'camera' | 'manual'>('camera');
   const [barcodeInput, setBarcodeInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [scanningImage, setScanningImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [foundProduct, setFoundProduct] = useState<Partial<Ingredient> | null>(null);
-
-  // État de la caméra
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [isCameraStarting, setIsCameraStarting] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [camerasList, setCamerasList] = useState<Array<{ id: string; label: string }>>([]);
-  const [selectedCameraId, setSelectedCameraId] = useState<string>('');
-  const [isTorchOn, setIsTorchOn] = useState(false);
-  const [hasTorchSupport, setHasTorchSupport] = useState(false);
   const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const scannerInstanceRef = useRef<Html5Qrcode | null>(null);
 
   // Champs modifiables du produit trouvé
   const [name, setName] = useState('');
@@ -116,7 +104,7 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [successNotice, setSuccessNotice] = useState(false);
 
-  // Formats de codes supportés (QR codes + codes-barres 1D épicerie)
+  // Formats supportés : QR Code + Barcodes 1D standards
   const formatsToSupport = useRef([
     Html5QrcodeSupportedFormats.QR_CODE,
     Html5QrcodeSupportedFormats.EAN_13,
@@ -129,25 +117,7 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
     Html5QrcodeSupportedFormats.ITF,
   ]).current;
 
-  // Arrêt sécurisé de la caméra
-  const stopCamera = useCallback(async () => {
-    if (scannerRef.current) {
-      try {
-        if (scannerRef.current.getState() === 2 /* SCANNING */) {
-          await scannerRef.current.stop();
-        }
-        scannerRef.current.clear();
-      } catch (e) {
-        console.warn('Note arrêt caméra:', e);
-      }
-    }
-    setIsCameraActive(false);
-    setIsCameraStarting(false);
-    setIsTorchOn(false);
-    setHasTorchSupport(false);
-  }, []);
-
-  // Recherche dans la base de données
+  // Recherche dans l'API Open Food Facts / Metro
   const lookupBarcode = useCallback(async (codeToLookup: string) => {
     const cleanCode = codeToLookup.replace(/\D/g, '').trim();
     if (cleanCode.length < 8) {
@@ -188,12 +158,15 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
     }
   }, []);
 
-  // Détection réussie d'un code (caméra ou photo)
+  // Détection réussie d'un code
   const handleCodeDetected = useCallback((rawCode: string) => {
     const cleanCode = extractBarcode(rawCode);
-    if (!cleanCode || cleanCode.length < 8) return;
+    if (!cleanCode || cleanCode.length < 8) {
+      setError("Code non reconnu. Veillez à ce que le code-barres ou QR code soit bien net et centré.");
+      return;
+    }
 
-    // Retour sonore léger (bip 880Hz)
+    // Retour sonore léger
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) {
@@ -218,191 +191,38 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
       }
     } catch (_) {}
 
-    // Arrêt de la caméra pour figer l'image
-    stopCamera();
-
     setBarcodeInput(cleanCode);
     setLastScannedCode(cleanCode);
-
-    // Lancement automatique de la recherche
     lookupBarcode(cleanCode);
-  }, [stopCamera, lookupBarcode]);
+  }, [lookupBarcode]);
 
-  // Démarrage de la caméra
-  const startCamera = useCallback(async (cameraIdToUse?: string) => {
-    setCameraError(null);
-    setIsCameraStarting(true);
-
-    // Nettoyage préalable
-    if (scannerRef.current) {
-      try {
-        if (scannerRef.current.getState() === 2) {
-          await scannerRef.current.stop();
-        }
-        scannerRef.current.clear();
-      } catch (_) {}
-    }
-
-    // Petit délai pour assurer la présence du DOM
-    await new Promise((r) => setTimeout(r, 80));
-
-    const viewportEl = document.getElementById('barcode-camera-viewport');
-    if (!viewportEl) {
-      setIsCameraStarting(false);
-      setCameraError("Impossible d'initialiser le lecteur vidéo.");
-      return;
-    }
-
-    try {
-      const scanner = new Html5Qrcode('barcode-camera-viewport', {
-        formatsToSupport,
-        verbose: false,
-      });
-      scannerRef.current = scanner;
-
-      // Liste des caméras disponibles
-      try {
-        const devices = await Html5Qrcode.getCameras();
-        if (devices && devices.length > 0) {
-          setCamerasList(devices);
-          if (!cameraIdToUse && !selectedCameraId) {
-            // Préférer la caméra arrière (back/environment)
-            const rearCamera = devices.find((d) => 
-              d.label.toLowerCase().includes('back') || 
-              d.label.toLowerCase().includes('arrière') ||
-              d.label.toLowerCase().includes('environment')
-            );
-            if (rearCamera) {
-              setSelectedCameraId(rearCamera.id);
-            }
-          }
-        }
-      } catch (_) {}
-
-      const cameraConfig = cameraIdToUse
-        ? { deviceId: { exact: cameraIdToUse } }
-        : selectedCameraId
-        ? { deviceId: { exact: selectedCameraId } }
-        : { facingMode: 'environment' };
-
-      await scanner.start(
-        cameraConfig,
-        {
-          fps: 15,
-          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            const width = Math.min(viewfinderWidth - 24, Math.max(240, Math.floor(viewfinderWidth * 0.8)));
-            const height = Math.min(viewfinderHeight - 24, Math.max(160, Math.floor(width * 0.65)));
-            return { width, height };
-          },
-          aspectRatio: 1.333333,
-        },
-        (decodedText) => {
-          handleCodeDetected(decodedText);
-        },
-        () => {
-          // ignore frame decode failure
-        }
-      );
-
-      setIsCameraActive(true);
-      setIsCameraStarting(false);
-
-      // Détection du support torche
-      try {
-        const capabilities = scanner.getRunningTrackCameraCapabilities();
-        const torchFeature = (capabilities as any)?.torchFeature?.();
-        if (torchFeature && torchFeature.isSupported && torchFeature.isSupported()) {
-          setHasTorchSupport(true);
-        }
-      } catch (_) {}
-    } catch (err: any) {
-      setIsCameraStarting(false);
-      setIsCameraActive(false);
-
-      let msg = "Impossible d'accéder à la caméra.";
-      if (err?.name === 'NotAllowedError' || err?.message?.includes('Permission')) {
-        msg = "Accès à la caméra refusé. Veuillez autoriser l'accès à la caméra dans les permissions de votre navigateur.";
-      } else if (err?.name === 'NotFoundError') {
-        msg = "Aucune caméra détectée sur votre appareil.";
-      } else if (typeof window !== 'undefined' && !window.isSecureContext) {
-        msg = "Votre navigateur requiert une connexion sécurisée (HTTPS ou localhost) pour diffuser la vidéo en direct. Utilisez le bouton 'Prendre une photo' ou la saisie manuelle.";
-      } else if (err?.message) {
-        msg = `Erreur caméra : ${err.message}`;
-      }
-      setCameraError(msg);
-    }
-  }, [formatsToSupport, handleCodeDetected, selectedCameraId]);
-
-  // Changement de caméra (avant / arrière)
-  const handleSwitchCamera = async () => {
-    if (camerasList.length <= 1) return;
-    const currentIndex = camerasList.findIndex((c) => c.id === selectedCameraId);
-    const nextIndex = (currentIndex + 1) % camerasList.length;
-    const nextCamera = camerasList[nextIndex];
-    setSelectedCameraId(nextCamera.id);
-    await startCamera(nextCamera.id);
-  };
-
-  // Bascule torche / flash
-  const handleToggleTorch = async () => {
-    if (!scannerRef.current || !hasTorchSupport) return;
-    try {
-      const nextState = !isTorchOn;
-      await scannerRef.current.applyVideoConstraints({
-        advanced: [{ torch: nextState } as any],
-      });
-      setIsTorchOn(nextState);
-    } catch (e) {
-      console.warn('Torch toggle error:', e);
-    }
-  };
-
-  // Traitement d'un fichier photo pris ou importé
-  const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Traitement de la photo prise avec l'appareil photo natif ou sélectionnée dans la pellicule
+  const handleImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setLoading(true);
+    setScanningImage(true);
     setError(null);
+    setFoundProduct(null);
 
     try {
-      const tempScanner = scannerRef.current || new Html5Qrcode('barcode-file-scanner', { formatsToSupport, verbose: false });
-      const decodedText = await tempScanner.scanFile(file, false);
+      if (!scannerInstanceRef.current) {
+        scannerInstanceRef.current = new Html5Qrcode('barcode-hidden-scanner', {
+          formatsToSupport,
+          verbose: false,
+        });
+      }
+
+      const decodedText = await scannerInstanceRef.current.scanFile(file, false);
       handleCodeDetected(decodedText);
     } catch (err: any) {
-      setError("Aucun code-barres ou QR code lisible n'a été détecté sur l'image. Veillez à ce que le code soit net et bien éclairé.");
+      console.warn('Scan file error:', err);
+      setError("Aucun code-barres ou QR code net détecté sur la photo. Réessayez en vous rapprochant du code ou saisissez les chiffres ci-dessous.");
     } finally {
-      setLoading(false);
+      setScanningImage(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
-
-  // Démarrer la caméra automatiquement lors de l'ouverture du mode caméra
-  useEffect(() => {
-    if (isOpen && scanMode === 'camera' && !foundProduct && !isCameraActive && !isCameraStarting) {
-      startCamera();
-    }
-  }, [isOpen, scanMode, foundProduct, isCameraActive, isCameraStarting, startCamera]);
-
-  // Nettoyage au démontage ou fermeture
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-  }, [stopCamera]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      stopCamera();
-      setFoundProduct(null);
-      setBarcodeInput('');
-      setError(null);
-      setLastScannedCode(null);
-      setSuccessNotice(false);
-    }
-  }, [isOpen, stopCamera]);
-
-  if (!isOpen) return null;
 
   const handleManualLookupSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -488,24 +308,23 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
     setError(null);
     setLastScannedCode(null);
     setSuccessNotice(false);
-    if (scanMode === 'camera') {
-      startCamera();
-    }
+    fileInputRef.current?.click();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/75 animate-in fade-in duration-150 mb-safe sm:mb-0">
-      {/* Conteneur caché de secours pour l'analyse de fichiers */}
-      <div id="barcode-file-scanner" className="hidden" />
+      {/* Conteneur DOM requis par Html5Qrcode pour l'analyse d'images */}
+      <div id="barcode-hidden-scanner" className="hidden" />
 
-      {/* Input de capture photo natif (utilisable même sans stream vidéo direct) */}
+      {/* Input natif : sans 'capture' imposé, le téléphone ouvre le menu natif avec le choix Appareil Photo OU Pellicule */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         className="hidden"
-        onChange={handleImageFile}
+        onChange={handleImageSelected}
       />
 
       <div
@@ -522,17 +341,14 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
               <ScanBarcode className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="font-serif text-lg font-medium truncate">Scanner un Code-barres ou QR Code</h2>
+              <h2 className="font-serif text-lg font-medium truncate">Scanner un Produit</h2>
               <p className="text-[11px] text-stone-500 dark:text-stone-400 truncate">
-                Directement depuis votre caméra • Reconnaissance instantanée
+                Prenez une photo du code-barres ou choisissez depuis votre pellicule
               </p>
             </div>
           </div>
           <button
-            onClick={() => {
-              stopCamera();
-              onClose();
-            }}
+            onClick={onClose}
             className="p-1.5 rounded-xl text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-white/10 transition-colors shrink-0"
             title="Fermer"
           >
@@ -540,229 +356,66 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
           </button>
         </div>
 
-        {/* Sélecteur de Mode (Caméra vs Manuel) */}
-        {!foundProduct && (
-          <div className="px-6 pt-4 pb-1 shrink-0">
-            <div className="flex items-center p-1 rounded-2xl bg-stone-100 dark:bg-white/[0.04] border border-stone-200 dark:border-white/10 text-xs font-mono">
-              <button
-                type="button"
-                onClick={() => {
-                  setScanMode('camera');
-                  if (!isCameraActive && !isCameraStarting) {
-                    startCamera();
-                  }
-                }}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl font-medium transition-colors ${
-                  scanMode === 'camera'
-                    ? isDark
-                      ? 'bg-white text-stone-950 font-bold shadow-xs'
-                      : 'bg-stone-900 text-white font-bold shadow-xs'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
-                }`}
-              >
-                <Camera className="w-3.5 h-3.5" />
-                <span>Scanner Caméra</span>
-                {isCameraActive && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-0.5" title="Caméra en direct" />
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setScanMode('manual');
-                  stopCamera();
-                }}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl font-medium transition-colors ${
-                  scanMode === 'manual'
-                    ? isDark
-                      ? 'bg-white text-stone-950 font-bold shadow-xs'
-                      : 'bg-stone-900 text-white font-bold shadow-xs'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
-                }`}
-              >
-                <Search className="w-3.5 h-3.5" />
-                <span>Saisie Manuelle</span>
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Corps Scrollable */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-5">
-          {/* VUE CAMÉRA DIRECTE */}
-          {scanMode === 'camera' && !foundProduct && (
+          {/* BOUTON PRINCIPAL : APPAREIL PHOTO OU PELLICULE */}
+          {!foundProduct && (
             <div className="space-y-3">
-              <div
-                className={`relative rounded-2xl sm:rounded-3xl overflow-hidden border aspect-[4/3] sm:aspect-[16/11] flex items-center justify-center ${
-                  isDark ? 'bg-black border-white/10' : 'bg-stone-900 border-stone-300'
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={scanningImage || loading}
+                className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-colors active:scale-[0.99] group text-center cursor-pointer ${
+                  isDark
+                    ? 'border-white/20 hover:border-white/50 bg-white/[0.02] hover:bg-white/[0.05]'
+                    : 'border-stone-300 hover:border-stone-700 bg-stone-50 hover:bg-stone-100/80 shadow-xs'
                 }`}
               >
-                {/* Conteneur vidéo injecté par Html5Qrcode */}
-                <div id="barcode-camera-viewport" className="w-full h-full" />
-
-                {/* État de chargement caméra */}
-                {isCameraStarting && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/85 text-white gap-3 z-20">
-                    <Loader2 className="w-8 h-8 animate-spin text-stone-300" />
-                    <span className="text-xs font-mono text-stone-300">Démarrage de la caméra...</span>
-                  </div>
-                )}
-
-                {/* Caméra arrêtée / état initial */}
-                {!isCameraActive && !isCameraStarting && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-black/90 text-white space-y-4 z-20">
-                    <div className="w-14 h-14 rounded-3xl bg-white/10 border border-white/15 flex items-center justify-center">
-                      <Camera className="w-7 h-7 text-stone-300" />
-                    </div>
+                {scanningImage ? (
+                  <div className="flex flex-col items-center gap-3 py-2">
+                    <Loader2 className="w-10 h-10 animate-spin text-stone-400" />
                     <div>
-                      <p className="font-serif text-base font-normal">Caméra en pause</p>
-                      <p className="text-xs text-stone-400 font-sans mt-1 max-w-xs">
-                        Pointez votre objectif vers le code-barres ou le QR code du produit.
+                      <p className="font-serif text-base font-medium">Analyse de la photo...</p>
+                      <p className="text-xs text-stone-400 font-mono mt-0.5">Recherche du code-barres ou QR code</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors shadow-sm ${
+                      isDark ? 'bg-white text-stone-950 group-hover:bg-stone-200' : 'bg-stone-900 text-white group-hover:bg-stone-800'
+                    }`}>
+                      <Camera className="w-8 h-8" />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="font-serif text-base sm:text-lg font-medium flex items-center justify-center gap-2">
+                        <span>Appareil photo ou Pellicule</span>
+                        <ImageIcon className="w-4 h-4 text-stone-400" />
+                      </div>
+                      <p className="text-xs text-stone-500 dark:text-stone-400 font-sans max-w-sm">
+                        Cliquez pour photographier directement le code-barres ou choisir une image existante.
                       </p>
                     </div>
-                    <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => startCamera()}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white text-stone-950 font-mono text-xs font-semibold hover:bg-stone-200 transition-colors shadow-md active:scale-95"
-                      >
-                        <Camera className="w-4 h-4" />
-                        <span>Activer la caméra</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white/10 text-white font-mono text-xs font-medium hover:bg-white/20 border border-white/15 transition-colors active:scale-95"
-                      >
-                        <Upload className="w-4 h-4" />
-                        <span>Prendre une photo</span>
-                      </button>
-                    </div>
-                  </div>
+
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono uppercase tracking-wider font-semibold bg-stone-200/80 dark:bg-white/10 text-stone-700 dark:text-stone-300 mt-1">
+                      <Sparkles className="w-3 h-3" /> Codes-barres 1D (UPC/EAN) &amp; QR Codes
+                    </span>
+                  </>
                 )}
-
-                {/* Réticule de visée scanner & laser animé */}
-                {isCameraActive && (
-                  <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10 p-6">
-                    <div className="relative w-full max-w-[280px] h-[180px] rounded-2xl border-2 border-dashed border-white/40 flex items-center justify-center shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]">
-                      {/* Coins stylisés visée scandinave */}
-                      <span className="absolute -top-1 -left-1 w-5 h-5 border-t-3 border-l-3 border-white rounded-tl-lg" />
-                      <span className="absolute -top-1 -right-1 w-5 h-5 border-t-3 border-r-3 border-white rounded-tr-lg" />
-                      <span className="absolute -bottom-1 -left-1 w-5 h-5 border-b-3 border-l-3 border-white rounded-bl-lg" />
-                      <span className="absolute -bottom-1 -right-1 w-5 h-5 border-b-3 border-r-3 border-white rounded-br-lg" />
-
-                      {/* Ligne laser animée */}
-                      <div className="absolute left-2 right-2 h-0.5 bg-gradient-to-r from-emerald-500/10 via-emerald-400 to-emerald-500/10 shadow-[0_0_8px_#34d399] animate-scan-laser" />
-
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-white/90 bg-black/60 px-2 py-0.5 rounded-full border border-white/20">
-                        Aligner le code
-                      </span>
-                    </div>
-
-                    <p className="text-[11px] font-mono text-white/80 bg-black/70 px-3 py-1 rounded-full mt-3 backdrop-blur-xs">
-                      Codes-barres 1D (UPC / EAN) &amp; QR Codes
-                    </p>
-                  </div>
-                )}
-
-                {/* Barre d'outils flottante sur la vidéo */}
-                {isCameraActive && (
-                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 z-20">
-                    <div className="flex items-center gap-1.5">
-                      {hasTorchSupport && (
-                        <button
-                          type="button"
-                          onClick={handleToggleTorch}
-                          className={`p-2.5 rounded-xl border text-xs font-mono transition-colors shadow-md ${
-                            isTorchOn
-                              ? 'bg-amber-400 text-stone-950 border-amber-300 font-bold'
-                              : 'bg-black/70 text-white border-white/20 hover:bg-black'
-                          }`}
-                          title={isTorchOn ? 'Éteindre la torche' : 'Allumer la torche'}
-                        >
-                          {isTorchOn ? <Zap className="w-4 h-4 fill-current" /> : <ZapOff className="w-4 h-4" />}
-                        </button>
-                      )}
-
-                      {camerasList.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={handleSwitchCamera}
-                          className="p-2.5 rounded-xl bg-black/70 text-white border border-white/20 hover:bg-black text-xs font-mono transition-colors shadow-md flex items-center gap-1"
-                          title="Changer d'objectif (avant / arrière)"
-                        >
-                          <SwitchCamera className="w-4 h-4" />
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-3 py-2 rounded-xl bg-black/70 text-white border border-white/20 hover:bg-black text-xs font-mono transition-colors shadow-md flex items-center gap-1.5"
-                        title="Prendre une photo avec l'app appareil photo native"
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Photo</span>
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={stopCamera}
-                      className="px-3.5 py-2 rounded-xl bg-black/80 text-stone-200 border border-white/20 hover:text-white hover:bg-black text-xs font-mono transition-colors shadow-md flex items-center gap-1.5"
-                    >
-                      <CameraOff className="w-3.5 h-3.5" />
-                      <span>Arrêter</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Erreur caméra spécifique */}
-              {cameraError && (
-                <div className={`p-3 rounded-2xl border text-xs flex items-start gap-2.5 ${
-                  isDark ? 'bg-amber-950/30 border-amber-800/40 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-900'
-                }`}>
-                  <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="font-semibold">{cameraError}</p>
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="underline font-mono text-[11px] hover:opacity-80"
-                      >
-                        Prendre une photo à la place
-                      </button>
-                      <span>•</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setScanMode('manual');
-                          stopCamera();
-                        }}
-                        className="underline font-mono text-[11px] hover:opacity-80"
-                      >
-                        Saisir les chiffres
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+              </button>
             </div>
           )}
 
-          {/* Formulaire de saisie manuelle (Toujours accessible ou en mode manuel) */}
-          {(!foundProduct || scanMode === 'manual') && (
-            <form onSubmit={handleManualLookupSubmit} className="space-y-3">
+          {/* Saisie manuelle alternative */}
+          {!foundProduct && (
+            <form onSubmit={handleManualLookupSubmit} className="space-y-2.5 pt-2">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 font-semibold">
-                  {scanMode === 'camera' ? 'Ou saisir manuellement les chiffres :' : 'Code-barres / UPC (8 à 14 chiffres) :'}
+                  Ou entrer manuellement les chiffres :
                 </label>
                 {lastScannedCode && (
                   <span className="text-[10px] font-mono text-emerald-500 font-semibold flex items-center gap-1">
-                    <Check className="w-3 h-3" /> Scanné : {lastScannedCode}
+                    <Check className="w-3 h-3" /> Détecté : {lastScannedCode}
                   </span>
                 )}
               </div>
@@ -848,7 +501,7 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
             </form>
           )}
 
-          {/* Erreur de recherche */}
+          {/* Erreur si non trouvé ou scan échoué */}
           {error && (
             <div className={`p-4 rounded-2xl border flex items-start gap-3 ${
               isDark ? 'bg-red-950/40 border-red-800/40 text-red-200' : 'bg-red-50 border-red-200 text-red-800'
@@ -856,9 +509,15 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-500" />
               <div className="text-xs">
                 <p className="font-semibold">{error}</p>
-                <p className="mt-1 opacity-80 text-[11px]">
-                  Assurez-vous que le code est bien lisible ou saisissez les chiffres figurant sous le code-barres.
-                </p>
+                <div className="flex gap-2 pt-1.5 opacity-90">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="underline font-mono text-[11px] hover:opacity-100"
+                  >
+                    Reprendre une photo
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -873,7 +532,7 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
             </div>
           )}
 
-          {/* CARTE PRODUIT TROUVÉ & ÉDITION */}
+          {/* CARTE DU PRODUIT RECONNU */}
           {foundProduct && (
             <div
               className={`p-5 rounded-3xl border space-y-5 animate-in fade-in duration-200 ${
@@ -892,7 +551,7 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
                 <button
                   type="button"
                   onClick={handleResetForAnotherScan}
-                  className="flex items-center gap-1 text-xs font-mono text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-mono text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors"
                 >
                   <RefreshCw className="w-3 h-3" />
                   <span>Scanner un autre</span>
@@ -1103,10 +762,7 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 border-t border-stone-200/80 dark:border-white/10 bg-stone-50/50 dark:bg-white/[0.02] shrink-0">
           <button
             type="button"
-            onClick={() => {
-              stopCamera();
-              onClose();
-            }}
+            onClick={onClose}
             className="px-4 py-2 rounded-xl text-xs text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors"
           >
             Annuler
