@@ -105,7 +105,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   return (
     <>
       <header
-      className={`sticky top-0 z-40 border-b ${isDark
+      className={`sticky top-0 z-40 border-b pt-safe sm:pt-0 ${isDark
         ? 'bg-[#0B0C0E]/98 border-white/[0.08] text-white shadow-xl shadow-black/50'
         : 'bg-white/98 border-stone-200/90 text-stone-900 shadow-xs'
         }`}
@@ -225,7 +225,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               {/* Menu Déroulant Profils */}
               {isAccountMenuOpen && (
                 <div
-                  className={`fixed inset-x-3 top-16 sm:absolute sm:right-0 sm:top-auto sm:inset-x-auto sm:mt-2 sm:w-64 rounded-3xl p-3 border shadow-2xl z-50 animate-in fade-in duration-150 ${isDark
+                  className={`absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-1.5rem)] sm:w-64 rounded-3xl p-3 border shadow-2xl z-50 animate-in fade-in duration-150 ${isDark
                     ? 'bg-stone-950 border-white/10 text-white shadow-2xl shadow-black/90'
                     : 'bg-white border-stone-200 text-stone-900 shadow-xl'
                     }`}
