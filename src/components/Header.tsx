@@ -20,7 +20,8 @@ import {
   Flame,
   Dumbbell,
   Wheat,
-  Droplet
+  Droplet,
+  BookOpen
 } from 'lucide-react';
 import { UserCustomizationSettings, UserAccount, DEFAULT_ACCOUNTS } from '@/types';
 
@@ -380,6 +381,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                 <span className="hidden lg:inline">Tracker</span>
               </button>
 
+              {/* Onglet "Prix & prot" conservé dans le code mais masqué de l'affichage
               <button
                 onClick={() => setActiveTab('prices')}
                 className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'prices'
@@ -395,6 +397,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                 <Store className="w-3.5 h-3.5 shrink-0" />
                 <span className="hidden xl:inline">Prix & Protéines</span>
               </button>
+              */}
 
               <button
                 onClick={() => setActiveTab('preferences')}
@@ -406,10 +409,10 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                     ? 'text-stone-400 hover:text-white'
                     : 'text-stone-700 hover:text-stone-950 font-medium'
                   }`}
-                title="Préférences et objectifs nutritionnels"
+                title="Catalogue des aliments, cibles nutritionnelles et préférences"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden lg:inline">Préférences</span>
+                <BookOpen className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden lg:inline">Catalogue</span>
               </button>
             </nav>
 
@@ -536,7 +539,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           : 'bg-white/98 border-stone-200/90 text-stone-500 shadow-[0_-8px_20px_rgba(0,0,0,0.06)]'
       }`}
     >
-      <div className="grid grid-cols-6 items-center h-15 px-1 max-w-lg mx-auto">
+      <div className="grid grid-cols-5 items-center h-15 px-1 max-w-lg mx-auto">
         {/* 1. Semaine */}
         <button
           onClick={() => setActiveTab('planner')}
@@ -616,7 +619,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           )}
         </button>
 
-        {/* 5. Prix & Prot */}
+        {/* Onglet Prix & Prot conservé dans le code mais masqué de l'affichage
         <button
           onClick={() => setActiveTab('prices')}
           className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all active:scale-90 touch-manipulation ${
@@ -633,8 +636,9 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             <div className="w-1 h-1 rounded-full bg-stone-950 dark:bg-white mt-0.5" />
           )}
         </button>
+        */}
 
-        {/* 6. Réglages */}
+        {/* 5. Catalogue */}
         <button
           onClick={() => setActiveTab('preferences')}
           className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all active:scale-90 touch-manipulation ${
@@ -645,8 +649,8 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               : 'hover:text-stone-900 dark:hover:text-white'
           }`}
         >
-          <SlidersHorizontal className={`w-4 h-4 mb-0.5 shrink-0 ${activeTab === 'preferences' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
-          <span className="text-[10px] tracking-tight">Réglages</span>
+          <BookOpen className={`w-4 h-4 mb-0.5 shrink-0 ${activeTab === 'preferences' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+          <span className="text-[10px] tracking-tight">Catalogue</span>
           {activeTab === 'preferences' && (
             <div className="w-1 h-1 rounded-full bg-stone-950 dark:bg-white mt-0.5" />
           )}
