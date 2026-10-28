@@ -37,7 +37,11 @@ import {
   X,
   ScanBarcode,
   Trash2,
-  ArrowUpDown
+  ArrowUpDown,
+  Home,
+  Download,
+  Upload,
+  Plus
 } from 'lucide-react';
 import { calculateProteinEfficiency } from '@/lib/protein-calculator';
 
@@ -49,8 +53,13 @@ interface ProductPreferencesViewProps {
   activeAccountId?: string;
   isDark: boolean;
   customProducts?: Ingredient[];
+  pantryMap?: Record<string, boolean>;
   onOpenBarcodeModal?: () => void;
+  onOpenProductCreator?: () => void;
   onDeleteCustomProduct?: (id: string) => void;
+  onTogglePantry?: (ingredientId: string) => void;
+  onAddToGroceryList?: (ingredient: Ingredient, forAccount?: string) => void;
+  onBackupRestored?: () => void;
   onUpdatePreference: (ingredientId: string, status: ProductPreferenceStatus) => void;
   onUpdateCustomPrice?: (ingredientId: string, price: number | null) => void;
   onUpdateSettings?: (settings: Partial<UserCustomizationSettings>) => void;
@@ -67,8 +76,13 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
   activeAccountId = 'ethan',
   isDark,
   customProducts = [],
+  pantryMap = {},
   onOpenBarcodeModal,
+  onOpenProductCreator,
   onDeleteCustomProduct,
+  onTogglePantry,
+  onAddToGroceryList,
+  onBackupRestored,
   onUpdatePreference,
   onUpdateCustomPrice,
   onUpdateSettings,
@@ -80,9 +94,39 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearch = useDeferredValue(searchQuery);
   const [selectedAisle, setSelectedAisle] = useState<string>('all');
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'liked' | 'disliked' | 'neutral'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'liked' | 'disliked' | 'neutral' | 'pantry'>('all');
   const [sortBy, setSortBy] = useState<'default' | 'protein_ratio' | 'protein_pct' | 'price_asc'>('default');
   const [saveToast, setSaveToast] = useState<string | null>(null);
+
+  const handleRestoreBackupFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+
+      const res = await fetch('/api/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'Erreur lors de la restauration');
+        return;
+      }
+
+      setSaveToast('Base de données restaurée avec succès !');
+      onBackupRestored?.();
+      setTimeout(() => setSaveToast(null), 3500);
+    } catch (err: any) {
+      alert('Fichier invalide : ' + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  };
 
   // État local pour le formulaire de cibles nutritionnelles & budget
   const [localSettings, setLocalSettings] = useState<UserCustomizationSettings>(userSettings);
@@ -142,6 +186,7 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
   const likedCount = allIngredients.filter((i: Ingredient) => preferences[i.id] === 'liked').length;
   const dislikedCount = allIngredients.filter((i: Ingredient) => preferences[i.id] === 'disliked').length;
   const neutralCount = allIngredients.length - likedCount - dislikedCount;
+  const pantryCount = allIngredients.filter((i: Ingredient) => Boolean(pantryMap[i.id])).length;
   const customPricesCount = Object.keys(customPrices).length;
 
   // Filtrage et tri du catalogue
@@ -158,8 +203,12 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
 
       if (selectedAisle !== 'all' && item.aisle !== selectedAisle) return false;
 
-      const currentStatus = preferences[item.id] || 'neutral';
-      if (selectedFilter !== 'all' && currentStatus !== selectedFilter) return false;
+      if (selectedFilter === 'pantry') {
+        if (!pantryMap[item.id]) return false;
+      } else if (selectedFilter !== 'all') {
+        const currentStatus = preferences[item.id] || 'neutral';
+        if (currentStatus !== selectedFilter) return false;
+      }
 
       return true;
     });
@@ -407,10 +456,42 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
             )}
           </div>
 
-          <div className="flex items-center gap-2 self-start lg:self-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 self-start lg:self-auto flex-wrap">
+            <a
+              href="/api/backup"
+              download
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-mono uppercase tracking-wider font-semibold transition-all border shrink-0 ${
+                isDark
+                  ? 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-stone-200'
+                  : 'bg-white hover:bg-stone-50 border-stone-200 text-stone-800 shadow-xs'
+              }`}
+              title="Télécharger une copie de sauvegarde JSON complète de votre base SQLite"
+            >
+              <Download className="w-3.5 h-3.5 text-blue-400" />
+              <span>Sauvegarder BD</span>
+            </a>
+
+            <label
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-mono uppercase tracking-wider font-semibold transition-all border shrink-0 cursor-pointer ${
+                isDark
+                  ? 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-stone-200'
+                  : 'bg-white hover:bg-stone-50 border-stone-200 text-stone-800 shadow-xs'
+              }`}
+              title="Restaurer vos données depuis un fichier de sauvegarde JSON"
+            >
+              <Upload className="w-3.5 h-3.5 text-amber-400" />
+              <span>Restaurer</span>
+              <input
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleRestoreBackupFile}
+              />
+            </label>
+
             <button
               onClick={onApplyPreferencesToPlan}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-mono uppercase tracking-wider transition-all border active:scale-95 font-semibold ${
+              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-mono uppercase tracking-wider transition-all border active:scale-95 font-semibold ${
                 isDark
                   ? 'bg-white text-stone-950 hover:bg-stone-200 border-white'
                   : 'bg-stone-900 text-stone-50 hover:bg-stone-800 border-stone-900 shadow-xs'
@@ -854,9 +935,9 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
       {/* VUE 2 : CATALOGUE & PRIX DES PRODUITS */}
       {activeSubTab === 'catalog' && (
         <div className="space-y-6 animate-in fade-in duration-150">
-          {/* Baromètre de Préférences */}
+          {/* Baromètre de Préférences & Garde-Manger */}
           <div className={`p-5 rounded-3xl border ${cardGlassClass}`}>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <button
                 onClick={() => setSelectedFilter('all')}
                 className={`p-3.5 rounded-2xl border text-left transition-all ${
@@ -882,6 +963,34 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
                   }`}
                 >
                   {allIngredients.length}
+                </div>
+              </button>
+
+              <button
+                onClick={() => setSelectedFilter('pantry')}
+                className={`p-3.5 rounded-2xl border text-left transition-all ${
+                  selectedFilter === 'pantry'
+                    ? isDark
+                      ? 'bg-emerald-500/20 border-emerald-500/40 ring-1 ring-emerald-500/30'
+                      : 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                    : isDark
+                    ? 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'
+                    : 'bg-white border-stone-200 hover:border-stone-300'
+                }`}
+              >
+                <div
+                  className={`text-[10px] font-mono uppercase tracking-wider font-semibold flex items-center gap-1.5 ${
+                    selectedFilter === 'pantry' && !isDark ? 'text-emerald-100' : 'text-emerald-600 dark:text-emerald-400'
+                  }`}
+                >
+                  <Home className="w-3 h-3" /> Garde-manger
+                </div>
+                <div
+                  className={`font-mono tabular-nums text-2xl font-medium mt-0.5 ${
+                    selectedFilter === 'pantry' && !isDark ? 'text-white' : 'text-stone-900 dark:text-white'
+                  }`}
+                >
+                  {pantryCount}
                 </div>
               </button>
 
@@ -1020,6 +1129,22 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
                     <option value="price_asc">Prix ($)</option>
                   </select>
                 </div>
+
+                {onOpenProductCreator && (
+                  <button
+                    type="button"
+                    onClick={onOpenProductCreator}
+                    className={`flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl sm:rounded-2xl text-xs font-mono uppercase tracking-wider font-semibold transition-all border shrink-0 active:scale-95 shadow-sm ${
+                      isDark
+                        ? 'bg-white text-stone-950 hover:bg-stone-200 border-white'
+                        : 'bg-stone-900 text-stone-50 hover:bg-stone-800 border-stone-900 shadow-xs'
+                    }`}
+                    title="Ajouter manuellement un aliment sans code-barres"
+                  >
+                    <Plus className="w-4 h-4 shrink-0" />
+                    <span className="text-[11px]">+ Produit</span>
+                  </button>
+                )}
 
                 {onOpenBarcodeModal && (
                   <button
@@ -1222,15 +1347,15 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
                         </div>
                       </div>
 
-                      {/* Sélecteur de Préférence 3-États & Actions */}
-                      <div className="mt-4 pt-3 border-t border-stone-200/50 dark:border-white/10 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1">
+                      {/* Sélecteur de Préférence 3-États, Garde-manger & Actions */}
+                      <div className="mt-4 pt-3 border-t border-stone-200/50 dark:border-white/10 flex items-center justify-between gap-1.5 flex-wrap">
+                        <div className="flex items-center gap-1 flex-wrap">
                           {/* Bouton J'aime */}
                           <button
                             onClick={() =>
                               handleSelectPreference(item.id, isLiked ? 'neutral' : 'liked', item.name)
                             }
-                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
+                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
                               isLiked
                                 ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold shadow-xs'
                                 : isDark
@@ -1244,7 +1369,7 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
                                 isLiked ? 'fill-current text-white dark:text-stone-950' : 'text-stone-500'
                               }`}
                             />
-                            <span>J'aime</span>
+                            <span className="hidden sm:inline">J'aime</span>
                           </button>
 
                           {/* Bouton Ne pas acheter */}
@@ -1252,7 +1377,7 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
                             onClick={() =>
                               handleSelectPreference(item.id, isDisliked ? 'neutral' : 'disliked', item.name)
                             }
-                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
+                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
                               isDisliked
                                 ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold shadow-xs'
                                 : isDark
@@ -1262,11 +1387,56 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
                             title={isDisliked ? 'Réautoriser ce produit' : 'Bannir ce produit de vos achats et recettes'}
                           >
                             <Ban className={`w-3.5 h-3.5 ${isDisliked ? 'text-white dark:text-stone-950' : 'text-stone-500'}`} />
-                            <span>Exclure</span>
+                            <span className="hidden sm:inline">Exclure</span>
+                          </button>
+
+                          {/* Bouton Garde-manger */}
+                          <button
+                            onClick={() => {
+                              onTogglePantry?.(item.id);
+                              const isNowInPantry = !pantryMap[item.id];
+                              setSaveToast(
+                                isNowInPantry
+                                  ? `« ${item.name} » ajouté à votre garde-manger !`
+                                  : `« ${item.name} » retiré du garde-manger.`
+                              );
+                              setTimeout(() => setSaveToast(null), 2500);
+                            }}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
+                              Boolean(pantryMap[item.id])
+                                ? 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-bold shadow-xs'
+                                : isDark
+                                ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
+                                : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
+                            }`}
+                            title={Boolean(pantryMap[item.id]) ? 'En stock au garde-manger (cliquez pour retirer)' : 'Marquer comme en stock dans le garde-manger'}
+                          >
+                            <Home className={`w-3.5 h-3.5 ${Boolean(pantryMap[item.id]) ? 'fill-current text-emerald-500' : 'text-stone-500'}`} />
+                            <span className="text-[11px]">{Boolean(pantryMap[item.id]) ? 'En stock' : 'Garde-manger'}</span>
                           </button>
                         </div>
 
                         <div className="flex items-center gap-1">
+                          {/* Bouton Ajouter à l'épicerie */}
+                          {onAddToGroceryList && (
+                            <button
+                              onClick={() => {
+                                onAddToGroceryList(item);
+                                setSaveToast(`« ${item.name} » ajouté à l'épicerie !`);
+                                setTimeout(() => setSaveToast(null), 2500);
+                              }}
+                              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all font-semibold active:scale-95 ${
+                                isDark
+                                  ? 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
+                                  : 'bg-stone-900 hover:bg-stone-800 text-stone-50 shadow-xs'
+                              }`}
+                              title="Ajouter cet aliment à la liste d'épicerie"
+                            >
+                              <ShoppingBag className="w-3.5 h-3.5" />
+                              <span className="text-[11px]">+ Épicerie</span>
+                            </button>
+                          )}
+
                           <button
                             onClick={() => handleOpenPriceModal(item)}
                             className="p-1.5 text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors"

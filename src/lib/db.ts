@@ -11,7 +11,9 @@ import {
   DEFAULT_ACCOUNTS,
   Recipe,
   RecipeIngredientItem,
-  Ingredient
+  Ingredient,
+  GroceryItem,
+  DatabaseBackup
 } from '@/types';
 import { INGREDIENTS } from '@/data/ingredients';
 import { calculateRecipeNutrients } from './nutrition';
@@ -100,6 +102,25 @@ export function getDatabase(): DatabaseSync {
         created_by TEXT NOT NULL DEFAULT 'ethan',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS pantry_items (
+        ingredient_id TEXT PRIMARY KEY,
+        in_stock INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS custom_grocery_items (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        aisle TEXT NOT NULL,
+        package_description TEXT NOT NULL,
+        price REAL NOT NULL,
+        is_taxable INTEGER NOT NULL DEFAULT 0,
+        for_account TEXT NOT NULL DEFAULT 'common',
+        checked INTEGER NOT NULL DEFAULT 0,
+        ingredient_id TEXT,
+        created_at TEXT NOT NULL
       );
     `);
 
@@ -814,5 +835,282 @@ export function deleteCustomProduct(id: string): boolean {
   const res = stmt.run(id);
   return (res as unknown as { changes: number }).changes > 0;
 }
+
+// --- GESTION DU GARDE-MANGER (PANTRY) ---
+
+export function getPantryMap(): Record<string, boolean> {
+  const db = getDatabase();
+  const rows = db.prepare('SELECT ingredient_id, in_stock FROM pantry_items WHERE in_stock = 1').all() as { ingredient_id: string; in_stock: number }[];
+  const map: Record<string, boolean> = {};
+  for (const r of rows) {
+    map[r.ingredient_id] = true;
+  }
+  return map;
+}
+
+export function setPantryItem(ingredientId: string, inStock: boolean): boolean {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  if (inStock) {
+    db.prepare(`
+      INSERT INTO pantry_items (ingredient_id, in_stock, updated_at)
+      VALUES (?, 1, ?)
+      ON CONFLICT(ingredient_id) DO UPDATE SET in_stock = 1, updated_at = excluded.updated_at
+    `).run(ingredientId, now);
+  } else {
+    db.prepare('DELETE FROM pantry_items WHERE ingredient_id = ?').run(ingredientId);
+  }
+  return inStock;
+}
+
+// --- GESTION DES ARTICLES D'ÉPICERIE PERSONNALISÉS (LIVRE & CATALOGUE) ---
+
+export function getCustomGroceryItems(): GroceryItem[] {
+  const db = getDatabase();
+  const rows = db.prepare('SELECT * FROM custom_grocery_items ORDER BY created_at DESC').all() as any[];
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    aisle: r.aisle as any,
+    neededQuantity: 1,
+    unit: 'unite',
+    packageDescription: r.package_description,
+    packageCount: 1,
+    regularPriceMetro: r.price,
+    exactPriceMetro: r.price,
+    unitPriceLabel: r.price > 0 ? `${r.price.toFixed(2)} $ / unité` : '',
+    pricePer100g: 0,
+    isTaxable: Boolean(r.is_taxable),
+    isMoiMemberPrice: false,
+    savingsAmount: 0,
+    estimatedPriceMaxi: r.price,
+    estimatedPriceSuperC: r.price,
+    estimatedPriceIGA: r.price,
+    checked: Boolean(r.checked),
+    isCustom: true,
+    ingredientId: r.ingredient_id || undefined,
+    forAccount: r.for_account || 'common',
+    neededBy: r.for_account === 'common' ? ['ethan', 'laurine'] : [r.for_account],
+  }));
+}
+
+export function saveCustomGroceryItem(item: Partial<GroceryItem>): GroceryItem {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  const id = item.id || `custom_groc_${Date.now()}`;
+  const name = (item.name || 'Article personnalisé').trim();
+  const aisle = item.aisle || 'EPICERIE';
+  const packageDescription = item.packageDescription || '1 unité';
+  const price = item.exactPriceMetro ?? item.regularPriceMetro ?? 0;
+  const isTaxable = item.isTaxable ? 1 : 0;
+  const forAccount = item.forAccount || 'common';
+  const checked = item.checked ? 1 : 0;
+  const ingredientId = item.ingredientId || null;
+
+  db.prepare(`
+    INSERT INTO custom_grocery_items (id, name, aisle, package_description, price, is_taxable, for_account, checked, ingredient_id, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      aisle = excluded.aisle,
+      package_description = excluded.package_description,
+      price = excluded.price,
+      is_taxable = excluded.is_taxable,
+      for_account = excluded.for_account,
+      checked = excluded.checked,
+      ingredient_id = excluded.ingredient_id
+  `).run(id, name, aisle, packageDescription, price, isTaxable, forAccount, checked, ingredientId, now);
+
+  return {
+    id,
+    name,
+    aisle: aisle as any,
+    neededQuantity: 1,
+    unit: 'unite',
+    packageDescription,
+    packageCount: 1,
+    regularPriceMetro: price,
+    exactPriceMetro: price,
+    unitPriceLabel: price > 0 ? `${price.toFixed(2)} $ / unité` : '',
+    pricePer100g: 0,
+    isTaxable: Boolean(isTaxable),
+    isMoiMemberPrice: false,
+    savingsAmount: 0,
+    estimatedPriceMaxi: price,
+    estimatedPriceSuperC: price,
+    estimatedPriceIGA: price,
+    checked: Boolean(checked),
+    isCustom: true,
+    ingredientId: ingredientId || undefined,
+    forAccount,
+    neededBy: forAccount === 'common' ? ['ethan', 'laurine'] : [forAccount],
+  };
+}
+
+export function deleteCustomGroceryItem(id: string): boolean {
+  const db = getDatabase();
+  const res = db.prepare('DELETE FROM custom_grocery_items WHERE id = ?').run(id);
+  return (res as unknown as { changes: number }).changes > 0;
+}
+
+export function toggleCustomGroceryItemChecked(id: string, checked: boolean): boolean {
+  const db = getDatabase();
+  db.prepare('UPDATE custom_grocery_items SET checked = ? WHERE id = ?').run(checked ? 1 : 0, id);
+  return checked;
+}
+
+export function clearCheckedCustomGroceryItems(): boolean {
+  const db = getDatabase();
+  db.prepare('DELETE FROM custom_grocery_items WHERE checked = 1').run();
+  return true;
+}
+
+// --- SAUVEGARDE & RESTAURATION COMPLÈTE DE LA BASE DE DONNÉES ---
+
+export function exportDatabaseBackup(): DatabaseBackup {
+  const accounts = getAllAccounts();
+  const activeAccountId = getActiveAccountId();
+  const accountPreferences = getAllAccountsPreferences();
+  const accountSettings = getAllAccountsSettings();
+  const customPrices = getAllCustomPrices();
+  const customRecipes = getAllCustomRecipes();
+  const customProducts = getCustomProducts();
+  const pantryMap = getPantryMap();
+  const pantryItems = Object.keys(pantryMap);
+  const customGroceryItems = getCustomGroceryItems();
+
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    accounts,
+    activeAccountId,
+    accountPreferences,
+    accountSettings,
+    customPrices,
+    customRecipes,
+    customProducts,
+    pantryItems,
+    customGroceryItems,
+  };
+}
+
+export function importDatabaseBackup(backup: Partial<DatabaseBackup>): { success: boolean; counts: any } {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+
+  const stats = {
+    accounts: 0,
+    preferences: 0,
+    settings: 0,
+    customPrices: 0,
+    recipes: 0,
+    products: 0,
+    pantry: 0,
+    groceryItems: 0,
+  };
+
+  db.exec('BEGIN TRANSACTION');
+  try {
+    // 1. Accounts
+    if (backup.accounts && Array.isArray(backup.accounts)) {
+      const stmt = db.prepare('INSERT INTO accounts (id, name, avatar_initials, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar_initials = excluded.avatar_initials');
+      for (const acc of backup.accounts) {
+        if (acc.id && acc.name) {
+          stmt.run(acc.id, acc.name, acc.avatarInitials || acc.name.slice(0, 2).toUpperCase(), now);
+          stats.accounts++;
+        }
+      }
+    }
+
+    if (backup.activeAccountId) {
+      setActiveAccountId(backup.activeAccountId);
+    }
+
+    // 2. Account Preferences
+    if (backup.accountPreferences && typeof backup.accountPreferences === 'object') {
+      const stmt = db.prepare('INSERT INTO account_preferences (account_id, ingredient_id, status, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(account_id, ingredient_id) DO UPDATE SET status = excluded.status, updated_at = excluded.updated_at');
+      for (const [accId, prefs] of Object.entries(backup.accountPreferences)) {
+        if (typeof prefs === 'object') {
+          for (const [ingId, status] of Object.entries(prefs)) {
+            if (status === 'liked' || status === 'disliked' || status === 'neutral') {
+              stmt.run(accId, ingId, status, now);
+              stats.preferences++;
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Account Settings
+    if (backup.accountSettings && typeof backup.accountSettings === 'object') {
+      const stmt = db.prepare('INSERT INTO account_settings (account_id, key, value, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at');
+      for (const [accId, settings] of Object.entries(backup.accountSettings)) {
+        if (typeof settings === 'object') {
+          for (const [k, v] of Object.entries(settings)) {
+            stmt.run(accId, k, String(v), now);
+            stats.settings++;
+          }
+        }
+      }
+    }
+
+    // 4. Custom Prices
+    if (backup.customPrices && typeof backup.customPrices === 'object') {
+      const stmt = db.prepare('INSERT INTO custom_prices (ingredient_id, custom_price, updated_at) VALUES (?, ?, ?) ON CONFLICT(ingredient_id) DO UPDATE SET custom_price = excluded.custom_price, updated_at = excluded.updated_at');
+      for (const [ingId, price] of Object.entries(backup.customPrices)) {
+        if (typeof price === 'number') {
+          stmt.run(ingId, price, now);
+          stats.customPrices++;
+        }
+      }
+    }
+
+    // 5. Custom Recipes
+    if (backup.customRecipes && Array.isArray(backup.customRecipes)) {
+      for (const r of backup.customRecipes) {
+        if (r.title) {
+          saveCustomRecipe(r);
+          stats.recipes++;
+        }
+      }
+    }
+
+    // 6. Custom Products
+    if (backup.customProducts && Array.isArray(backup.customProducts)) {
+      for (const p of backup.customProducts) {
+        if (p.name) {
+          saveCustomProduct(p);
+          stats.products++;
+        }
+      }
+    }
+
+    // 7. Pantry Items
+    if (backup.pantryItems && Array.isArray(backup.pantryItems)) {
+      const stmt = db.prepare('INSERT INTO pantry_items (ingredient_id, in_stock, updated_at) VALUES (?, 1, ?) ON CONFLICT(ingredient_id) DO UPDATE SET in_stock = 1, updated_at = excluded.updated_at');
+      for (const id of backup.pantryItems) {
+        stmt.run(id, now);
+        stats.pantry++;
+      }
+    }
+
+    // 8. Custom Grocery Items
+    if (backup.customGroceryItems && Array.isArray(backup.customGroceryItems)) {
+      for (const gi of backup.customGroceryItems) {
+        if (gi.name) {
+          saveCustomGroceryItem(gi);
+          stats.groceryItems++;
+        }
+      }
+    }
+
+    db.exec('COMMIT');
+    return { success: true, counts: stats };
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
+
 
 

@@ -120,6 +120,7 @@ export interface GroceryItem {
   estimatedPriceIGA: number;
   checked: boolean;
   isCustom?: boolean;
+  isInPantry?: boolean;
   isCustomPrice?: boolean;
   customPricePerPackage?: number;
   flyerHighlight?: string;
@@ -264,4 +265,18 @@ export const DEFAULT_ACCOUNTS: UserAccount[] = [
 ];
 
 export type GroceryViewScope = 'common' | string; // 'common' ou accountId
+
+export interface DatabaseBackup {
+  version: number;
+  exportedAt: string;
+  accounts: UserAccount[];
+  activeAccountId: string;
+  accountPreferences: Record<string, Record<string, string>>;
+  accountSettings: Record<string, UserCustomizationSettings>;
+  customPrices: Record<string, number>;
+  customRecipes: Recipe[];
+  customProducts: Ingredient[];
+  pantryItems: string[];
+  customGroceryItems?: GroceryItem[];
+}
 

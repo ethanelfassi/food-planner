@@ -37,7 +37,9 @@ import { ProductPreferencesView } from '@/components/ProductPreferencesView';
 import { RecipeModal } from '@/components/RecipeModal';
 import { RecipeCreatorModal } from '@/components/RecipeCreatorModal';
 import { BarcodeScannerModal } from '@/components/BarcodeScannerModal';
+import { ProductCreatorModal } from '@/components/ProductCreatorModal';
 import { RECIPES } from '@/data/recipes';
+import { INGREDIENTS } from '@/data/ingredients';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'planner' | 'recipes' | 'grocery' | 'prices' | 'tracker' | 'preferences'>('planner');
@@ -77,8 +79,133 @@ export default function Home() {
   const [customManualItems, setCustomManualItems] = useState<GroceryItem[]>([]);
   const [checkedItemsMap, setCheckedItemsMap] = useState<Record<string, boolean>>({});
   const [coupleSettings, setCoupleSettings] = useState<CoupleSettings>(DEFAULT_COUPLE_SETTINGS);
+  const [pantryMap, setPantryMap] = useState<Record<string, boolean>>({});
+  const [isProductCreatorOpen, setIsProductCreatorOpen] = useState(false);
 
   const isDark = theme === 'dark';
+
+  // Chargement SQLite
+  const initAppData = useCallback(async () => {
+    try {
+      let loadedAccounts = DEFAULT_ACCOUNTS;
+      let activeAcc = 'ethan';
+      let loadedPrefs: Record<string, ProductPreferencesMap> = { ethan: {}, laurine: {} };
+      let loadedSettings: Record<string, UserCustomizationSettings> = {
+        ethan: DEFAULT_USER_SETTINGS,
+        laurine: DEFAULT_LAURINE_SETTINGS,
+      };
+      let loadedPrices: CustomPricesMap = {};
+      let loadedCustomRecipes: Recipe[] = [];
+      let loadedCustomProducts: Ingredient[] = [];
+      let loadedPantry: Record<string, boolean> = {};
+      let loadedGroceryItems: GroceryItem[] = [];
+
+      try {
+        const [res, prodRes, pantryRes, groceryRes] = await Promise.all([
+          fetch('/api/preferences'),
+          fetch('/api/products'),
+          fetch('/api/pantry'),
+          fetch('/api/grocery'),
+        ]);
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.accounts && Array.isArray(data.accounts) && data.accounts.length > 0) {
+            loadedAccounts = data.accounts;
+          }
+          if (data.activeAccountId) {
+            activeAcc = data.activeAccountId;
+          }
+          if (data.preferences) {
+            loadedPrefs = data.preferences;
+          }
+          if (data.settings) {
+            loadedSettings = data.settings;
+          }
+          if (data.customPrices) {
+            loadedPrices = data.customPrices;
+          }
+          if (data.customRecipes && Array.isArray(data.customRecipes)) {
+            loadedCustomRecipes = data.customRecipes;
+          }
+        }
+
+        if (prodRes.ok) {
+          const prodData = await prodRes.json();
+          if (prodData.products && Array.isArray(prodData.products)) {
+            loadedCustomProducts = prodData.products;
+          }
+        }
+
+        if (pantryRes.ok) {
+          const pantryData = await pantryRes.json();
+          if (pantryData.pantry) {
+            loadedPantry = pantryData.pantry;
+          }
+        }
+
+        if (groceryRes.ok) {
+          const groceryData = await groceryRes.json();
+          if (groceryData.items && Array.isArray(groceryData.items)) {
+            loadedGroceryItems = groceryData.items;
+          }
+        }
+      } catch (err) {
+        console.warn('Impossible de charger les données SQLite, fallback local:', err);
+      }
+
+      setAccounts(loadedAccounts);
+      setActiveAccountId(activeAcc);
+      setPreferencesByAccount(loadedPrefs);
+      setSettingsByAccount(loadedSettings);
+      setCustomPrices(loadedPrices);
+      setCustomRecipes(loadedCustomRecipes);
+      setCustomProducts(loadedCustomProducts);
+      setPantryMap(loadedPantry);
+      setCustomManualItems(loadedGroceryItems);
+
+      const initialChecked: Record<string, boolean> = {};
+      for (const item of loadedGroceryItems) {
+        if (item.checked) initialChecked[item.id] = true;
+      }
+      setCheckedItemsMap((prev) => ({ ...initialChecked, ...prev }));
+
+      // Générer les plans de chaque compte selon leurs préférences et recettes personnalisées
+      const initialPlans: Record<string, WeeklyPlan> = {};
+      for (const acc of loadedAccounts) {
+        const userPrefs = loadedPrefs[acc.id] || {};
+        initialPlans[acc.id] = generateWeeklyPlan(userPrefs, loadedCustomRecipes);
+      }
+      if (!initialPlans['ethan']) {
+        initialPlans['ethan'] = generateWeeklyPlan(loadedPrefs['ethan'] || {}, loadedCustomRecipes);
+      }
+      if (!initialPlans['laurine']) {
+        initialPlans['laurine'] = generateWeeklyPlan(loadedPrefs['laurine'] || {}, loadedCustomRecipes);
+      }
+      setPlansByAccount(initialPlans);
+
+      // Mettre à jour coupleSettings pour Ethan & Laurine
+      const ethanSett = loadedSettings['ethan'] || DEFAULT_USER_SETTINGS;
+      const laurineSett = loadedSettings['laurine'] || loadedSettings['copine'] || DEFAULT_LAURINE_SETTINGS;
+      setCoupleSettings({
+        coupleModeEnabled: true,
+        user1: {
+          ...DEFAULT_COUPLE_SETTINGS.user1,
+          targetCalories: ethanSett.targetCalories,
+          targetProtein: ethanSett.targetProtein,
+        },
+        user2: {
+          ...DEFAULT_COUPLE_SETTINGS.user2,
+          name: 'Laurine',
+          id: 'laurine',
+          targetCalories: laurineSett.targetCalories,
+          targetProtein: laurineSett.targetProtein,
+        },
+      });
+    } catch (fatalErr) {
+      console.error('Erreur critique dans initAppData:', fatalErr);
+    }
+  }, []);
 
   // 1. Initialisation au montage avec chargement depuis SQLite
   useEffect(() => {
@@ -92,105 +219,8 @@ export default function Home() {
       document.documentElement.classList.remove('dark');
     }
 
-    // Chargement SQLite
-    const initAppData = async () => {
-      try {
-        let loadedAccounts = DEFAULT_ACCOUNTS;
-        let activeAcc = 'ethan';
-        let loadedPrefs: Record<string, ProductPreferencesMap> = { ethan: {}, laurine: {} };
-        let loadedSettings: Record<string, UserCustomizationSettings> = {
-          ethan: DEFAULT_USER_SETTINGS,
-          laurine: DEFAULT_LAURINE_SETTINGS,
-        };
-        let loadedPrices: CustomPricesMap = {};
-        let loadedCustomRecipes: Recipe[] = [];
-        let loadedCustomProducts: Ingredient[] = [];
-
-        try {
-          const [res, prodRes] = await Promise.all([
-            fetch('/api/preferences'),
-            fetch('/api/products')
-          ]);
-
-          if (res.ok) {
-            const data = await res.json();
-            if (data.accounts && Array.isArray(data.accounts) && data.accounts.length > 0) {
-              loadedAccounts = data.accounts;
-            }
-            if (data.activeAccountId) {
-              activeAcc = data.activeAccountId;
-            }
-            if (data.preferences) {
-              loadedPrefs = data.preferences;
-            }
-            if (data.settings) {
-              loadedSettings = data.settings;
-            }
-            if (data.customPrices) {
-              loadedPrices = data.customPrices;
-            }
-            if (data.customRecipes && Array.isArray(data.customRecipes)) {
-              loadedCustomRecipes = data.customRecipes;
-            }
-          }
-
-          if (prodRes.ok) {
-            const prodData = await prodRes.json();
-            if (prodData.products && Array.isArray(prodData.products)) {
-              loadedCustomProducts = prodData.products;
-            }
-          }
-        } catch (err) {
-          console.warn('Impossible de charger les données SQLite, fallback local:', err);
-        }
-
-        setAccounts(loadedAccounts);
-        setActiveAccountId(activeAcc);
-        setPreferencesByAccount(loadedPrefs);
-        setSettingsByAccount(loadedSettings);
-        setCustomPrices(loadedPrices);
-        setCustomRecipes(loadedCustomRecipes);
-        setCustomProducts(loadedCustomProducts);
-
-        // Générer les plans de chaque compte selon leurs préférences et recettes personnalisées
-        const initialPlans: Record<string, WeeklyPlan> = {};
-        for (const acc of loadedAccounts) {
-          const userPrefs = loadedPrefs[acc.id] || {};
-          initialPlans[acc.id] = generateWeeklyPlan(userPrefs, loadedCustomRecipes);
-        }
-        if (!initialPlans['ethan']) {
-          initialPlans['ethan'] = generateWeeklyPlan(loadedPrefs['ethan'] || {}, loadedCustomRecipes);
-        }
-        if (!initialPlans['laurine']) {
-          initialPlans['laurine'] = generateWeeklyPlan(loadedPrefs['laurine'] || {}, loadedCustomRecipes);
-        }
-        setPlansByAccount(initialPlans);
-
-        // Mettre à jour coupleSettings pour Ethan & Laurine
-        const ethanSett = loadedSettings['ethan'] || DEFAULT_USER_SETTINGS;
-        const laurineSett = loadedSettings['laurine'] || loadedSettings['copine'] || DEFAULT_LAURINE_SETTINGS;
-        setCoupleSettings({
-          coupleModeEnabled: true,
-          user1: {
-            ...DEFAULT_COUPLE_SETTINGS.user1,
-            targetCalories: ethanSett.targetCalories,
-            targetProtein: ethanSett.targetProtein,
-          },
-          user2: {
-            ...DEFAULT_COUPLE_SETTINGS.user2,
-            name: 'Laurine',
-            id: 'laurine',
-            targetCalories: laurineSett.targetCalories,
-            targetProtein: laurineSett.targetProtein,
-          },
-        });
-      } catch (fatalErr) {
-        console.error('Erreur critique dans initAppData:', fatalErr);
-      }
-    };
-
     initAppData();
-  }, []);
+  }, [initAppData]);
 
   const toggleTheme = () => {
     setTheme((prev) => {
@@ -529,18 +559,39 @@ export default function Home() {
 
   // --- GESTION DE LA LISTE D'ÉPICERIE (COMMUNE VS INDIVIDUELLE) ---
 
-  const handleToggleItem = (id: string) => {
+  const handleToggleItem = async (id: string) => {
     setCheckedItemsMap((prev) => ({
       ...prev,
       [id]: !prev[id],
     }));
+
+    if (id.startsWith('custom_')) {
+      try {
+        await fetch('/api/grocery', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'toggle_check', id }),
+        });
+      } catch (err) {
+        console.error('Erreur sync check grocery item:', err);
+      }
+    }
   };
 
-  const handleClearChecked = () => {
+  const handleClearChecked = async () => {
     setCheckedItemsMap({});
+    try {
+      await fetch('/api/grocery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clear_checked' }),
+      });
+    } catch (err) {
+      console.error('Erreur clear checked grocery:', err);
+    }
   };
 
-  const handleAddItem = (
+  const handleAddItem = async (
     name: string,
     aisle: MetroAisle,
     packageDescription: string,
@@ -549,7 +600,7 @@ export default function Home() {
     forAccount = 'common'
   ) => {
     const newItem: GroceryItem = {
-      id: `custom_${Date.now()}`,
+      id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       name,
       aisle,
       neededQuantity: 1,
@@ -572,10 +623,62 @@ export default function Home() {
       neededBy: forAccount === 'common' ? accounts.map((a) => a.id) : [forAccount],
     };
     setCustomManualItems((prev) => [newItem, ...prev]);
+
+    try {
+      await fetch('/api/grocery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save', item: newItem }),
+      });
+    } catch (err) {
+      console.error('Erreur sauvegarde custom grocery item:', err);
+    }
   };
 
-  const handleRemoveItem = (id: string) => {
+  const handleRemoveItem = async (id: string) => {
     setCustomManualItems((prev) => prev.filter((item) => item.id !== id));
+    try {
+      await fetch('/api/grocery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id }),
+      });
+    } catch (err) {
+      console.error('Erreur suppression custom grocery item:', err);
+    }
+  };
+
+  const handleTogglePantry = async (ingredientId: string) => {
+    const nextVal = !pantryMap[ingredientId];
+    setPantryMap((prev) => ({
+      ...prev,
+      [ingredientId]: nextVal,
+    }));
+
+    try {
+      await fetch('/api/pantry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ingredientId, isInPantry: nextVal }),
+      });
+    } catch (err) {
+      console.error('Erreur toggle pantry SQLite:', err);
+    }
+  };
+
+  const handleAddToGroceryFromCatalog = (ingredient: Ingredient, forAccount = 'common') => {
+    handleAddItem(
+      ingredient.name,
+      ingredient.aisle,
+      ingredient.packaging?.label || `${ingredient.packaging?.amount || 1}${ingredient.packaging?.unit || 'u'}`,
+      ingredient.packaging?.isTaxable ?? false,
+      ingredient.packaging?.exactPriceMetro ?? 0,
+      forAccount
+    );
+  };
+
+  const handleProductCreated = (product: Ingredient) => {
+    setCustomProducts((prev) => [product, ...prev.filter((p) => p.id !== product.id)]);
   };
 
   const handleToggleCoupleMode = () => {
@@ -584,6 +687,14 @@ export default function Home() {
       coupleModeEnabled: !prev.coupleModeEnabled,
     }));
   };
+
+  // Catalogue complet d'ingrédients (statiques + créés par l'utilisateur)
+  const allCatalogIngredients = React.useMemo(() => {
+    const customMap: Record<string, Ingredient> = Object.fromEntries(
+      (customProducts || []).map((p: Ingredient) => [p.id, p])
+    );
+    return Object.values({ ...INGREDIENTS, ...customMap });
+  }, [customProducts]);
 
   // --- CALCUL DES ARTICLES DE LA LISTE D'ÉPICERIE SELON LE SCOPE (HOOKS INCONDITIONNELS) ---
 
@@ -599,8 +710,8 @@ export default function Home() {
 
   const commonGroceryItems = React.useMemo(() => {
     if (commonAccountPlans.length === 0) return [];
-    return generateCommonGroceryList(commonAccountPlans, customPrices, customProducts);
-  }, [commonAccountPlans, customPrices, customProducts]);
+    return generateCommonGroceryList(commonAccountPlans, customPrices, customProducts, pantryMap);
+  }, [commonAccountPlans, customPrices, customProducts, pantryMap]);
 
   // Le calcul du split dépend UNIQUEMENT des prix et besoins des paquets, JAMAIS de l'état coché !
   const baseCommonItems = React.useMemo(() => {
@@ -636,7 +747,8 @@ export default function Home() {
       customPrices,
       targetSettings?.targetCalories,
       targetSettings?.partnerCalories,
-      customProducts
+      customProducts,
+      pantryMap
     );
     const manualForTarget = customManualItems.filter(
       (i) => i.forAccount === targetAccId || i.forAccount === 'common'
@@ -720,6 +832,7 @@ export default function Home() {
             scope={groceryScope}
             commonSplitReport={commonSplitReport}
             isDark={isDark}
+            allCatalogIngredients={allCatalogIngredients}
             onToggleItem={handleToggleItem}
             onAddItem={handleAddItem}
             onRemoveItem={handleRemoveItem}
@@ -740,8 +853,13 @@ export default function Home() {
             activeAccountId={activeAccountId}
             isDark={isDark}
             customProducts={customProducts}
+            pantryMap={pantryMap}
             onOpenBarcodeModal={() => setIsBarcodeModalOpen(true)}
+            onOpenProductCreator={() => setIsProductCreatorOpen(true)}
             onDeleteCustomProduct={handleDeleteCustomProduct}
+            onTogglePantry={handleTogglePantry}
+            onAddToGroceryList={handleAddToGroceryFromCatalog}
+            onBackupRestored={initAppData}
             onUpdatePreference={handleUpdatePreference}
             onUpdateCustomPrice={handleUpdateCustomPrice}
             onUpdateSettings={handleUpdateSettings}
@@ -797,6 +915,13 @@ export default function Home() {
         isOpen={isBarcodeModalOpen}
         onClose={() => setIsBarcodeModalOpen(false)}
         onProductAdded={handleProductAddedFromBarcode}
+        isDark={isDark}
+      />
+
+      <ProductCreatorModal
+        isOpen={isProductCreatorOpen}
+        onClose={() => setIsProductCreatorOpen(false)}
+        onProductCreated={handleProductCreated}
         isDark={isDark}
       />
 

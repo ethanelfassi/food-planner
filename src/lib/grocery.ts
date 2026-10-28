@@ -17,7 +17,8 @@ export function generateGroceryList(
   customPrices: Record<string, number> = {},
   user1Calories = 3050,
   partnerCalories = 1950,
-  customCatalog?: Record<string, Ingredient> | Ingredient[]
+  customCatalog?: Record<string, Ingredient> | Ingredient[],
+  pantryMap?: Record<string, boolean>
 ): GroceryItem[] {
   const customMap: Record<string, Ingredient> = Array.isArray(customCatalog)
     ? Object.fromEntries(customCatalog.map((c) => [c.id, c]))
@@ -107,6 +108,7 @@ export function generateGroceryList(
       estimatedPriceSuperC: Math.round(packageCount * superCUnitCost * 100) / 100,
       estimatedPriceIGA: Math.round(packageCount * igaUnitCost * 100) / 100,
       checked: false,
+      isInPantry: pantryMap ? Boolean(pantryMap[ingredientId]) : false,
       flyerHighlight: ingredient.flyerDeal?.promoLabel,
       imageUrl: ingredient.imageUrl,
       metroProductUrl: ingredient.metroProductUrl,
@@ -176,7 +178,8 @@ export interface CommonAccountPlanInput {
 export function generateCommonGroceryList(
   accountPlans: CommonAccountPlanInput[],
   customPrices: Record<string, number> = {},
-  customCatalog?: Record<string, Ingredient> | Ingredient[]
+  customCatalog?: Record<string, Ingredient> | Ingredient[],
+  pantryMap?: Record<string, boolean>
 ): GroceryItem[] {
   const customMap: Record<string, Ingredient> = Array.isArray(customCatalog)
     ? Object.fromEntries(customCatalog.map((c) => [c.id, c]))
@@ -284,6 +287,7 @@ export function generateCommonGroceryList(
       estimatedPriceSuperC: Math.round(packageCount * pack.priceSuperC * 100) / 100,
       estimatedPriceIGA: Math.round(packageCount * pack.priceIGA * 100) / 100,
       checked: false,
+      isInPantry: pantryMap ? Boolean(pantryMap[ingredientId]) : false,
       flyerHighlight: ingredient.flyerDeal?.promoLabel,
       imageUrl: ingredient.imageUrl,
       metroProductUrl: ingredient.metroProductUrl,

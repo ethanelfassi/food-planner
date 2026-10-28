@@ -41,7 +41,8 @@ import {
   Pencil,
   DollarSign,
   User,
-  X
+  X,
+  Search
 } from 'lucide-react';
 
 interface GroceryListViewProps {
@@ -59,6 +60,7 @@ interface GroceryListViewProps {
     explanation: string;
   };
   isDark: boolean;
+  allCatalogIngredients?: import('@/types').Ingredient[];
   onToggleItem: (id: string) => void;
   onAddItem: (name: string, aisle: MetroAisle, packageDescription: string, isTaxable: boolean, price: number, forAccount?: string) => void;
   onRemoveItem: (id: string) => void;
@@ -160,6 +162,11 @@ const GroceryItemRow = React.memo<{
             {preference === 'disliked' && (
               <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-300 dark:border-stone-700 font-semibold">
                 <Ban className="w-2.5 h-2.5" /> Exclu
+              </span>
+            )}
+            {item.isInPantry && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-semibold" title="Produit déjà présent dans votre garde-manger">
+                📦 Garde-manger
               </span>
             )}
             {item.isCustomPrice && (
@@ -368,6 +375,7 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
   scope = 'common',
   commonSplitReport,
   isDark,
+  allCatalogIngredients = [],
   onToggleItem,
   onAddItem,
   onRemoveItem,
@@ -394,6 +402,8 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
   const [newItemTaxable, setNewItemTaxable] = useState(false);
   const [newItemForAccount, setNewItemForAccount] = useState<string>('common');
   const [filterMode, setFilterMode] = useState<'all' | 'pending' | 'completed'>('all');
+  const [hidePantry, setHidePantry] = useState(false);
+  const [catalogSearch, setCatalogSearch] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [lastVerifiedTime, setLastVerifiedTime] = useState<string>("À l'instant");
   const [verificationFeedback, setVerificationFeedback] = useState(false);
@@ -438,14 +448,24 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
   const receipt = useMemo(() => calculateReceiptTaxes(items), [items]);
   const totalItems = items.length;
   const checkedItems = useMemo(() => items.filter((i) => i.checked).length, [items]);
+  const pantryItemsCount = useMemo(() => items.filter((i) => i.isInPantry).length, [items]);
+
+  const matchingCatalogItems = useMemo(() => {
+    const q = catalogSearch.trim().toLowerCase();
+    if (!q) return [];
+    return allCatalogIngredients
+      .filter((ing) => ing.name.toLowerCase().includes(q) || ing.packaging?.label?.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [allCatalogIngredients, catalogSearch]);
 
   const visibleItems = useMemo(() => {
     return items.filter((i) => {
+      if (hidePantry && i.isInPantry) return false;
       if (filterMode === 'pending') return !i.checked;
       if (filterMode === 'completed') return i.checked;
       return true;
     });
-  }, [items, filterMode]);
+  }, [items, filterMode, hidePantry]);
 
   const { grouped, sortedAisles } = useMemo(() => {
     const grp: Record<string, GroceryItem[]> = {};
@@ -972,6 +992,22 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
           >
             Cochés ({checkedItems})
           </button>
+
+          {pantryItemsCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setHidePantry(!hidePantry)}
+              className={`py-2 sm:py-1.5 px-2.5 sm:px-3 rounded-xl transition-all text-center flex items-center justify-center gap-1.5 shrink-0 ${
+                hidePantry
+                  ? 'bg-emerald-600 text-white font-bold'
+                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-white border border-stone-300/80 dark:border-white/10'
+              }`}
+              title="Masquer ou afficher les produits déjà présents dans le garde-manger"
+            >
+              <span>📦</span>
+              <span>{hidePantry ? 'En stock masqué' : `En stock (${pantryItemsCount})`}</span>
+            </button>
+          )}
         </div>
 
         <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
@@ -995,17 +1031,89 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
         </div>
       </div>
 
-      {/* Formulaire d'ajout rapide */}
+      {/* Formulaire d'ajout rapide & pioche catalogue */}
       {showAddForm && (
-        <form
-          onSubmit={handleCreateCustomItem}
-          className={`p-5 rounded-3xl border space-y-3 animate-in fade-in duration-150 ${
+        <div
+          className={`p-5 rounded-3xl border space-y-4 animate-in fade-in duration-150 ${
             isDark ? 'liquid-glass' : 'liquid-glass-light'
           }`}
         >
-          <div className="font-serif text-sm font-medium text-stone-900 dark:text-white">
-            Ajouter un article personnel (produit ménager, café, etc.)
+          {/* Piocher dans le catalogue */}
+          <div className="space-y-2 pb-4 border-b border-stone-200/60 dark:border-white/10">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono uppercase tracking-wider text-stone-700 dark:text-stone-300 font-semibold flex items-center gap-1.5">
+                <Search className="w-3.5 h-3.5 text-stone-500" />
+                Piocher dans le catalogue ({allCatalogIngredients.length} produits)
+              </span>
+              <span className="text-[10px] font-mono text-stone-400">Ajout immédiat</span>
+            </div>
+
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Rechercher un produit (ex: avoine, poulet, banane, skyr)..."
+                value={catalogSearch}
+                onChange={(e) => setCatalogSearch(e.target.value)}
+                className={`w-full px-3.5 py-2 pl-9 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-stone-500 ${
+                  isDark ? 'bg-black/40 border-white/10 text-white placeholder-stone-500' : 'bg-white border-stone-300 text-stone-900 placeholder-stone-400'
+                }`}
+              />
+              <Search className="w-4 h-4 absolute left-3 top-2.5 text-stone-400 pointer-events-none" />
+              {catalogSearch && (
+                <button
+                  type="button"
+                  onClick={() => setCatalogSearch('')}
+                  className="absolute right-3 top-2.5 text-stone-400 hover:text-stone-900 dark:hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {matchingCatalogItems.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 pt-1 max-h-56 overflow-y-auto">
+                {matchingCatalogItems.map((prod) => (
+                  <div
+                    key={prod.id}
+                    className={`flex items-center justify-between p-2 rounded-xl border text-xs ${
+                      isDark ? 'bg-white/[0.03] border-white/10' : 'bg-stone-50 border-stone-200'
+                    }`}
+                  >
+                    <div className="min-w-0 pr-1">
+                      <div className="font-medium truncate text-stone-900 dark:text-white">{prod.name}</div>
+                      <div className="text-[10px] font-mono text-stone-500 dark:text-stone-400">
+                        {prod.packaging?.label} • {prod.packaging?.exactPriceMetro?.toFixed(2)} $
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onAddItem(
+                          prod.name,
+                          prod.aisle,
+                          prod.packaging?.label || `${prod.packaging?.amount}${prod.packaging?.unit}`,
+                          prod.packaging?.isTaxable ?? false,
+                          prod.packaging?.exactPriceMetro ?? 0,
+                          newItemForAccount
+                        );
+                        setCatalogSearch('');
+                      }}
+                      className={`shrink-0 px-2 py-1 rounded-lg font-mono text-[10px] uppercase font-semibold transition-all active:scale-95 ${
+                        isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
+                      }`}
+                    >
+                      + Ajouter
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+
+          <form onSubmit={handleCreateCustomItem} className="space-y-3">
+            <div className="font-serif text-sm font-medium text-stone-900 dark:text-white">
+              Ou ajouter un article hors-catalogue (produit ménager, café, etc.)
+            </div>
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
             <input
               type="text"
@@ -1097,6 +1205,7 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
             </div>
           </div>
         </form>
+        </div>
       )}
 
       {/* Rayons & Produits */}
