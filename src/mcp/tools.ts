@@ -65,10 +65,179 @@ function parseMealSlot(slot?: string): 'breakfast' | 'lunch' | 'dinner' | 'snack
   return 'lunch';
 }
 
+if (INGREDIENTS.oeufs_gros && !INGREDIENTS.oeufs_larges) {
+  (INGREDIENTS as any).oeufs_larges = { ...INGREDIENTS.oeufs_gros, id: 'oeufs_larges' };
+}
+
+const STOP_WORDS = new Set([
+  'de', 'du', 'la', 'le', 'les', 'des', 'aux', 'et', 'en', 'au', 'a', 'd', 'l', 'un', 'une', 'pour', 'avec', 'sans', 'frais'
+]);
+
+const CANONICAL_DEFAULTS: Record<string, string> = {
+  'poitrine de poulet': 'poulet_poitrine',
+  'poitrine poulet': 'poulet_poitrine',
+  'blanc de poulet': 'poulet_poitrine',
+  'blanc poulet': 'poulet_poitrine',
+  'poulet': 'poulet_poitrine',
+  'champignons': 'champignons_blancs',
+  'champignon': 'champignons_blancs',
+  'pates': 'pates_penne',
+  'pate': 'pates_penne',
+  'penne': 'pates_penne',
+  'pennes': 'pates_penne',
+  'creme 35': 'creme_35',
+  'creme 35%': 'creme_35',
+  'creme': 'creme_35',
+  'creme 15': 'creme_15',
+  'creme 15%': 'creme_15',
+  'boeuf hache': 'boeuf_hache_maigre',
+  'boeuf hache maigre': 'boeuf_hache_maigre',
+  'viande hachee': 'boeuf_hache_maigre',
+  'oeufs': 'oeufs_larges',
+  'oeuf': 'oeufs_larges',
+  'oeufs larges': 'oeufs_larges',
+  'oeufs gros': 'oeufs_gros',
+  'riz': 'riz_basmati',
+  'riz blanc': 'riz_basmati',
+  'lait': 'lait_2_pourcent',
+  'lait 2%': 'lait_2_pourcent',
+  'lait 2': 'lait_2_pourcent',
+};
+
+export function normalizeText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s_%]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function extractKeywords(text: string): string[] {
+  const norm = normalizeText(text);
+  return norm
+    .split(/[\s_]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0 && !STOP_WORDS.has(t));
+}
+
+function stemWord(word: string): string {
+  if (word.endsWith('s') && word.length > 3) return word.slice(0, -1);
+  if (word.endsWith('x') && word.length > 3) return word.slice(0, -1);
+  return word;
+}
+
+function scoreIngredient(inputKeywords: string[], normInput: string, item: Ingredient): number {
+  if (inputKeywords.length === 0) return 0;
+  const itemIdNorm = normalizeText(item.id);
+  const itemNameNorm = normalizeText(item.name);
+
+  if (item.id.toLowerCase() === normInput || itemIdNorm === normInput) return 1000;
+  if (itemNameNorm === normInput) return 900;
+
+  let score = 0;
+  if (CANONICAL_DEFAULTS[normInput] === item.id) score += 300;
+
+  const idTokens = extractKeywords(item.id);
+  const nameTokens = extractKeywords(item.name);
+  let matchedKeywordsCount = 0;
+
+  for (const kw of inputKeywords) {
+    const kwStem = stemWord(kw);
+    let matched = false;
+
+    if (idTokens.includes(kw)) {
+      score += 50;
+      matched = true;
+    } else if (idTokens.some((t) => stemWord(t) === kwStem)) {
+      score += 40;
+      matched = true;
+    } else if (idTokens.some((t) => t.includes(kw) || kw.includes(t))) {
+      score += 25;
+      matched = true;
+    }
+
+    if (nameTokens.includes(kw)) {
+      score += 40;
+      matched = true;
+    } else if (nameTokens.some((t) => stemWord(t) === kwStem)) {
+      score += 35;
+      matched = true;
+    } else if (nameTokens.some((t) => t.includes(kw) || kw.includes(t))) {
+      score += 20;
+      matched = true;
+    }
+
+    if (matched) matchedKeywordsCount++;
+  }
+
+  if (matchedKeywordsCount === 0) return 0;
+
+  if (matchedKeywordsCount === inputKeywords.length) {
+    score += 150;
+  } else {
+    score *= (matchedKeywordsCount / inputKeywords.length);
+  }
+
+  if (inputKeywords.length > 0 && item.id.startsWith(inputKeywords[0])) {
+    score += 20;
+  }
+
+  return score;
+}
+
+export function findBestIngredient(input: string, catalog: Record<string, Ingredient>): string | null {
+  if (!input || typeof input !== 'string') return null;
+  const raw = input.trim();
+  if (!raw) return null;
+
+  if (catalog[raw]) return raw;
+  const lower = raw.toLowerCase();
+  if (catalog[lower]) return lower;
+
+  const normInput = normalizeText(raw);
+  if (!normInput) return null;
+
+  if (catalog[normInput]) return normInput;
+
+  for (const [id, item] of Object.entries(catalog)) {
+    if (item.name.toLowerCase() === lower || item.id.toLowerCase() === lower) {
+      return id;
+    }
+  }
+
+  const canonicalId = CANONICAL_DEFAULTS[normInput];
+  if (canonicalId && catalog[canonicalId]) {
+    return canonicalId;
+  }
+
+  const inputKeywords = extractKeywords(normInput);
+  if (inputKeywords.length === 0) return null;
+
+  let bestId: string | null = null;
+  let bestScore = 0;
+
+  for (const [id, item] of Object.entries(catalog)) {
+    const s = scoreIngredient(inputKeywords, normInput, item);
+    if (s > bestScore) {
+      bestScore = s;
+      bestId = id;
+    }
+  }
+
+  if (bestScore >= 30) return bestId;
+  return null;
+}
+
 function getMergedCatalog(): Record<string, Ingredient> {
   const customProducts = getCustomProducts();
   const customMap = Object.fromEntries(customProducts.map((p) => [p.id, p]));
-  return { ...INGREDIENTS, ...customMap };
+  const base = { ...INGREDIENTS, ...customMap };
+  if (base.oeufs_gros && !base.oeufs_larges) {
+    base.oeufs_larges = { ...base.oeufs_gros, id: 'oeufs_larges' };
+  }
+  return base;
 }
 
 function getAllAvailableRecipes(): Recipe[] {
@@ -84,7 +253,7 @@ export const toolSchemas = {
   // 1. Créer une recette
   create_recipe: {
     name: 'create_recipe',
-    description: 'Créer une nouvelle recette personnalisée avec ingrédients, étapes et calcul automatique des macros.',
+    description: 'Créer une nouvelle recette personnalisée avec ingrédients, étapes et calcul automatique des macros. Utiliser de préférence des noms courants clairs (ex: "poitrine de poulet", "champignons", "pâtes", "crème 35%") ou des identifiants Metro (ex: "poulet_poitrine", "riz_basmati"). Les macros peuvent aussi être fournis en filet de sécurité.',
     requiresConfirmation: false,
     schema: z.object({
       title: z.string().describe('Nom de la recette (ex: "Poulet Tikka Masala Maison")'),
@@ -94,53 +263,91 @@ export const toolSchemas = {
       servings: z.number().default(1).describe('Nombre de portions'),
       ingredients: z.array(
         z.object({
-          ingredientId: z.string().optional().describe('ID de l\'ingrédient (ex: "blanc_poulet", "riz_basmati") ou nom exact'),
-          name: z.string().optional().describe('Nom de l\'ingrédient si ID non renseigné'),
+          ingredientId: z.string().optional().describe('ID Metro (ex: "poulet_poitrine") ou nom courant (ex: "poitrine de poulet")'),
+          name: z.string().optional().describe('Nom de l\'ingrédient si ingredientId non renseigné'),
           quantity: z.union([z.number(), z.string()]).describe('Quantité numérique (ex: 200)'),
-          unit: z.string().optional().describe('Unité (g, ml, unite, canne, c_a_soupe)'),
+          unit: z.string().optional().describe('Unité (g, ml, unite, canne, c_a_soupe, tranche)'),
+          calories: z.number().optional().describe('Calories de l\'ingrédient (optionnel, filet de sécurité)'),
+          protein: z.number().optional().describe('Protéines en g (optionnel)'),
+          carbs: z.number().optional().describe('Glucides en g (optionnel)'),
+          fat: z.number().optional().describe('Lipides en g (optionnel)'),
         })
       ).describe('Liste des ingrédients'),
       instructions: z.array(z.string()).default([]).describe('Étapes de préparation'),
       tags: z.array(z.string()).default(['fait-maison']).describe('Tags ou étiquettes'),
       createdBy: z.string().default('ethan').describe('Identifiant du créateur ("ethan" ou "laurine")'),
+      caloriesPerServing: z.number().optional().describe('Calories par portion (optionnel, filet de sécurité)'),
+      proteinPerServing: z.number().optional().describe('Protéines par portion en g (optionnel)'),
+      carbsPerServing: z.number().optional().describe('Glucides par portion en g (optionnel)'),
+      fatPerServing: z.number().optional().describe('Lipides par portion en g (optionnel)'),
     }),
     execute: async (args: any) => {
       const catalog = getMergedCatalog();
       const resolvedMealType = parseRecipeMealType(args.mealType);
+      const servings = Math.max(1, args.servings || 1);
+
+      let fallbackTotalCalories = 0;
+      let fallbackTotalProtein = 0;
+      let fallbackTotalCarbs = 0;
+      let fallbackTotalFat = 0;
+
       // Résoudre les ingredientId si l'IA a passé un nom au lieu d'un ID
       const resolvedIngredients = args.ingredients.map((ing: any) => {
-        let raw = (ing.ingredientId || ing.name || ing.id || '').trim();
-        let id = raw;
-        if (!catalog[id]) {
-          const match = Object.values(catalog).find(
-            (c) => c.name.toLowerCase() === raw.toLowerCase() || c.id.toLowerCase() === raw.toLowerCase()
-          );
-          if (match) id = match.id;
-        }
+        const raw = (ing.ingredientId || ing.name || ing.id || '').trim();
+        const matchedId = findBestIngredient(raw, catalog);
+        const finalId = matchedId || raw || 'custom_item';
+
         const qty = typeof ing.quantity === 'number' ? ing.quantity : parseFloat(ing.quantity) || 1;
+        const unit = ing.unit || catalog[finalId]?.baseUnit || 'g';
+
+        if (ing.calories) fallbackTotalCalories += Number(ing.calories) || 0;
+        if (ing.protein) fallbackTotalProtein += Number(ing.protein) || 0;
+        if (ing.carbs) fallbackTotalCarbs += Number(ing.carbs) || 0;
+        if (ing.fat) fallbackTotalFat += Number(ing.fat) || 0;
+
         return {
-          ingredientId: id || 'custom_item',
+          ingredientId: finalId,
           quantity: qty,
-          unit: ing.unit || catalog[id]?.baseUnit || 'g',
+          unit,
         };
       });
 
-      const nutrients = calculateRecipeNutrients(resolvedIngredients, args.servings, catalog);
+      const nutrients = calculateRecipeNutrients(resolvedIngredients, servings, catalog);
+
+      let finalCalories = nutrients.caloriesPerServing;
+      let finalProtein = nutrients.proteinPerServing;
+      let finalCarbs = nutrients.carbsPerServing;
+      let finalFat = nutrients.fatPerServing;
+
+      // Filet de sécurité si aucun ingrédient n'a permis de calculer des macros > 0
+      if (finalCalories <= 0) {
+        if (typeof args.caloriesPerServing === 'number' && args.caloriesPerServing > 0) {
+          finalCalories = Math.round(args.caloriesPerServing);
+          finalProtein = Math.round((args.proteinPerServing ?? 0) * 10) / 10;
+          finalCarbs = Math.round((args.carbsPerServing ?? 0) * 10) / 10;
+          finalFat = Math.round((args.fatPerServing ?? 0) * 10) / 10;
+        } else if (fallbackTotalCalories > 0) {
+          finalCalories = Math.round(fallbackTotalCalories / servings);
+          finalProtein = Math.round((fallbackTotalProtein / servings) * 10) / 10;
+          finalCarbs = Math.round((fallbackTotalCarbs / servings) * 10) / 10;
+          finalFat = Math.round((fallbackTotalFat / servings) * 10) / 10;
+        }
+      }
 
       const created = saveCustomRecipe({
         title: args.title,
         mealType: resolvedMealType,
         prepTimeMinutes: args.prepTimeMinutes,
         cookTimeMinutes: args.cookTimeMinutes,
-        servings: args.servings,
+        servings: servings,
         ingredients: resolvedIngredients,
         instructions: args.instructions,
         tags: args.tags,
         createdBy: args.createdBy,
-        caloriesPerServing: nutrients.caloriesPerServing,
-        proteinPerServing: nutrients.proteinPerServing,
-        carbsPerServing: nutrients.carbsPerServing,
-        fatPerServing: nutrients.fatPerServing,
+        caloriesPerServing: finalCalories,
+        proteinPerServing: finalProtein,
+        carbsPerServing: finalCarbs,
+        fatPerServing: finalFat,
       });
 
       return {
@@ -156,7 +363,15 @@ export const toolSchemas = {
             carbs: `${created.carbsPerServing}g`,
             fat: `${created.fatPerServing}g`,
           },
+          estimatedCostTotal: nutrients.estimatedTotalCost ? `${nutrients.estimatedTotalCost.toFixed(2)} $` : undefined,
+          estimatedCostPerServing: nutrients.estimatedCostPerServing ? `${nutrients.estimatedCostPerServing.toFixed(2)} $` : undefined,
           ingredientsCount: created.ingredients.length,
+          matchedIngredients: created.ingredients.map((ing) => ({
+            id: ing.ingredientId,
+            matchedMetro: catalog[ing.ingredientId] ? catalog[ing.ingredientId].name : null,
+            quantity: ing.quantity,
+            unit: ing.unit,
+          })),
         },
       };
     },
@@ -211,8 +426,8 @@ export const toolSchemas = {
       const catalog = getMergedCatalog();
       let id = args.ingredientId;
       if (!catalog[id]) {
-        const match = Object.values(catalog).find((c) => c.name.toLowerCase() === id.toLowerCase());
-        if (match) id = match.id;
+        const matched = findBestIngredient(id, catalog);
+        if (matched) id = matched;
       }
       const item = catalog[id];
       if (!item) {
@@ -491,8 +706,8 @@ export const toolSchemas = {
       const catalog = getMergedCatalog();
       let id = args.ingredientId;
       if (!catalog[id]) {
-        const match = Object.values(catalog).find((c) => c.name.toLowerCase() === id.toLowerCase());
-        if (match) id = match.id;
+        const matched = findBestIngredient(id, catalog);
+        if (matched) id = matched;
       }
       const item = catalog[id];
       const name = item ? item.name : id;
