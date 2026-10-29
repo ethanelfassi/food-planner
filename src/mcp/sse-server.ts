@@ -52,33 +52,48 @@ const httpServer = http.createServer(async (req, res) => {
 
   // 1. Endpoint SSE : Connexion initiale
   if (req.method === 'GET' && url.pathname === '/sse') {
-    console.log('📡 [MCP SSE] Nouvelle connexion reçue');
-    const transport = new SSEServerTransport('/messages', res);
-    transports.set(transport.sessionId, transport);
+    try {
+      console.log('📡 [MCP SSE] Nouvelle connexion reçue');
+      const transport = new SSEServerTransport('/messages', res);
+      transports.set(transport.sessionId, transport);
 
-    transport.onclose = () => {
-      console.log(`🔌 [MCP SSE] Déconnexion de la session : ${transport.sessionId}`);
-      transports.delete(transport.sessionId);
-    };
+      transport.onclose = () => {
+        console.log(`🔌 [MCP SSE] Déconnexion de la session : ${transport.sessionId}`);
+        transports.delete(transport.sessionId);
+      };
 
-    const mcpServer = createMcpServer();
-    await mcpServer.connect(transport);
-    await transport.start();
-    console.log(`✅ [MCP SSE] Session initialisée : ${transport.sessionId}`);
+      const mcpServer = createMcpServer();
+      await mcpServer.connect(transport);
+      console.log(`✅ [MCP SSE] Session initialisée avec succès : ${transport.sessionId}`);
+    } catch (err: any) {
+      console.error('❌ [MCP SSE] Erreur initialisation SSE:', err);
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message || String(err) }));
+      }
+    }
     return;
   }
 
   // 2. Endpoint Messages : Envoi des requêtes JSON-RPC
   if (req.method === 'POST' && url.pathname === '/messages') {
-    const sessionId = url.searchParams.get('sessionId');
-    if (!sessionId || !transports.has(sessionId)) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Session introuvable ou sessionId manquant' }));
-      return;
-    }
+    try {
+      const sessionId = url.searchParams.get('sessionId');
+      if (!sessionId || !transports.has(sessionId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Session introuvable ou sessionId manquant' }));
+        return;
+      }
 
-    const transport = transports.get(sessionId)!;
-    await transport.handlePostMessage(req, res);
+      const transport = transports.get(sessionId)!;
+      await transport.handlePostMessage(req, res);
+    } catch (err: any) {
+      console.error('❌ [MCP SSE] Erreur traitement message:', err);
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message || String(err) }));
+      }
+    }
     return;
   }
 
