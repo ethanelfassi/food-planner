@@ -8,6 +8,7 @@
     "start": "next start",
     "mcp": "tsx src/mcp/server.ts",
     "mcp:sse": "tsx src/mcp/sse-server.ts",
+    "test": "tsx scripts/test-mcp-tools.ts",
     "lint": "eslint"
   },
   "dependencies": {

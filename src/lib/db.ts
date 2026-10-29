@@ -6,7 +6,6 @@ import {
   UserCustomizationSettings, 
   DEFAULT_USER_SETTINGS, 
   DEFAULT_LAURINE_SETTINGS,
-  DEFAULT_COPINE_SETTINGS, 
   UserAccount, 
   DEFAULT_ACCOUNTS,
   Recipe,
@@ -15,22 +14,46 @@ import {
   GroceryItem,
   DatabaseBackup
 } from '@/types';
-import { INGREDIENTS } from '@/data/ingredients';
 import { calculateRecipeNutrients } from './nutrition';
 export { calculateRecipeNutrients };
 
-const DB_DIR = path.join(process.cwd(), 'data');
-const DB_PATH = path.join(DB_DIR, 'food_planner.sqlite');
+export function getDbPath(): string {
+  if (process.env.FOOD_PLANNER_DB_PATH) {
+    return process.env.FOOD_PLANNER_DB_PATH;
+  }
+  if (process.env.DB_PATH) {
+    return process.env.DB_PATH;
+  }
+  const DB_DIR = path.join(process.cwd(), 'data');
+  return path.join(DB_DIR, 'food_planner.sqlite');
+}
+
+export function resetDatabaseInstance(): void {
+  if (dbInstance) {
+    try {
+      dbInstance.close();
+    } catch {
+      // Ignorer l'erreur à la fermeture
+    }
+    dbInstance = null;
+  }
+}
+
+export const closeDatabase = resetDatabaseInstance;
 
 let dbInstance: DatabaseSync | null = null;
 
 export function getDatabase(): DatabaseSync {
   if (!dbInstance) {
-    if (!fs.existsSync(DB_DIR)) {
-      fs.mkdirSync(DB_DIR, { recursive: true });
+    const targetPath = getDbPath();
+    if (targetPath !== ':memory:') {
+      const targetDir = path.dirname(targetPath);
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
     }
 
-    dbInstance = new DatabaseSync(DB_PATH);
+    dbInstance = new DatabaseSync(targetPath);
 
     // Initialiser les tables principales
     dbInstance.exec(`
@@ -618,7 +641,10 @@ export function getCustomRecipeById(id: string): Recipe | null {
   };
 }
 
-export function saveCustomRecipe(recipeData: Partial<Recipe>): Recipe {
+export function saveCustomRecipe(
+  recipeData: Partial<Recipe>,
+  customCatalog?: Record<string, Ingredient>
+): Recipe {
   const db = getDatabase();
   const now = new Date().toISOString();
   const id = recipeData.id || `custom_recipe_${Date.now()}`;
@@ -632,8 +658,41 @@ export function saveCustomRecipe(recipeData: Partial<Recipe>): Recipe {
   const tags = recipeData.tags || ['fait-maison'];
   const createdBy = recipeData.createdBy || 'ethan';
 
-  // Calcul automatique précis des macros à partir des ingrédients de la BD
-  const nutrients = calculateRecipeNutrients(ingredients, servings);
+  // Obtenir le catalogue des produits personnalisés si non fourni
+  let catalogToUse = customCatalog;
+  if (!catalogToUse) {
+    try {
+      const customProducts = getCustomProducts();
+      catalogToUse = Object.fromEntries(customProducts.map((p) => [p.id, p]));
+    } catch {
+      catalogToUse = undefined;
+    }
+  }
+
+  // Calcul automatique précis des macros à partir des ingrédients de la BD et du catalogue personnalisé
+  const nutrients = calculateRecipeNutrients(ingredients, servings, catalogToUse);
+
+  // Filet de sécurité / conservation des macros si calcul = 0 ou si des valeurs manuelles explicites ont été passées
+  const hasManualCalories = typeof recipeData.caloriesPerServing === 'number' && recipeData.caloriesPerServing > 0;
+  const hasManualProtein = typeof recipeData.proteinPerServing === 'number' && recipeData.proteinPerServing > 0;
+  const hasManualCarbs = typeof recipeData.carbsPerServing === 'number' && recipeData.carbsPerServing > 0;
+  const hasManualFat = typeof recipeData.fatPerServing === 'number' && recipeData.fatPerServing > 0;
+
+  const finalCalories = (hasManualCalories || nutrients.caloriesPerServing === 0)
+    ? (recipeData.caloriesPerServing ?? nutrients.caloriesPerServing)
+    : nutrients.caloriesPerServing;
+
+  const finalProtein = (hasManualProtein || nutrients.proteinPerServing === 0)
+    ? (recipeData.proteinPerServing ?? nutrients.proteinPerServing)
+    : nutrients.proteinPerServing;
+
+  const finalCarbs = (hasManualCarbs || nutrients.carbsPerServing === 0)
+    ? (recipeData.carbsPerServing ?? nutrients.carbsPerServing)
+    : nutrients.carbsPerServing;
+
+  const finalFat = (hasManualFat || nutrients.fatPerServing === 0)
+    ? (recipeData.fatPerServing ?? nutrients.fatPerServing)
+    : nutrients.fatPerServing;
 
   const stmt = db.prepare(`
     INSERT INTO custom_recipes (
@@ -664,10 +723,10 @@ export function saveCustomRecipe(recipeData: Partial<Recipe>): Recipe {
     prepTime,
     cookTime,
     servings,
-    nutrients.caloriesPerServing,
-    nutrients.proteinPerServing,
-    nutrients.carbsPerServing,
-    nutrients.fatPerServing,
+    finalCalories,
+    finalProtein,
+    finalCarbs,
+    finalFat,
     JSON.stringify(ingredients),
     JSON.stringify(instructions),
     JSON.stringify(tags),
@@ -683,10 +742,10 @@ export function saveCustomRecipe(recipeData: Partial<Recipe>): Recipe {
     prepTimeMinutes: prepTime,
     cookTimeMinutes: cookTime,
     servings,
-    caloriesPerServing: nutrients.caloriesPerServing,
-    proteinPerServing: nutrients.proteinPerServing,
-    carbsPerServing: nutrients.carbsPerServing,
-    fatPerServing: nutrients.fatPerServing,
+    caloriesPerServing: finalCalories,
+    proteinPerServing: finalProtein,
+    carbsPerServing: finalCarbs,
+    fatPerServing: finalFat,
     ingredients,
     instructions,
     tags,
@@ -814,8 +873,8 @@ export function saveCustomProduct(product: Partial<Ingredient>): Ingredient {
     protein,
     carbs,
     fat,
-    pkg.amount,
-    pkg.unit,
+    pkg.amount ?? 100,
+    pkg.unit ?? 'g',
     metroUrl
   );
 
