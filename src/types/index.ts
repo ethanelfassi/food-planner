@@ -266,6 +266,14 @@ export const DEFAULT_ACCOUNTS: UserAccount[] = [
 
 export type GroceryViewScope = 'common' | string; // 'common' ou accountId
 
+export interface ScheduledMealRecord {
+  accountId: string;
+  dayIndex: number;
+  mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  recipeId: string;
+  updatedAt?: string;
+}
+
 export interface DatabaseBackup {
   version: number;
   exportedAt: string;
@@ -278,12 +286,6 @@ export interface DatabaseBackup {
   customProducts: Ingredient[];
   pantryItems: string[];
   customGroceryItems?: GroceryItem[];
-  scheduledMeals?: {
-    accountId: string;
-    dayIndex: number;
-    mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack';
-    recipeId: string;
-    updatedAt?: string;
-  }[];
+  scheduledMeals?: ScheduledMealRecord[];
 }
 

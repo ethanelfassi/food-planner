@@ -17,7 +17,8 @@ import {
   DEFAULT_LAURINE_SETTINGS,
   UserAccount,
   DEFAULT_ACCOUNTS,
-  GroceryViewScope
+  GroceryViewScope,
+  ScheduledMealRecord
 } from '@/types';
 import { generateWeeklyPlan, replaceRecipeInPlan } from '@/lib/planner';
 import {
@@ -81,8 +82,55 @@ export default function Home() {
   const [coupleSettings, setCoupleSettings] = useState<CoupleSettings>(DEFAULT_COUPLE_SETTINGS);
   const [pantryMap, setPantryMap] = useState<Record<string, boolean>>({});
   const [isProductCreatorOpen, setIsProductCreatorOpen] = useState(false);
+  const [scheduledMeals, setScheduledMeals] = useState<ScheduledMealRecord[]>([]);
 
   const isDark = theme === 'dark';
+
+  const todayDayIndex = React.useMemo(() => {
+    const d = new Date().getDay();
+    return d === 0 ? 6 : d - 1;
+  }, []);
+
+  // Helper pour injecter les repas programmés (via MCP / ChatMCP ou UI) dans un plan hebdomadaire
+  const applyScheduledMealsToPlan = useCallback(
+    (plan: WeeklyPlan, accountId: string, meals: ScheduledMealRecord[], allRecipes: Recipe[]): WeeklyPlan => {
+      const recMap = new Map(allRecipes.map((r) => [r.id, r]));
+      const updatedDays = plan.days.map((day, idx) => {
+        const matches = meals.filter((m) => m.accountId === accountId && m.dayIndex === idx);
+        if (matches.length === 0) return day;
+        const newDay = { ...day };
+        for (const m of matches) {
+          const found = recMap.get(m.recipeId);
+          if (found) {
+            (newDay as any)[m.mealSlot] = found;
+          }
+        }
+        newDay.dailyCalories =
+          newDay.breakfast.caloriesPerServing +
+          newDay.lunch.caloriesPerServing +
+          newDay.dinner.caloriesPerServing +
+          newDay.snack.caloriesPerServing;
+        newDay.dailyProtein =
+          newDay.breakfast.proteinPerServing +
+          newDay.lunch.proteinPerServing +
+          newDay.dinner.proteinPerServing +
+          newDay.snack.proteinPerServing;
+        newDay.dailyCarbs =
+          newDay.breakfast.carbsPerServing +
+          newDay.lunch.carbsPerServing +
+          newDay.dinner.carbsPerServing +
+          newDay.snack.carbsPerServing;
+        newDay.dailyFat =
+          newDay.breakfast.fatPerServing +
+          newDay.lunch.fatPerServing +
+          newDay.dinner.fatPerServing +
+          newDay.snack.fatPerServing;
+        return newDay;
+      });
+      return { ...plan, days: updatedDays };
+    },
+    []
+  );
 
   // Chargement SQLite
   const initAppData = useCallback(async () => {
@@ -99,6 +147,7 @@ export default function Home() {
       let loadedCustomProducts: Ingredient[] = [];
       let loadedPantry: Record<string, boolean> = {};
       let loadedGroceryItems: GroceryItem[] = [];
+      let loadedScheduledMeals: ScheduledMealRecord[] = [];
 
       try {
         const [res, prodRes, pantryRes, groceryRes] = await Promise.all([
@@ -127,6 +176,9 @@ export default function Home() {
           }
           if (data.customRecipes && Array.isArray(data.customRecipes)) {
             loadedCustomRecipes = data.customRecipes;
+          }
+          if (data.scheduledMeals && Array.isArray(data.scheduledMeals)) {
+            loadedScheduledMeals = data.scheduledMeals;
           }
         }
 
@@ -163,6 +215,7 @@ export default function Home() {
       setCustomProducts(loadedCustomProducts);
       setPantryMap(loadedPantry);
       setCustomManualItems(loadedGroceryItems);
+      setScheduledMeals(loadedScheduledMeals);
 
       const initialChecked: Record<string, boolean> = {};
       for (const item of loadedGroceryItems) {
@@ -170,17 +223,21 @@ export default function Home() {
       }
       setCheckedItemsMap((prev) => ({ ...initialChecked, ...prev }));
 
-      // Générer les plans de chaque compte selon leurs préférences et recettes personnalisées
+      const allAvailableRecs = [...RECIPES, ...loadedCustomRecipes];
+      // Générer les plans de chaque compte selon leurs préférences, recettes et repas programmés
       const initialPlans: Record<string, WeeklyPlan> = {};
       for (const acc of loadedAccounts) {
         const userPrefs = loadedPrefs[acc.id] || {};
-        initialPlans[acc.id] = generateWeeklyPlan(userPrefs, loadedCustomRecipes);
+        const basePlan = generateWeeklyPlan(userPrefs, loadedCustomRecipes);
+        initialPlans[acc.id] = applyScheduledMealsToPlan(basePlan, acc.id, loadedScheduledMeals, allAvailableRecs);
       }
       if (!initialPlans['ethan']) {
-        initialPlans['ethan'] = generateWeeklyPlan(loadedPrefs['ethan'] || {}, loadedCustomRecipes);
+        const basePlan = generateWeeklyPlan(loadedPrefs['ethan'] || {}, loadedCustomRecipes);
+        initialPlans['ethan'] = applyScheduledMealsToPlan(basePlan, 'ethan', loadedScheduledMeals, allAvailableRecs);
       }
       if (!initialPlans['laurine']) {
-        initialPlans['laurine'] = generateWeeklyPlan(loadedPrefs['laurine'] || {}, loadedCustomRecipes);
+        const basePlan = generateWeeklyPlan(loadedPrefs['laurine'] || {}, loadedCustomRecipes);
+        initialPlans['laurine'] = applyScheduledMealsToPlan(basePlan, 'laurine', loadedScheduledMeals, allAvailableRecs);
       }
       setPlansByAccount(initialPlans);
 
@@ -504,20 +561,26 @@ export default function Home() {
 
   // --- GESTION DU PLANIFICATEUR ---
 
-  const handleRegenerateAll = () => {
-    const prefs = preferencesByAccount[activeAccountId] || {};
-    const newPlan = generateWeeklyPlan(prefs, customRecipes);
-    setPlansByAccount((prev) => ({
-      ...prev,
-      [activeAccountId]: newPlan,
-    }));
-  };
-
   const allRecipes = React.useMemo(() => {
     return [...RECIPES, ...(customRecipes || [])];
   }, [customRecipes]);
 
-  const handleReplaceRecipe = (
+  const handleRegenerateAll = () => {
+    const prefs = preferencesByAccount[activeAccountId] || {};
+    const basePlan = generateWeeklyPlan(prefs, customRecipes);
+    const updatedPlan = applyScheduledMealsToPlan(
+      basePlan,
+      activeAccountId,
+      scheduledMeals,
+      allRecipes
+    );
+    setPlansByAccount((prev) => ({
+      ...prev,
+      [activeAccountId]: updatedPlan,
+    }));
+  };
+
+  const handleReplaceRecipe = async (
     dayIndex: number,
     mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack',
     newRecipeId: string
@@ -528,6 +591,37 @@ export default function Home() {
       ...prev,
       [activeAccountId]: updatedPlan,
     }));
+
+    try {
+      await fetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'set_scheduled_meal',
+          accountId: activeAccountId,
+          dayIndex,
+          mealSlot: mealType,
+          recipeId: newRecipeId,
+        }),
+      });
+      setScheduledMeals((prev) => {
+        const filtered = prev.filter(
+          (m) => !(m.accountId === activeAccountId && m.dayIndex === dayIndex && m.mealSlot === mealType)
+        );
+        return [
+          ...filtered,
+          {
+            accountId: activeAccountId,
+            dayIndex,
+            mealSlot: mealType,
+            recipeId: newRecipeId,
+            updatedAt: new Date().toISOString(),
+          },
+        ];
+      });
+    } catch (err) {
+      console.warn('Erreur persistance repas programmé:', err);
+    }
   };
 
   const handlePlanRecipeToDay = (
@@ -872,7 +966,7 @@ export default function Home() {
 
         {activeTab === 'tracker' && (
           <CalorieTrackerView
-            currentDayPlan={activePlan.days[0]}
+            currentDayPlan={activePlan.days[todayDayIndex] || activePlan.days[0]}
             userSettings={activeSettings}
             isDark={isDark}
           />

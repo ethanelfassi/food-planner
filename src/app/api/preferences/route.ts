@@ -11,7 +11,11 @@ import {
   updateAccountSettings, 
   getAllCustomPrices, 
   setCustomPrice,
-  getAllCustomRecipes
+  getAllCustomRecipes,
+  getScheduledMeals,
+  setScheduledMeal,
+  deleteScheduledMeal,
+  clearDaySchedule
 } from '@/lib/db';
 
 export async function GET() {
@@ -22,6 +26,7 @@ export async function GET() {
     const allSettings = getAllAccountsSettings();
     const customPrices = getAllCustomPrices();
     const customRecipes = getAllCustomRecipes();
+    const scheduledMeals = getScheduledMeals();
 
     return NextResponse.json({
       accounts,
@@ -30,6 +35,7 @@ export async function GET() {
       settings: allSettings,
       customPrices,
       customRecipes,
+      scheduledMeals,
       // Champs rétrocompatibles
       legacyPreferences: allPreferences[activeAccountId] || allPreferences['ethan'] || {},
       legacySettings: allSettings[activeAccountId] || allSettings['ethan'] || {},
@@ -125,6 +131,26 @@ export async function POST(request: Request) {
         settings: getAllAccountsSettings(),
         customPrices: getAllCustomPrices(),
         updatedSettings: updated,
+      });
+    }
+
+    // 7. Programmation d'un repas précis
+    if (body.action === 'set_scheduled_meal' && body.dayIndex !== undefined && body.mealSlot && body.recipeId) {
+      const targetAccount = body.accountId || getActiveAccountId() || 'ethan';
+      setScheduledMeal(targetAccount, Number(body.dayIndex), body.mealSlot, body.recipeId);
+      return NextResponse.json({
+        success: true,
+        scheduledMeals: getScheduledMeals(),
+      });
+    }
+
+    // 8. Suppression d'un repas programmé
+    if (body.action === 'delete_scheduled_meal' && body.dayIndex !== undefined && body.mealSlot) {
+      const targetAccount = body.accountId || getActiveAccountId() || 'ethan';
+      deleteScheduledMeal(targetAccount, Number(body.dayIndex), body.mealSlot);
+      return NextResponse.json({
+        success: true,
+        scheduledMeals: getScheduledMeals(),
       });
     }
 

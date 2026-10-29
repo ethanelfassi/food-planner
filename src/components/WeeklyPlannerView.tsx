@@ -44,7 +44,10 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
   onSelectRecipe,
   onOpenRecipeCreator,
 }) => {
-  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+  const [selectedDayIndex, setSelectedDayIndex] = useState(() => {
+    const d = new Date().getDay();
+    return d === 0 ? 6 : d - 1;
+  });
   const [swapMealState, setSwapMealState] = useState<{
     dayIndex: number;
     mealType: 'breakfast' | 'dinner' | 'snack';
