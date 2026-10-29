@@ -1,6 +1,9 @@
-import http from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
+import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { ALL_TOOLS } from './tools.js';
 
 function createMcpServer() {
@@ -32,89 +35,163 @@ function createMcpServer() {
   return server;
 }
 
-const transports = new Map<string, SSEServerTransport>();
+const app = createMcpExpressApp({ host: '0.0.0.0' });
 
-const PORT = parseInt(process.env.MCP_PORT || '3001', 10);
-
-const httpServer = http.createServer(async (req, res) => {
-  // CORS headers requis pour les clients web et mobiles
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
+// Middleware CORS pour autoriser ChatMCP (iOS) et requêtes distantes
+app.use((req: any, res: any, next: any) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, mcp-session-id');
+  res.header('Access-Control-Expose-Headers', 'mcp-session-id');
   if (req.method === 'OPTIONS') {
-    res.writeHead(200);
-    res.end();
+    res.sendStatus(200);
     return;
   }
+  next();
+});
 
-  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+const MAX_SESSIONS = 1000;
+const sessions = new Map<string, { transport: StreamableHTTPServerTransport | SSEServerTransport; open: number; lastActive: number }>();
 
-  // 1. Endpoint SSE : Connexion initiale
-  if (req.method === 'GET' && url.pathname === '/sse') {
-    try {
-      console.log('📡 [MCP SSE] Nouvelle connexion reçue');
-      const transport = new SSEServerTransport('/messages', res);
-      transports.set(transport.sessionId, transport);
+const trackResponse = (session: { open: number; lastActive: number }, res: any) => {
+  if (!res.socket || res.destroyed) return;
+  session.open++;
+  res.on('close', () => {
+    session.open--;
+    session.lastActive = Date.now();
+  });
+};
 
-      transport.onclose = () => {
-        console.log(`🔌 [MCP SSE] Déconnexion de la session : ${transport.sessionId}`);
-        transports.delete(transport.sessionId);
-      };
-
-      const mcpServer = createMcpServer();
-      await mcpServer.connect(transport);
-      console.log(`✅ [MCP SSE] Session initialisée avec succès : ${transport.sessionId}`);
-    } catch (err: any) {
-      console.error('❌ [MCP SSE] Erreur initialisation SSE:', err);
-      if (!res.headersSent) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message || String(err) }));
-      }
+// Nettoyage périodique des sessions inactives (> 30 min)
+setInterval(() => {
+  const cutoff = Date.now() - 30 * 60 * 1000;
+  for (const [id, s] of sessions.entries()) {
+    if (s.open === 0 && s.lastActive < cutoff) {
+      s.transport.close().catch(console.error);
+      sessions.delete(id);
     }
-    return;
   }
+}, 60000).unref();
 
-  // 2. Endpoint Messages : Envoi des requêtes JSON-RPC
-  if (req.method === 'POST' && url.pathname === '/messages') {
-    try {
-      const sessionId = url.searchParams.get('sessionId');
-      if (!sessionId || !transports.has(sessionId)) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Session introuvable ou sessionId manquant' }));
+// =============================================================================
+// STREAMABLE HTTP TRANSPORT (Requis par ChatMCP et spec MCP 2025)
+// =============================================================================
+const handleStreamableHttp = async (req: any, res: any) => {
+  try {
+    const sessionId = (req.headers['mcp-session-id'] as string) || (req.query?.sessionId as string);
+    const session = sessionId ? sessions.get(sessionId) : undefined;
+    let transport: StreamableHTTPServerTransport;
+
+    if (session) {
+      if (session.transport instanceof StreamableHTTPServerTransport) {
+        transport = session.transport;
+        trackResponse(session, res);
+      } else {
+        res.status(400).json({
+          jsonrpc: '2.0',
+          error: { code: -32000, message: 'Mauvais type de transport' },
+          id: null,
+        });
+        return;
+      }
+    } else if (!sessionId && req.method === 'POST' && isInitializeRequest(req.body)) {
+      if (sessions.size >= MAX_SESSIONS) {
+        res.status(503).json({ jsonrpc: '2.0', error: { code: -32000, message: 'Trop de sessions ouvertes' }, id: null });
         return;
       }
 
-      const transport = transports.get(sessionId)!;
-      await transport.handlePostMessage(req, res);
-    } catch (err: any) {
-      console.error('❌ [MCP SSE] Erreur traitement message:', err);
-      if (!res.headersSent) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message || String(err) }));
-      }
+      transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+        onsessioninitialized: (newSessionId) => {
+          console.log(`📡 [StreamableHTTP] Session initialisée : ${newSessionId}`);
+          sessions.set(newSessionId, { transport, open: 0, lastActive: Date.now() });
+        },
+      });
+
+      transport.onclose = () => {
+        const sid = transport.sessionId;
+        if (sid && sessions.has(sid)) {
+          console.log(`🔌 [StreamableHTTP] Session fermée : ${sid}`);
+          sessions.delete(sid);
+        }
+      };
+
+      const server = createMcpServer();
+      await server.connect(transport);
+    } else if (sessionId) {
+      res.status(404).json({ jsonrpc: '2.0', error: { code: -32001, message: 'Session introuvable' }, id: null });
+      return;
+    } else {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        error: { code: -32000, message: 'Requête invalide : session ID manquant ou non-initialize' },
+        id: null,
+      });
+      return;
     }
-    return;
-  }
 
-  // 3. Health check
-  if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/health')) {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      status: 'ok',
-      server: 'FoodPlanner MCP SSE Server',
-      port: PORT,
-      sseEndpoint: '/sse',
-      toolsCount: Object.keys(ALL_TOOLS).length,
-    }));
-    return;
+    await transport.handleRequest(req, res, req.body);
+  } catch (error: any) {
+    console.error('❌ [StreamableHTTP] Erreur :', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        jsonrpc: '2.0',
+        error: { code: -32603, message: error.message || 'Erreur interne' },
+        id: null,
+      });
+    }
   }
+};
 
-  res.writeHead(404, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ error: 'Not found' }));
+// Route supportée par ChatMCP : /mcp et /
+app.all('/mcp', handleStreamableHttp);
+app.post('/', handleStreamableHttp);
+
+// =============================================================================
+// RETRO-COMPATIBILITÉ SSE CLASSIQUE (/sse et /messages)
+// =============================================================================
+app.get('/sse', async (req: any, res: any) => {
+  try {
+    const transport = new SSEServerTransport('/messages', res);
+    const session = { transport, open: 0, lastActive: Date.now() };
+    sessions.set(transport.sessionId, session);
+    trackResponse(session, res);
+
+    transport.onclose = () => {
+      sessions.delete(transport.sessionId);
+    };
+
+    const server = createMcpServer();
+    await server.connect(transport);
+  } catch (err: any) {
+    console.error('❌ [SSE] Erreur :', err);
+    if (!res.headersSent) res.status(500).send('Erreur SSE');
+  }
 });
 
-httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 FoodPlanner MCP SSE Server en écoute sur http://0.0.0.0:${PORT}`);
-  console.log(`📡 URL SSE pour ChatMCP : http://0.0.0.0:${PORT}/sse`);
+app.post('/messages', async (req: any, res: any) => {
+  const sessionId = req.query.sessionId as string;
+  const existingTransport = sessions.get(sessionId)?.transport;
+  if (existingTransport instanceof SSEServerTransport) {
+    await existingTransport.handlePostMessage(req, res, req.body);
+  } else {
+    res.status(400).send('Session introuvable');
+  }
+});
+
+// Health check simple
+app.get('/health', (req: any, res: any) => {
+  res.json({
+    status: 'ok',
+    server: 'FoodPlanner MCP Server (Streamable HTTP + SSE)',
+    port: PORT,
+    endpoints: ['/mcp', '/', '/sse'],
+    toolsCount: Object.keys(ALL_TOOLS).length,
+  });
+});
+
+const PORT = parseInt(process.env.MCP_PORT || '3001', 10);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 FoodPlanner MCP Server (Streamable HTTP & SSE) prêt sur port ${PORT}`);
+  console.log(`📲 URL Streamable HTTP pour ChatMCP : http://0.0.0.0:${PORT}/mcp`);
 });
