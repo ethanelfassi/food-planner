@@ -11,7 +11,8 @@ import {
   UserCustomizationSettings,
   UserAccount,
   DEFAULT_ACCOUNTS,
-  GroceryViewScope
+  GroceryViewScope,
+  SharedGroceryGroup
 } from '@/types';
 import { AISLE_LABELS, calculateReceiptTaxes, AccountSplitSummary } from '@/lib/grocery';
 import { INGREDIENTS } from '@/data/ingredients';
@@ -53,6 +54,8 @@ interface GroceryListViewProps {
   userSettings?: UserCustomizationSettings;
   accounts?: UserAccount[];
   activeAccountId?: string;
+  friends?: UserAccount[];
+  sharedGroups?: SharedGroceryGroup[];
   scope?: GroceryViewScope;
   commonSplitReport?: {
     totalWithTax: number;
@@ -67,6 +70,9 @@ interface GroceryListViewProps {
   onClearChecked: () => void;
   onToggleCoupleMode: () => void;
   onScopeChange?: (scope: GroceryViewScope) => void;
+  onCreateSharedGroup?: (friendIds: string[], name?: string) => Promise<void>;
+  onDeleteSharedGroup?: (groupId: string) => Promise<void>;
+  onOpenFriendsModal?: () => void;
   onUpdatePreference?: (ingredientId: string, status: ProductPreferenceStatus) => void;
   onUpdateCustomPrice?: (ingredientId: string, price: number | null) => void;
 }
@@ -174,17 +180,17 @@ const GroceryItemRow = React.memo<{
                 <Pencil className="w-2.5 h-2.5" /> Prix Modifié
               </span>
             )}
-            {scope === 'common' && item.neededBy && item.neededBy.length > 1 && (
+            {(scope === 'common' || scope.startsWith('joint_')) && item.neededBy && item.neededBy.length > 1 && (
               <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-100 text-stone-900 dark:bg-white/10 dark:text-white font-semibold border border-stone-300 dark:border-white/20">
                 <Users className="w-2.5 h-2.5" /> Commun
               </span>
             )}
-            {scope === 'common' && neededByAccountName && (
+            {(scope === 'common' || scope.startsWith('joint_')) && neededByAccountName && (
               <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold border border-stone-300 dark:border-stone-700">
                 <User className="w-2.5 h-2.5" /> Pour {neededByAccountName}
               </span>
             )}
-            {scope === 'common' && forAccountName && (
+            {(scope === 'common' || scope.startsWith('joint_')) && forAccountName && (
               <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold border border-stone-300 dark:border-stone-700">
                 <User className="w-2.5 h-2.5" /> Pour {forAccountName}
               </span>
@@ -372,6 +378,8 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
   userSettings,
   accounts = DEFAULT_ACCOUNTS,
   activeAccountId = 'ethan',
+  friends = [],
+  sharedGroups = [],
   scope = 'common',
   commonSplitReport,
   isDark,
@@ -382,11 +390,18 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
   onClearChecked,
   onToggleCoupleMode,
   onScopeChange,
+  onCreateSharedGroup,
+  onDeleteSharedGroup,
+  onOpenFriendsModal,
   onUpdatePreference,
   onUpdateCustomPrice,
 }) => {
   const [copySuccess, setCopySuccess] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showNewGroupModal, setShowNewGroupModal] = useState(false);
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [creatingGroup, setCreatingGroup] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemAisle, setNewItemAisle] = useState<MetroAisle>('EPICERIE');
   const [editingPriceItem, setEditingPriceItem] = useState<{
@@ -515,71 +530,195 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
 
   return (
     <div className="space-y-8">
-      {/* SÉLECTEUR DE LISTE : COMMUNE (PARTAGÉE) VS INDIVIDUELLE */}
+      {/* SÉLECTEUR DE LISTE : MES COURSES (SOLO) VS COURSES JOINTES AVEC MES AMIS */}
       <div
-        className={`p-2 sm:p-2.5 rounded-2xl sm:rounded-3xl border transition-all ${
+        className={`p-3 sm:p-4 rounded-2xl sm:rounded-3xl border transition-all ${
           isDark ? 'liquid-glass' : 'liquid-glass-light'
         }`}
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none flex-nowrap sm:flex-wrap">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none flex-nowrap sm:flex-wrap">
+            {/* 1. Mes courses (Solo) */}
             <button
-              onClick={() => onScopeChange?.('common')}
-              className={`flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl sm:rounded-2xl text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 shrink-0 ${
-                scope === 'common'
+              onClick={() => onScopeChange?.(activeAccountId)}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl sm:rounded-2xl text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 shrink-0 cursor-pointer ${
+                scope === activeAccountId
                   ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-md'
-                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white border border-transparent hover:border-stone-200 dark:hover:border-white/10'
               }`}
             >
-              <Users className="w-3.5 h-3.5 shrink-0" />
-              <span>Liste Commune</span>
-              {scope === 'common' && (
+              <User className="w-3.5 h-3.5 shrink-0" />
+              <span>Mes courses (Solo)</span>
+              {scope === activeAccountId && (
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-950 shrink-0">
                   {totalItems}
                 </span>
               )}
             </button>
 
-            {accounts.map((acc) => {
-              const isSelected = scope === acc.id;
+            {/* 2. Courses jointes actives avec mes amis */}
+            {sharedGroups.map((grp) => {
+              const isSelected = scope === grp.id || (scope === 'common' && grp.id === 'joint_ethan_laurine');
+              const friendNames = grp.members
+                .filter((m) => m.id !== activeAccountId)
+                .map((m) => m.name)
+                .join(', ');
               return (
-                <button
-                  key={acc.id}
-                  onClick={() => onScopeChange?.(acc.id)}
-                  className={`flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl sm:rounded-2xl text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 shrink-0 ${
-                    isSelected
-                      ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-md'
-                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${
+                <div key={grp.id} className="inline-flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => onScopeChange?.(grp.id)}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl sm:rounded-2xl text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 shrink-0 cursor-pointer ${
                       isSelected
-                        ? 'bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-950'
-                        : 'bg-stone-200 text-stone-800 dark:bg-white/10 dark:text-stone-300'
+                        ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-md'
+                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white border border-stone-200/70 dark:border-white/10'
                     }`}
                   >
-                    {acc.avatarInitials}
-                  </div>
-                  <span>Liste {acc.name}</span>
-                  {isSelected && (
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-950 shrink-0">
-                      {totalItems}
+                    <Users className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      {grp.name || `Course avec ${friendNames || 'Amis'}`}
                     </span>
+                    {isSelected && (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-950 shrink-0">
+                        {totalItems}
+                      </span>
+                    )}
+                  </button>
+                  {isSelected && onDeleteSharedGroup && grp.id !== 'joint_ethan_laurine' && (
+                    <button
+                      onClick={() => onDeleteSharedGroup(grp.id)}
+                      className="p-1.5 rounded-xl text-stone-400 hover:text-red-500 transition-colors cursor-pointer"
+                      title="Quitter ou supprimer cette course jointe"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   )}
-                </button>
+                </div>
               );
             })}
+
+            {/* 3. Bouton + Nouvelle course jointe avec un ami */}
+            <button
+              onClick={() => {
+                if (friends.length === 0 && onOpenFriendsModal) {
+                  onOpenFriendsModal();
+                } else {
+                  setSelectedFriendIds(friends[0] ? [friends[0].id] : []);
+                  setShowNewGroupModal(!showNewGroupModal);
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl sm:rounded-2xl text-xs font-mono uppercase tracking-wider border border-dashed transition-all font-semibold shrink-0 cursor-pointer ${
+                isDark
+                  ? 'border-white/20 text-stone-300 hover:bg-white/5 hover:border-white/40'
+                  : 'border-stone-300 text-stone-700 hover:bg-stone-100 hover:border-stone-500'
+              }`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Course jointe avec un ami</span>
+            </button>
           </div>
 
-          <div className="text-[11px] font-mono text-stone-500 dark:text-stone-400 px-3 hidden md:block">
-            {scope === 'common'
-              ? 'Achats consolidés pour les deux profils avec répartition équitable'
-              : `Panier individuel calculé pour les recettes de ${
-                  accounts.find((a) => a.id === scope)?.name || 'ce profil'
-                }`}
+          <div className="text-[11px] font-mono text-stone-500 dark:text-stone-400 px-2 hidden xl:block">
+            {scope === 'common' || scope.startsWith('joint_')
+              ? 'Panier Metro fusionné entre amis • Cases cochées synchronisées & calcul exact des parts'
+              : `Panier individuel calculé uniquement pour votre menu hebdomadaire`}
           </div>
         </div>
+
+        {/* Mini-tiroir de création d'une nouvelle course jointe avec ses amis */}
+        {showNewGroupModal && (
+          <div
+            className={`mt-3 pt-3 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+              isDark ? 'border-white/10' : 'border-stone-200'
+            }`}
+          >
+            <div className="space-y-2 flex-1">
+              <div className="text-xs font-mono uppercase tracking-wider text-stone-500">
+                Sélectionnez les amis avec qui fusionner la liste d’épicerie :
+              </div>
+              {friends.length === 0 ? (
+                <div className="text-xs text-stone-500 flex items-center gap-2">
+                  <span>Vous n’avez pas encore d’ami connecté.</span>
+                  {onOpenFriendsModal && (
+                    <button
+                      type="button"
+                      onClick={onOpenFriendsModal}
+                      className="underline font-semibold text-stone-900 dark:text-white cursor-pointer"
+                    >
+                      Ajouter un ami par @pseudo ou Code Ami
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {friends.map((f) => {
+                    const checked = selectedFriendIds.includes(f.id);
+                    return (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedFriendIds((prev) =>
+                            prev.includes(f.id) ? prev.filter((id) => id !== f.id) : [...prev, f.id]
+                          );
+                        }}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
+                          checked
+                            ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white'
+                            : isDark
+                            ? 'bg-white/5 border-white/10 text-stone-300'
+                            : 'bg-white border-stone-200 text-stone-700'
+                        }`}
+                      >
+                        <span className="w-5 h-5 rounded-full bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-950 flex items-center justify-center text-[10px] font-bold">
+                          {f.avatarInitials}
+                        </span>
+                        <span>{f.name}</span>
+                        {checked && <Check className="w-3.5 h-3.5" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="Nom (optionnel, ex: Coloc)"
+                className={`px-3 py-2 rounded-xl border text-xs outline-none ${
+                  isDark ? 'bg-black/40 border-white/15 text-white' : 'bg-white border-stone-300 text-stone-900'
+                }`}
+              />
+              <button
+                type="button"
+                disabled={creatingGroup || selectedFriendIds.length === 0}
+                onClick={async () => {
+                  if (!onCreateSharedGroup || selectedFriendIds.length === 0) return;
+                  setCreatingGroup(true);
+                  try {
+                    await onCreateSharedGroup(selectedFriendIds, newGroupName.trim() || undefined);
+                    setShowNewGroupModal(false);
+                    setNewGroupName('');
+                  } finally {
+                    setCreatingGroup(false);
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-stone-900 text-white dark:bg-white dark:text-stone-950 text-xs font-semibold disabled:opacity-50 cursor-pointer"
+              >
+                {creatingGroup ? 'Création...' : 'Lancer la course jointe'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowNewGroupModal(false)}
+                className="p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* CONTRÔLE QUALITÉ & VÉRIFICATION METRO */}
@@ -652,10 +791,17 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
             </div>
 
             <h1 className="font-serif text-2xl sm:text-4xl font-normal tracking-tight text-stone-900 dark:text-white">
-              {scope === 'common' ? (
-                <>Liste d'Épicerie & <span className="italic">Ticket Commun</span></>
+              {scope === 'common' || scope.startsWith('joint_') ? (
+                <>
+                  Course Jointe &{' '}
+                  <span className="italic">
+                    {sharedGroups.find((g) => g.id === scope)?.name || 'Ticket Partagé'}
+                  </span>
+                </>
               ) : (
-                <>Liste d'Épicerie de <span className="italic">{accounts.find((a) => a.id === scope)?.name || 'Profil'}</span></>
+                <>
+                  Mes Courses <span className="italic">({accounts.find((a) => a.id === scope)?.name || 'Solo'})</span>
+                </>
               )}
             </h1>
 
@@ -703,7 +849,7 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
             )}
 
             {/* Ventilation Équitable Commune pour le Ticket Partagé */}
-            {scope === 'common' && commonSplitReport && Object.keys(commonSplitReport.accountSplits).length > 0 && (
+            {(scope === 'common' || scope.startsWith('joint_')) && commonSplitReport && Object.keys(commonSplitReport.accountSplits).length > 0 && (
               <div className="mt-4 p-4 rounded-2xl border bg-stone-50/70 dark:bg-black/30 border-stone-200/80 dark:border-white/10 max-w-xl">
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-stone-200/60 dark:border-white/10">
                   <div className="flex items-center gap-2">

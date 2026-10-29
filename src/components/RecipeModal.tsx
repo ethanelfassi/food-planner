@@ -1,27 +1,34 @@
 'use client';
 
-import React from 'react';
-import { ProductPreferenceStatus, ProductPreferencesMap, Recipe } from '@/types';
+import React, { useState } from 'react';
+import { ProductPreferenceStatus, ProductPreferencesMap, Recipe, UserAccount } from '@/types';
 import { INGREDIENTS } from '@/data/ingredients';
-import { X, Clock, Flame, Dumbbell, Sparkles, Heart, Ban, Pencil } from 'lucide-react';
+import { X, Clock, Flame, Dumbbell, Sparkles, Heart, Ban, Pencil, Share2, Check } from 'lucide-react';
 
 interface RecipeModalProps {
   recipe: Recipe | null;
   preferences?: ProductPreferencesMap;
+  friends?: UserAccount[];
   isDark: boolean;
   onClose: () => void;
   onUpdatePreference?: (ingredientId: string, status: ProductPreferenceStatus) => void;
   onEditCustomRecipe?: (recipe: Recipe) => void;
+  onShareRecipeWithFriend?: (recipe: Recipe, friendId: string) => Promise<void>;
 }
 
 const RecipeModalComponent: React.FC<RecipeModalProps> = ({ 
   recipe, 
   preferences = {}, 
+  friends = [],
   isDark, 
   onClose,
   onUpdatePreference,
-  onEditCustomRecipe 
+  onEditCustomRecipe,
+  onShareRecipeWithFriend
 }) => {
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const [sharedFeedback, setSharedFeedback] = useState<string | null>(null);
+
   if (!recipe) return null;
 
   return (
@@ -62,7 +69,47 @@ const RecipeModalComponent: React.FC<RecipeModalProps> = ({
               {recipe.title}
             </h2>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 relative">
+            {friends.length > 0 && onShareRecipeWithFriend && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowShareMenu(!showShareMenu)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20 hover:bg-stone-100 dark:hover:bg-white/10 transition-colors font-medium cursor-pointer"
+                  title="Envoyer une copie de cette recette à un ami"
+                >
+                  {sharedFeedback ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">{sharedFeedback || 'Partager'}</span>
+                </button>
+                {showShareMenu && (
+                  <div
+                    className={`absolute right-0 mt-2 w-52 rounded-2xl border p-2 shadow-xl z-20 ${
+                      isDark ? 'bg-stone-950 border-white/15 text-white' : 'bg-white border-stone-200 text-stone-900'
+                    }`}
+                  >
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 px-2 py-1">
+                      Envoyer à un ami :
+                    </div>
+                    {friends.map((f) => (
+                      <button
+                        key={f.id}
+                        onClick={async () => {
+                          setShowShareMenu(false);
+                          await onShareRecipeWithFriend(recipe, f.id);
+                          setSharedFeedback(`Envoyé à ${f.name}`);
+                          setTimeout(() => setSharedFeedback(null), 2500);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-xl text-xs hover:bg-stone-100 dark:hover:bg-white/10 flex items-center gap-2 cursor-pointer"
+                      >
+                        <span className="w-5 h-5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 flex items-center justify-center text-[10px] font-bold">
+                          {f.avatarInitials}
+                        </span>
+                        <span className="truncate">{f.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {recipe.isCustom && onEditCustomRecipe && (
               <button
                 onClick={() => {

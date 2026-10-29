@@ -37,6 +37,10 @@ interface HeaderProps {
   userSettings?: UserCustomizationSettings;
   accounts?: UserAccount[];
   activeAccountId?: string;
+  friendsCount?: number;
+  pendingRequestsCount?: number;
+  onOpenFriendsModal?: () => void;
+  onLogout?: () => void;
   onSwitchAccount?: (accountId: string) => void;
   onRenameAccount?: (accountId: string, newName: string) => void;
   onCreateAccount?: (name: string) => void;
@@ -53,6 +57,10 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   userSettings,
   accounts = DEFAULT_ACCOUNTS,
   activeAccountId = 'ethan',
+  friendsCount = 0,
+  pendingRequestsCount = 0,
+  onOpenFriendsModal,
+  onLogout,
   onSwitchAccount,
   onRenameAccount,
   onCreateAccount,
@@ -255,26 +263,39 @@ export const Header: React.FC<HeaderProps> = React.memo(({
 
           {/* Sélecteur de Compte + Navigation + Theme Toggle */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-            {/* Account Switcher Dropdown */}
+            {/* Bouton Profil & Amis */}
             <div className="relative shrink-0" ref={menuRef}>
               <button
-                onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
-                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-2xl border transition-all active:scale-95 shrink-0 ${isDark
+                onClick={() => {
+                  if (onOpenFriendsModal) {
+                    onOpenFriendsModal();
+                  } else {
+                    setIsAccountMenuOpen(!isAccountMenuOpen);
+                  }
+                }}
+                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-2xl border transition-all active:scale-95 shrink-0 cursor-pointer relative ${isDark
                   ? 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-white'
                   : 'bg-white hover:bg-stone-50 border-stone-200 text-stone-900 shadow-xs'
                   }`}
-                title="Changer de compte ou gérer les profils"
+                title="Mon Profil, mes Amis et mes Courses Jointes"
               >
                 <div className="w-5 h-5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 flex items-center justify-center font-mono text-[10px] font-bold shrink-0">
                   {activeAccount.avatarInitials}
                 </div>
-                <span className="text-xs font-medium max-w-[70px] sm:max-w-[110px] truncate">
-                  {activeAccount.name}
-                </span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 text-stone-400 transition-transform shrink-0 ${isAccountMenuOpen ? 'rotate-180' : ''
-                    }`}
-                />
+                <div className="flex flex-col items-start leading-tight">
+                  <span className="text-xs font-semibold max-w-[80px] sm:max-w-[115px] truncate">
+                    {activeAccount.name}
+                  </span>
+                  <span className="hidden sm:inline text-[10px] font-mono text-stone-500 dark:text-stone-400">
+                    {friendsCount} ami{friendsCount > 1 ? 's' : ''}
+                  </span>
+                </div>
+                <Users className="w-3.5 h-3.5 text-stone-400 shrink-0 ml-0.5" />
+                {pendingRequestsCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-500 text-stone-950 text-[10px] font-mono font-bold flex items-center justify-center shadow-sm">
+                    {pendingRequestsCount}
+                  </span>
+                )}
               </button>
 
               {/* Menu Déroulant Profils */}

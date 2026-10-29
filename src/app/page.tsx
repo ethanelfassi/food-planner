@@ -18,7 +18,9 @@ import {
   UserAccount,
   DEFAULT_ACCOUNTS,
   GroceryViewScope,
-  ScheduledMealRecord
+  ScheduledMealRecord,
+  Friendship,
+  SharedGroceryGroup
 } from '@/types';
 import { generateWeeklyPlan, replaceRecipeInPlan } from '@/lib/planner';
 import {
@@ -29,6 +31,8 @@ import {
 } from '@/lib/grocery';
 import { DEFAULT_COUPLE_SETTINGS, calculateSplitCost } from '@/lib/couple-split';
 import { Header } from '@/components/Header';
+import { AuthScreen } from '@/components/AuthScreen';
+import { FriendsAndProfileModal } from '@/components/FriendsAndProfileModal';
 import { WeeklyPlannerView } from '@/components/WeeklyPlannerView';
 import { RecipeBookView } from '@/components/RecipeBookView';
 import { GroceryListView } from '@/components/GroceryListView';
@@ -51,10 +55,19 @@ export default function Home() {
   const [customProducts, setCustomProducts] = useState<Ingredient[]>([]);
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
 
-  // Multi-comptes
+  // Multi-comptes, Authentification & Amis
+  const [authChecked, setAuthChecked] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [friends, setFriends] = useState<UserAccount[]>([]);
+  const [incomingRequests, setIncomingRequests] = useState<Friendship[]>([]);
+  const [outgoingRequests, setOutgoingRequests] = useState<Friendship[]>([]);
+  const [sharedGroceryGroups, setSharedGroceryGroups] = useState<SharedGroceryGroup[]>([]);
+  const [isFriendsModalOpen, setIsFriendsModalOpen] = useState<boolean>(false);
+  const [initialInviteCode, setInitialInviteCode] = useState<string>('');
+
   const [accounts, setAccounts] = useState<UserAccount[]>(DEFAULT_ACCOUNTS);
   const [activeAccountId, setActiveAccountId] = useState<string>('ethan');
-  const [groceryScope, setGroceryScope] = useState<GroceryViewScope>('common');
+  const [groceryScope, setGroceryScope] = useState<GroceryViewScope>('ethan');
 
   // Données par compte
   const [preferencesByAccount, setPreferencesByAccount] = useState<Record<string, ProductPreferencesMap>>({
@@ -152,19 +165,38 @@ export default function Home() {
       let loadedScheduledMeals: ScheduledMealRecord[] = [];
 
       try {
-        const [res, prodRes, pantryRes, groceryRes] = await Promise.all([
+        const [authRes, res, prodRes, pantryRes, groceryRes] = await Promise.all([
+          fetch('/api/auth'),
           fetch('/api/preferences'),
           fetch('/api/products'),
           fetch('/api/pantry'),
           fetch('/api/grocery'),
         ]);
 
+        let authenticatedUser: UserAccount | null = null;
+        let loadedGroups: SharedGroceryGroup[] = [];
+        if (authRes.ok) {
+          const authData = await authRes.json();
+          if (authData.authenticated && authData.user) {
+            authenticatedUser = authData.user;
+            activeAcc = authData.user.id;
+            setCurrentUser(authData.user);
+            setFriends(authData.friends || []);
+            setIncomingRequests(authData.incomingRequests || []);
+            setOutgoingRequests(authData.outgoingRequests || []);
+            loadedGroups = authData.sharedGroceryGroups || [];
+            setSharedGroceryGroups(loadedGroups);
+          } else {
+            setCurrentUser(null);
+          }
+        }
+
         if (res.ok) {
           const data = await res.json();
           if (data.accounts && Array.isArray(data.accounts) && data.accounts.length > 0) {
             loadedAccounts = data.accounts;
           }
-          if (data.activeAccountId) {
+          if (!authenticatedUser && data.activeAccountId) {
             activeAcc = data.activeAccountId;
           }
           if (data.preferences) {
@@ -204,8 +236,20 @@ export default function Home() {
             loadedGroceryItems = groceryData.items;
           }
         }
+
+        // Sélectionner par défaut la course solo de l'utilisateur connecté (ou sa première course jointe)
+        if (authenticatedUser) {
+          setGroceryScope((prev) => {
+            if (prev && (prev === authenticatedUser!.id || loadedGroups.some((g) => g.id === prev))) {
+              return prev;
+            }
+            return authenticatedUser!.id;
+          });
+        }
       } catch (err) {
         console.warn('Impossible de charger les données SQLite, fallback local:', err);
+      } finally {
+        setAuthChecked(true);
       }
 
       setAccounts(loadedAccounts);
@@ -226,19 +270,22 @@ export default function Home() {
       setCheckedItemsMap((prev) => ({ ...initialChecked, ...prev }));
 
       const allAvailableRecs = [...RECIPES, ...loadedCustomRecipes];
-      // Générer les plans de chaque compte selon leurs préférences, recettes et repas programmés
+      // Générer les plans de chaque compte selon leurs préférences, leurs propres recettes et repas programmés
       const initialPlans: Record<string, WeeklyPlan> = {};
       for (const acc of loadedAccounts) {
         const userPrefs = loadedPrefs[acc.id] || {};
-        const basePlan = generateWeeklyPlan(userPrefs, loadedCustomRecipes);
+        const accRecipes = loadedCustomRecipes.filter((r) => !r.createdBy || r.createdBy === acc.id);
+        const basePlan = generateWeeklyPlan(userPrefs, accRecipes);
         initialPlans[acc.id] = applyScheduledMealsToPlan(basePlan, acc.id, loadedScheduledMeals, allAvailableRecs);
       }
       if (!initialPlans['ethan']) {
-        const basePlan = generateWeeklyPlan(loadedPrefs['ethan'] || {}, loadedCustomRecipes);
+        const ethanRecipes = loadedCustomRecipes.filter((r) => !r.createdBy || r.createdBy === 'ethan');
+        const basePlan = generateWeeklyPlan(loadedPrefs['ethan'] || {}, ethanRecipes);
         initialPlans['ethan'] = applyScheduledMealsToPlan(basePlan, 'ethan', loadedScheduledMeals, allAvailableRecs);
       }
       if (!initialPlans['laurine']) {
-        const basePlan = generateWeeklyPlan(loadedPrefs['laurine'] || {}, loadedCustomRecipes);
+        const laurineRecipes = loadedCustomRecipes.filter((r) => r.createdBy === 'laurine');
+        const basePlan = generateWeeklyPlan(loadedPrefs['laurine'] || {}, laurineRecipes);
         initialPlans['laurine'] = applyScheduledMealsToPlan(basePlan, 'laurine', loadedScheduledMeals, allAvailableRecs);
       }
       setPlansByAccount(initialPlans);
@@ -268,7 +315,14 @@ export default function Home() {
 
   // 1. Initialisation au montage avec chargement depuis SQLite
   useEffect(() => {
-    // Thème
+    // Thème & Paramètre d'invitation ?invite=FP-XXXX
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const invite = params.get('invite');
+      if (invite) {
+        setInitialInviteCode(invite);
+      }
+    }
     const savedTheme = typeof window !== 'undefined' ? (localStorage.getItem('fp_theme') as 'dark' | 'light' | null) : null;
     const initialTheme = savedTheme || 'dark';
     setTheme(initialTheme);
@@ -561,15 +615,19 @@ export default function Home() {
     }
   };
 
-  // --- GESTION DU PLANIFICATEUR ---
+  // --- GESTION DU PLANIFICATEUR & RECETTES PAR COMPTE ---
+
+  const userCustomRecipes = React.useMemo(() => {
+    return (customRecipes || []).filter((r) => !r.createdBy || r.createdBy === activeAccountId);
+  }, [customRecipes, activeAccountId]);
 
   const allRecipes = React.useMemo(() => {
-    return [...RECIPES, ...(customRecipes || [])];
-  }, [customRecipes]);
+    return [...RECIPES, ...userCustomRecipes];
+  }, [userCustomRecipes]);
 
   const handleRegenerateAll = () => {
     const prefs = preferencesByAccount[activeAccountId] || {};
-    const basePlan = generateWeeklyPlan(prefs, customRecipes);
+    const basePlan = generateWeeklyPlan(prefs, userCustomRecipes);
     const updatedPlan = applyScheduledMealsToPlan(
       basePlan,
       activeAccountId,
@@ -588,7 +646,7 @@ export default function Home() {
     newRecipeId: string
   ) => {
     if (!activePlan) return;
-    const updatedPlan = replaceRecipeInPlan(activePlan, dayIndex, mealType, newRecipeId, customRecipes);
+    const updatedPlan = replaceRecipeInPlan(activePlan, dayIndex, mealType, newRecipeId, userCustomRecipes);
     setPlansByAccount((prev) => ({
       ...prev,
       [activeAccountId]: updatedPlan,
@@ -653,9 +711,222 @@ export default function Home() {
     }
   };
 
-  // --- GESTION DE LA LISTE D'ÉPICERIE (COMMUNE VS INDIVIDUELLE) ---
+  // --- AUTHENTIFICATION, AMIS & COURSES JOINTES ---
+
+  const handleAuthenticated = async (payload: {
+    user: UserAccount;
+    friends: UserAccount[];
+    incomingRequests: Friendship[];
+    outgoingRequests: Friendship[];
+    sharedGroceryGroups: SharedGroceryGroup[];
+  }) => {
+    setCurrentUser(payload.user);
+    setActiveAccountId(payload.user.id);
+    setFriends(payload.friends || []);
+    setIncomingRequests(payload.incomingRequests || []);
+    setOutgoingRequests(payload.outgoingRequests || []);
+    setSharedGroceryGroups(payload.sharedGroceryGroups || []);
+    setGroceryScope(payload.user.id);
+    await initAppData();
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'logout' }),
+      });
+    } catch {
+      // ignore
+    }
+    setIsFriendsModalOpen(false);
+    setCurrentUser(null);
+  };
+
+  const handleSendFriendRequest = async (target: string) => {
+    const res = await fetch('/api/friends', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'send_request',
+        accountId: activeAccountId,
+        target,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      setFriends(data.friends || []);
+      setIncomingRequests(data.incomingRequests || []);
+      setOutgoingRequests(data.outgoingRequests || []);
+      return { ok: true, message: data.message };
+    }
+    return { ok: false, error: data.error || "Impossible d'envoyer la demande." };
+  };
+
+  const handleRespondFriendRequest = async (friendshipId: string, accept: boolean) => {
+    const res = await fetch('/api/friends', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'respond_request',
+        accountId: activeAccountId,
+        friendshipId,
+        accept,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      setFriends(data.friends || []);
+      setIncomingRequests(data.incomingRequests || []);
+      setOutgoingRequests(data.outgoingRequests || []);
+    }
+  };
+
+  const handleRemoveFriend = async (friendId: string) => {
+    const res = await fetch('/api/friends', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'remove_friend',
+        accountId: activeAccountId,
+        friendId,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      setFriends(data.friends || []);
+      setIncomingRequests(data.incomingRequests || []);
+      setOutgoingRequests(data.outgoingRequests || []);
+    }
+  };
+
+  const handleCreateSharedGroup = async (friendIds: string[], groupName?: string) => {
+    // Vérifier s'il existe déjà une course jointe exactement avec ces mêmes membres
+    const targetMembersSet = new Set([activeAccountId, ...friendIds]);
+    const existingGroup = sharedGroceryGroups.find(
+      (g) =>
+        g.memberIds.length === targetMembersSet.size &&
+        g.memberIds.every((id) => targetMembersSet.has(id))
+    );
+    if (existingGroup && !groupName) {
+      setGroceryScope(existingGroup.id);
+      setActiveTab('grocery');
+      return;
+    }
+
+    const res = await fetch('/api/grocery/groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create_group',
+        accountId: activeAccountId,
+        friendIds,
+        name: groupName,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      setSharedGroceryGroups(data.groups || []);
+      if (data.group) {
+        setGroceryScope(data.group.id);
+        setActiveTab('grocery');
+      }
+    }
+  };
+
+  const handleDeleteSharedGroup = async (groupId: string) => {
+    const res = await fetch('/api/grocery/groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'delete_group',
+        accountId: activeAccountId,
+        groupId,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      setSharedGroceryGroups(data.groups || []);
+      setGroceryScope(activeAccountId);
+    }
+  };
+
+  const handleShareRecipeWithFriend = async (recipe: Recipe, friendId: string) => {
+    await fetch('/api/friends', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'share_recipe',
+        accountId: activeAccountId,
+        recipeId: recipe.id,
+        recipe,
+        friendId,
+      }),
+    });
+  };
+
+  const handleUpdateProfile = async (name: string, newPassword?: string) => {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'update_profile',
+        accountId: activeAccountId,
+        name,
+        newPassword,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok && data.user) {
+      setCurrentUser(data.user);
+      setAccounts((prev) => prev.map((a) => (a.id === data.user.id ? data.user : a)));
+    }
+  };
+
+  // --- GESTION DE LA LISTE D'ÉPICERIE (SOLO VS COURSE JOINTE ENTRE AMIS) ---
+
+  const activeSharedGroup = React.useMemo(() => {
+    if (groceryScope === 'common') {
+      return sharedGroceryGroups[0] || null;
+    }
+    return sharedGroceryGroups.find((g) => g.id === groceryScope) || null;
+  }, [groceryScope, sharedGroceryGroups]);
 
   const handleToggleItem = async (id: string) => {
+    if (activeSharedGroup) {
+      const nextChecked = !activeSharedGroup.checkedItems?.[id];
+      setSharedGroceryGroups((prev) =>
+        prev.map((g) =>
+          g.id === activeSharedGroup.id
+            ? {
+                ...g,
+                checkedItems: {
+                  ...(g.checkedItems || {}),
+                  [id]: nextChecked,
+                },
+              }
+            : g
+        )
+      );
+      try {
+        await fetch('/api/grocery/groups', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'toggle_item',
+            accountId: activeAccountId,
+            groupId: activeSharedGroup.id,
+            itemId: id,
+            checked: nextChecked,
+          }),
+        });
+      } catch (err) {
+        console.error('Erreur sync check course jointe:', err);
+      }
+      return;
+    }
+
     setCheckedItemsMap((prev) => ({
       ...prev,
       [id]: !prev[id],
@@ -792,49 +1063,62 @@ export default function Home() {
     return Object.values({ ...INGREDIENTS, ...customMap });
   }, [customProducts]);
 
-  // --- CALCUL DES ARTICLES DE LA LISTE D'ÉPICERIE SELON LE SCOPE (HOOKS INCONDITIONNELS) ---
+  // --- CALCUL DES ARTICLES DE LA LISTE D'ÉPICERIE SELON LE SCOPE (SOLO OU COURSE JOINTE ENTRE AMIS) ---
 
-  // 1. Liste Commune consolidée (Tous les profils réunis avec fusion des paquets)
+  const jointGroupMembers = React.useMemo<UserAccount[]>(() => {
+    if (activeSharedGroup && activeSharedGroup.members && activeSharedGroup.members.length > 0) {
+      return activeSharedGroup.members;
+    }
+    return accounts;
+  }, [activeSharedGroup, accounts]);
+
   const commonAccountPlans = React.useMemo(() => {
     if (!activePlan) return [];
-    return accounts.map((acc) => ({
+    return jointGroupMembers.map((acc) => ({
       accountId: acc.id,
       accountName: acc.name,
       plan: plansByAccount[acc.id] || activePlan,
     }));
-  }, [accounts, plansByAccount, activePlan]);
+  }, [jointGroupMembers, plansByAccount, activePlan]);
 
   const commonGroceryItems = React.useMemo(() => {
     if (commonAccountPlans.length === 0) return [];
     return generateCommonGroceryList(commonAccountPlans, customPrices, customProducts, pantryMap);
   }, [commonAccountPlans, customPrices, customProducts, pantryMap]);
 
-  // Le calcul du split dépend UNIQUEMENT des prix et besoins des paquets, JAMAIS de l'état coché !
+  // Le calcul du split dépend UNIQUEMENT des prix et besoins des paquets des membres de la course jointe !
   const baseCommonItems = React.useMemo(() => {
+    const memberIdsSet = new Set(jointGroupMembers.map((m) => m.id));
     return [
-      ...customManualItems.filter((i) => !i.forAccount || i.forAccount === 'common' || accounts.some(a => a.id === i.forAccount)),
+      ...customManualItems
+        .filter((i) => !i.forAccount || i.forAccount === 'common' || memberIdsSet.has(i.forAccount))
+        .map((i) => ({
+          ...i,
+          neededBy: i.forAccount === 'common' ? jointGroupMembers.map((m) => m.id) : [i.forAccount || activeAccountId],
+        })),
       ...commonGroceryItems,
     ];
-  }, [customManualItems, accounts, commonGroceryItems]);
+  }, [customManualItems, jointGroupMembers, commonGroceryItems, activeAccountId]);
 
   const commonSplitReport = React.useMemo(() => {
-    return calculateCommonListSplit(baseCommonItems, accounts);
-  }, [baseCommonItems, accounts]);
+    return calculateCommonListSplit(baseCommonItems, jointGroupMembers);
+  }, [baseCommonItems, jointGroupMembers]);
 
   const commonItemsWithCustom = React.useMemo(() => {
+    const groupCheckedMap = activeSharedGroup?.checkedItems || checkedItemsMap;
     return baseCommonItems.map((item) => ({
       ...item,
-      checked: checkedItemsMap[item.id] || false,
+      checked: Boolean(groupCheckedMap[item.id] || checkedItemsMap[item.id]),
     }));
-  }, [baseCommonItems, checkedItemsMap]);
+  }, [baseCommonItems, activeSharedGroup, checkedItemsMap]);
 
-  // 2. Détermination des articles visibles selon le scope
+  // 2. Détermination des articles visibles selon le scope (Solo vs Course jointe)
   const displayedGroceryItems = React.useMemo<GroceryItem[]>(() => {
     if (!activePlan) return [];
-    if (groceryScope === 'common') {
+    if (groceryScope === 'common' || groceryScope.startsWith('joint_')) {
       return commonItemsWithCustom;
     }
-    const targetAccId = groceryScope;
+    const targetAccId = groceryScope || activeAccountId;
     const targetPlan = plansByAccount[targetAccId] || activePlan;
     const targetSettings = settingsByAccount[targetAccId] || activeSettings;
     const baseIndividualList = generateGroceryList(
@@ -847,18 +1131,30 @@ export default function Home() {
       pantryMap
     );
     const manualForTarget = customManualItems.filter(
-      (i) => i.forAccount === targetAccId || i.forAccount === 'common'
+      (i) => i.forAccount === targetAccId
     );
     return [...manualForTarget, ...baseIndividualList].map((item) => ({
       ...item,
       checked: checkedItemsMap[item.id] || false,
     }));
-  }, [groceryScope, commonItemsWithCustom, plansByAccount, activePlan, settingsByAccount, activeSettings, customPrices, customProducts, customManualItems, checkedItemsMap]);
+  }, [groceryScope, activeAccountId, commonItemsWithCustom, plansByAccount, activePlan, settingsByAccount, activeSettings, customPrices, customProducts, pantryMap, customManualItems, checkedItemsMap]);
 
   // Calcul du split rétrocompatible pour la vue couple
   const singleSplitReport: SplitCostReport = React.useMemo(() => {
     return calculateSplitCost(displayedGroceryItems, coupleSettings);
   }, [displayedGroceryItems, coupleSettings]);
+
+  if (authChecked && !currentUser) {
+    return (
+      <AuthScreen
+        isDark={isDark}
+        demoAccounts={accounts}
+        initialInviteCode={initialInviteCode}
+        onToggleTheme={toggleTheme}
+        onAuthenticated={handleAuthenticated}
+      />
+    );
+  }
 
   return (
     <div
@@ -869,10 +1165,14 @@ export default function Home() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         groceryCount={displayedGroceryItems.length}
-        coupleModeEnabled={coupleSettings.coupleModeEnabled}
+        coupleModeEnabled={sharedGroceryGroups.length > 0}
         userSettings={activeSettings}
         accounts={accounts}
         activeAccountId={activeAccountId}
+        friendsCount={friends.length}
+        pendingRequestsCount={incomingRequests.length}
+        onOpenFriendsModal={() => setIsFriendsModalOpen(true)}
+        onLogout={handleLogout}
         onSwitchAccount={handleSwitchAccount}
         onRenameAccount={handleRenameAccount}
         onCreateAccount={handleCreateAccount}
@@ -887,7 +1187,7 @@ export default function Home() {
             plan={activePlan}
             preferences={activePreferences}
             userSettings={activeSettings}
-            customRecipes={customRecipes}
+            customRecipes={userCustomRecipes}
             isDark={isDark}
             onRegenerateAll={handleRegenerateAll}
             onReplaceRecipe={handleReplaceRecipe}
@@ -902,7 +1202,7 @@ export default function Home() {
         {activeTab === 'recipes' && (
           <RecipeBookView
             allRecipes={allRecipes}
-            customRecipes={customRecipes}
+            customRecipes={userCustomRecipes}
             preferences={activePreferences}
             isDark={isDark}
             onSelectRecipe={(recipe) => setSelectedRecipe(recipe)}
@@ -926,6 +1226,8 @@ export default function Home() {
             userSettings={activeSettings}
             accounts={accounts}
             activeAccountId={activeAccountId}
+            friends={friends}
+            sharedGroups={sharedGroceryGroups}
             scope={groceryScope}
             commonSplitReport={commonSplitReport}
             isDark={isDark}
@@ -936,6 +1238,9 @@ export default function Home() {
             onClearChecked={handleClearChecked}
             onToggleCoupleMode={handleToggleCoupleMode}
             onScopeChange={setGroceryScope}
+            onCreateSharedGroup={handleCreateSharedGroup}
+            onDeleteSharedGroup={handleDeleteSharedGroup}
+            onOpenFriendsModal={() => setIsFriendsModalOpen(true)}
             onUpdatePreference={handleUpdatePreference}
             onUpdateCustomPrice={handleUpdateCustomPrice}
           />
@@ -988,13 +1293,34 @@ export default function Home() {
       <RecipeModal
         recipe={selectedRecipe}
         preferences={activePreferences}
+        friends={friends}
         isDark={isDark}
         onClose={() => setSelectedRecipe(null)}
         onUpdatePreference={handleUpdatePreference}
+        onShareRecipeWithFriend={handleShareRecipeWithFriend}
         onEditCustomRecipe={(recipe) => {
           setRecipeToEdit(recipe);
           setIsRecipeCreatorOpen(true);
         }}
+      />
+
+      <FriendsAndProfileModal
+        isOpen={isFriendsModalOpen}
+        isDark={isDark}
+        currentUser={activeAccount}
+        friends={friends}
+        incomingRequests={incomingRequests}
+        outgoingRequests={outgoingRequests}
+        sharedGroceryGroups={sharedGroceryGroups}
+        userSettings={activeSettings}
+        onClose={() => setIsFriendsModalOpen(false)}
+        onSendFriendRequest={handleSendFriendRequest}
+        onRespondFriendRequest={handleRespondFriendRequest}
+        onRemoveFriend={handleRemoveFriend}
+        onCreateJointGroceryWithFriend={handleCreateSharedGroup}
+        onUpdateSettings={handleUpdateSettings}
+        onUpdateProfile={handleUpdateProfile}
+        onLogout={handleLogout}
       />
 
       <RecipeCreatorModal

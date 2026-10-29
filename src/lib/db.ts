@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import fs from 'node:fs';
+import { scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import { 
   UserCustomizationSettings, 
@@ -8,6 +9,8 @@ import {
   DEFAULT_LAURINE_SETTINGS,
   UserAccount, 
   DEFAULT_ACCOUNTS,
+  Friendship,
+  SharedGroceryGroup,
   Recipe,
   RecipeIngredientItem,
   Ingredient,
@@ -16,6 +19,32 @@ import {
 } from '@/types';
 import { calculateRecipeNutrients } from './nutrition';
 export { calculateRecipeNutrients };
+
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString('hex');
+  const derived = scryptSync(password, salt, 64).toString('hex');
+  return `${salt}:${derived}`;
+}
+
+export function verifyPassword(password: string, storedHash: string): boolean {
+  if (!storedHash || !storedHash.includes(':')) return false;
+  const [salt, key] = storedHash.split(':');
+  if (!salt || !key) return false;
+  const keyBuffer = Buffer.from(key, 'hex');
+  const derivedBuffer = scryptSync(password, salt, 64);
+  if (keyBuffer.length !== derivedBuffer.length) return false;
+  return timingSafeEqual(keyBuffer, derivedBuffer);
+}
+
+export function generateFriendCode(prefix = 'FP'): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  const bytes = randomBytes(6);
+  for (let i = 0; i < 6; i++) {
+    code += chars[bytes[i] % chars.length];
+  }
+  return `${prefix}-${code}`;
+}
 
 export function getDbPath(): string {
   if (process.env.FOOD_PLANNER_DB_PATH) {
@@ -154,7 +183,57 @@ export function getDatabase(): DatabaseSync {
         updated_at TEXT NOT NULL,
         PRIMARY KEY (account_id, day_index, meal_slot)
       );
+
+      CREATE TABLE IF NOT EXISTS auth_sessions (
+        token TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS friendships (
+        id TEXT PRIMARY KEY,
+        requester_id TEXT NOT NULL,
+        addressee_id TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('pending', 'accepted', 'declined')),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(requester_id, addressee_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS shared_grocery_groups (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        member_ids_json TEXT NOT NULL,
+        checked_items_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS account_pantry_items (
+        account_id TEXT NOT NULL,
+        ingredient_id TEXT NOT NULL,
+        in_stock INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (account_id, ingredient_id)
+      );
     `);
+
+    // Migration accounts pour supporter authentification & système d'amis
+    const accountCols = [
+      "ALTER TABLE accounts ADD COLUMN username TEXT",
+      "ALTER TABLE accounts ADD COLUMN email TEXT",
+      "ALTER TABLE accounts ADD COLUMN password_hash TEXT",
+      "ALTER TABLE accounts ADD COLUMN friend_code TEXT",
+    ];
+    for (const colSql of accountCols) {
+      try {
+        dbInstance.exec(colSql);
+      } catch {
+        // Ignorer si la colonne existe déjà
+      }
+    }
 
     // Migration custom_products pour supporter code-barres, photos, macros et poids
     const customProductCols = [
@@ -195,6 +274,65 @@ export function getDatabase(): DatabaseSync {
         const now = new Date().toISOString();
         insertAccount.run('ethan', 'Ethan', 'E', now);
         insertAccount.run('laurine', 'Laurine', 'L', now);
+      }
+
+      // Assurer que les comptes existants (Ethan, Laurine, etc.) ont un username, un friend_code et un mot de passe par défaut
+      const existingAccounts = dbInstance.prepare('SELECT id, name, username, email, password_hash, friend_code FROM accounts').all() as {
+        id: string;
+        name: string;
+        username?: string;
+        email?: string;
+        password_hash?: string;
+        friend_code?: string;
+      }[];
+
+      const updateAccAuth = dbInstance.prepare(`
+        UPDATE accounts SET username = ?, email = ?, password_hash = ?, friend_code = ? WHERE id = ?
+      `);
+
+      for (const acc of existingAccounts) {
+        const defaultUsername = acc.username || acc.id.toLowerCase().replace(/[^a-z0-9_]/g, '');
+        const defaultEmail = acc.email || `${defaultUsername}@foodplanner.local`;
+        const defaultCode = acc.friend_code || (acc.id === 'ethan' ? 'FP-ETHAN' : acc.id === 'laurine' ? 'FP-LAURINE' : generateFriendCode());
+        const defaultPass = acc.password_hash || hashPassword(acc.id === 'laurine' ? 'laurine123' : `${defaultUsername}123`);
+        if (!acc.username || !acc.friend_code || !acc.password_hash) {
+          updateAccAuth.run(defaultUsername, defaultEmail, defaultPass, defaultCode, acc.id);
+        }
+      }
+
+      // Créer l'amitié par défaut entre Ethan et Laurine s'ils existent
+      const friendshipRow = dbInstance.prepare(
+        "SELECT id FROM friendships WHERE (requester_id = 'ethan' AND addressee_id = 'laurine') OR (requester_id = 'laurine' AND addressee_id = 'ethan')"
+      ).get() as { id: string } | undefined;
+
+      if (!friendshipRow) {
+        const now = new Date().toISOString();
+        dbInstance.prepare(`
+          INSERT OR IGNORE INTO friendships (id, requester_id, addressee_id, status, created_at, updated_at)
+          VALUES ('friend_ethan_laurine', 'ethan', 'laurine', 'accepted', ?, ?)
+        `).run(now, now);
+      }
+
+      // Créer le groupe de course jointe par défaut entre Ethan et Laurine
+      const jointGroupRow = dbInstance.prepare(
+        "SELECT id FROM shared_grocery_groups WHERE id = 'joint_ethan_laurine'"
+      ).get() as { id: string } | undefined;
+
+      if (!jointGroupRow) {
+        const now = new Date().toISOString();
+        dbInstance.prepare(`
+          INSERT OR IGNORE INTO shared_grocery_groups (id, name, created_by, member_ids_json, checked_items_json, created_at, updated_at)
+          VALUES ('joint_ethan_laurine', 'Course jointe Ethan & Laurine', 'ethan', '["ethan","laurine"]', '{}', ?, ?)
+        `).run(now, now);
+      }
+
+      // Migrer pantry_items vers account_pantry_items pour Ethan
+      const ethanPantryCount = dbInstance.prepare("SELECT COUNT(*) as count FROM account_pantry_items WHERE account_id = 'ethan'").get() as { count: number } | undefined;
+      if ((ethanPantryCount?.count ?? 0) === 0) {
+        dbInstance.exec(`
+          INSERT OR IGNORE INTO account_pantry_items (account_id, ingredient_id, in_stock, updated_at)
+          SELECT 'ethan', ingredient_id, in_stock, updated_at FROM pantry_items;
+        `);
       }
 
       // Migrer les préférences existantes de product_preferences vers account_preferences pour Ethan
@@ -241,30 +379,47 @@ export function getDatabase(): DatabaseSync {
   return dbInstance;
 }
 
-// --- GESTION DES COMPTES (ETHAN, COPINE, ETC.) ---
+// --- GESTION DES COMPTES, AUTHENTIFICATION & AMIS ---
 
 export interface AccountRow {
   id: string;
   name: string;
+  username?: string;
+  email?: string;
+  password_hash?: string;
+  friend_code?: string;
   avatar_initials: string;
   created_at: string;
 }
 
+function mapAccountRowToUserAccount(r: AccountRow): UserAccount {
+  return {
+    id: r.id,
+    name: r.name,
+    username: r.username || r.id,
+    email: r.email || undefined,
+    friendCode: r.friend_code || undefined,
+    avatarInitials: r.avatar_initials || r.name.substring(0, 1).toUpperCase(),
+    isDefault: r.id === 'ethan',
+  };
+}
+
 export function getAllAccounts(): UserAccount[] {
   const db = getDatabase();
-  const stmt = db.prepare("SELECT id, name, avatar_initials FROM accounts ORDER BY CASE WHEN id = 'ethan' THEN 0 WHEN id = 'laurine' THEN 1 ELSE 2 END, name ASC");
+  const stmt = db.prepare("SELECT id, name, username, email, friend_code, avatar_initials, created_at FROM accounts ORDER BY CASE WHEN id = 'ethan' THEN 0 WHEN id = 'laurine' THEN 1 ELSE 2 END, name ASC");
   const rows = stmt.all() as unknown as AccountRow[];
 
   if (rows.length === 0) {
     return DEFAULT_ACCOUNTS;
   }
 
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    avatarInitials: r.avatar_initials || r.name.substring(0, 1).toUpperCase(),
-    isDefault: r.id === 'ethan',
-  }));
+  return rows.map(mapAccountRowToUserAccount);
+}
+
+export function getAccountById(accountId: string): UserAccount | null {
+  const db = getDatabase();
+  const row = db.prepare('SELECT id, name, username, email, friend_code, avatar_initials, created_at FROM accounts WHERE id = ?').get(accountId) as unknown as AccountRow | undefined;
+  return row ? mapAccountRowToUserAccount(row) : null;
 }
 
 export function createAccount(id: string, name: string): UserAccount {
@@ -273,13 +428,15 @@ export function createAccount(id: string, name: string): UserAccount {
   const cleanName = name.trim() || 'Nouveau Profil';
   const initials = cleanName.substring(0, 2).toUpperCase();
   const now = new Date().toISOString();
+  const friendCode = generateFriendCode();
+  const passwordHash = hashPassword(`${cleanId}123`);
 
   const stmt = db.prepare(`
-    INSERT INTO accounts (id, name, avatar_initials, created_at)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO accounts (id, name, username, email, password_hash, friend_code, avatar_initials, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar_initials = excluded.avatar_initials
   `);
-  stmt.run(cleanId, cleanName, initials, now);
+  stmt.run(cleanId, cleanName, cleanId, `${cleanId}@foodplanner.local`, passwordHash, friendCode, initials, now);
 
   // Initialiser les réglages de ce nouveau compte
   const upsertSetting = db.prepare(`
@@ -289,11 +446,573 @@ export function createAccount(id: string, name: string): UserAccount {
     upsertSetting.run(cleanId, k, String(v), now);
   }
 
-  return {
+  return getAccountById(cleanId) || {
     id: cleanId,
     name: cleanName,
+    username: cleanId,
+    friendCode,
     avatarInitials: initials,
   };
+}
+
+export function registerUserAccount(params: {
+  username: string;
+  name: string;
+  email?: string;
+  password: string;
+  settings?: Partial<UserCustomizationSettings>;
+  inviteCode?: string;
+}): { user: UserAccount; token: string } {
+  const db = getDatabase();
+  const cleanUsername = params.username.trim().toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_.-]/g, '');
+  if (!cleanUsername || cleanUsername.length < 2) {
+    throw new Error('Le pseudo doit contenir au moins 2 caractères alphanumériques.');
+  }
+  if (!params.password || params.password.length < 4) {
+    throw new Error('Le mot de passe doit contenir au moins 4 caractères.');
+  }
+
+  const existing = db.prepare('SELECT id FROM accounts WHERE LOWER(username) = ? OR LOWER(id) = ?').get(cleanUsername, cleanUsername) as { id: string } | undefined;
+  if (existing) {
+    throw new Error(`Le pseudo @${cleanUsername} est déjà utilisé.`);
+  }
+
+  if (params.email) {
+    const cleanEmail = params.email.trim().toLowerCase();
+    const existingEmail = db.prepare('SELECT id FROM accounts WHERE LOWER(email) = ?').get(cleanEmail) as { id: string } | undefined;
+    if (existingEmail) {
+      throw new Error('Cette adresse courriel est déjà associée à un compte.');
+    }
+  }
+
+  const id = cleanUsername;
+  const displayName = (params.name || cleanUsername).trim();
+  const initials = displayName.substring(0, 2).toUpperCase();
+  const email = (params.email || `${cleanUsername}@foodplanner.app`).trim().toLowerCase();
+  const passwordHash = hashPassword(params.password);
+  const friendCode = generateFriendCode();
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO accounts (id, name, username, email, password_hash, friend_code, avatar_initials, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, displayName, cleanUsername, email, passwordHash, friendCode, initials, now);
+
+  const initialSettings: UserCustomizationSettings = {
+    ...DEFAULT_USER_SETTINGS,
+    ...(params.settings || {}),
+  };
+  updateAccountSettings(id, initialSettings);
+
+  // Si un code d'invitation ami a été fourni à l'inscription, créer et accepter l'amitié directement !
+  if (params.inviteCode && params.inviteCode.trim()) {
+    try {
+      const cleanInvite = params.inviteCode.trim();
+      const inviter = db.prepare(
+        'SELECT id, name FROM accounts WHERE UPPER(friend_code) = UPPER(?) OR LOWER(username) = LOWER(?) OR LOWER(id) = LOWER(?)'
+      ).get(cleanInvite, cleanInvite.replace(/^@/, ''), cleanInvite.replace(/^@/, '')) as { id: string; name: string } | undefined;
+
+      if (inviter && inviter.id !== id) {
+        const friendshipId = `friend_${inviter.id}_${id}`;
+        db.prepare(`
+          INSERT OR IGNORE INTO friendships (id, requester_id, addressee_id, status, created_at, updated_at)
+          VALUES (?, ?, ?, 'accepted', ?, ?)
+        `).run(friendshipId, inviter.id, id, now, now);
+      }
+    } catch {
+      // Ignorer si le code d'invitation est invalide
+    }
+  }
+
+  const user = getAccountById(id)!;
+  const token = createSession(id);
+  return { user, token };
+}
+
+export function authenticateUser(identifier: string, password: string): { user: UserAccount; token: string } {
+  const db = getDatabase();
+  const cleanIdent = identifier.trim().toLowerCase().replace(/^@/, '');
+  const row = db.prepare(
+    'SELECT id, name, username, email, password_hash, friend_code, avatar_initials, created_at FROM accounts WHERE LOWER(username) = ? OR LOWER(email) = ? OR LOWER(id) = ?'
+  ).get(cleanIdent, cleanIdent, cleanIdent) as unknown as AccountRow | undefined;
+
+  if (!row) {
+    throw new Error('Compte introuvable. Vérifiez votre pseudo ou courriel.');
+  }
+
+  if (row.password_hash && !verifyPassword(password, row.password_hash)) {
+    throw new Error('Mot de passe incorrect.');
+  }
+
+  const user = mapAccountRowToUserAccount(row);
+  const token = createSession(user.id);
+  setActiveAccountId(user.id);
+  return { user, token };
+}
+
+export function createSession(accountId: string): string {
+  const db = getDatabase();
+  const token = randomBytes(32).toString('hex');
+  const now = new Date();
+  const expires = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30); // 30 jours
+
+  db.prepare(`
+    INSERT INTO auth_sessions (token, account_id, created_at, expires_at)
+    VALUES (?, ?, ?, ?)
+  `).run(token, accountId, now.toISOString(), expires.toISOString());
+
+  return token;
+}
+
+export function getAccountBySessionToken(token?: string | null): UserAccount | null {
+  if (!token) return null;
+  const db = getDatabase();
+  const row = db.prepare(`
+    SELECT s.account_id, s.expires_at
+    FROM auth_sessions s
+    WHERE s.token = ?
+  `).get(token) as { account_id: string; expires_at: string } | undefined;
+
+  if (!row) return null;
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    db.prepare('DELETE FROM auth_sessions WHERE token = ?').run(token);
+    return null;
+  }
+
+  return getAccountById(row.account_id);
+}
+
+export function deleteSession(token?: string | null): void {
+  if (!token) return;
+  const db = getDatabase();
+  db.prepare('DELETE FROM auth_sessions WHERE token = ?').run(token);
+}
+
+export function changeAccountPassword(accountId: string, newPassword: string): void {
+  if (!newPassword || newPassword.length < 4) {
+    throw new Error('Le nouveau mot de passe doit contenir au moins 4 caractères.');
+  }
+  const db = getDatabase();
+  const hash = hashPassword(newPassword);
+  db.prepare('UPDATE accounts SET password_hash = ? WHERE id = ?').run(hash, accountId);
+}
+
+// --- SYSTÈME D'AMIS (RECHERCHE PAR PSEUDO OU CODE D'INVITATION) ---
+
+export function getFriendsAndRequests(accountId: string): {
+  friends: UserAccount[];
+  incomingRequests: Friendship[];
+  outgoingRequests: Friendship[];
+  allFriendships: Friendship[];
+} {
+  const db = getDatabase();
+  const rows = db.prepare(`
+    SELECT id, requester_id, addressee_id, status, created_at, updated_at
+    FROM friendships
+    WHERE requester_id = ? OR addressee_id = ?
+    ORDER BY updated_at DESC
+  `).all(accountId, accountId) as {
+    id: string;
+    requester_id: string;
+    addressee_id: string;
+    status: 'pending' | 'accepted' | 'declined';
+    created_at: string;
+    updated_at: string;
+  }[];
+
+  const friends: UserAccount[] = [];
+  const incomingRequests: Friendship[] = [];
+  const outgoingRequests: Friendship[] = [];
+  const allFriendships: Friendship[] = [];
+
+  for (const r of rows) {
+    if (r.status === 'declined') continue;
+    const otherId = r.requester_id === accountId ? r.addressee_id : r.requester_id;
+    const otherUser = getAccountById(otherId);
+    if (!otherUser) continue;
+
+    const direction: 'incoming' | 'outgoing' | 'accepted' =
+      r.status === 'accepted'
+        ? 'accepted'
+        : r.addressee_id === accountId
+        ? 'incoming'
+        : 'outgoing';
+
+    const f: Friendship = {
+      id: r.id,
+      requesterId: r.requester_id,
+      addresseeId: r.addressee_id,
+      status: r.status,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      friend: otherUser,
+      direction,
+    };
+
+    allFriendships.push(f);
+    if (r.status === 'accepted') {
+      friends.push(otherUser);
+    } else if (direction === 'incoming') {
+      incomingRequests.push(f);
+    } else {
+      outgoingRequests.push(f);
+    }
+  }
+
+  return { friends, incomingRequests, outgoingRequests, allFriendships };
+}
+
+export function sendFriendRequest(requesterId: string, targetIdentifier: string): {
+  friendship: Friendship;
+  autoAccepted: boolean;
+  message: string;
+} {
+  const db = getDatabase();
+  const cleanTarget = targetIdentifier.trim().replace(/^@/, '');
+  if (!cleanTarget) {
+    throw new Error('Veuillez entrer un @pseudo ou un Code Ami (ex: FP-XXXX).');
+  }
+
+  const targetRow = db.prepare(`
+    SELECT id, name, username, email, friend_code, avatar_initials, created_at
+    FROM accounts
+    WHERE UPPER(friend_code) = UPPER(?) OR LOWER(username) = LOWER(?) OR LOWER(id) = LOWER(?) OR LOWER(email) = LOWER(?)
+  `).get(cleanTarget, cleanTarget, cleanTarget, cleanTarget) as unknown as AccountRow | undefined;
+
+  if (!targetRow) {
+    throw new Error(`Aucun utilisateur trouvé avec "${targetIdentifier}".`);
+  }
+
+  if (targetRow.id === requesterId) {
+    throw new Error('Vous ne pouvez pas vous ajouter vous-même en ami.');
+  }
+
+  const targetUser = mapAccountRowToUserAccount(targetRow);
+  const matchedByFriendCode = Boolean(
+    targetRow.friend_code && targetRow.friend_code.toUpperCase() === cleanTarget.toUpperCase()
+  );
+
+  // Vérifier s'il existe déjà une relation dans un sens ou dans l'autre
+  const existing = db.prepare(`
+    SELECT id, requester_id, addressee_id, status, created_at, updated_at
+    FROM friendships
+    WHERE (requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)
+  `).get(requesterId, targetUser.id, targetUser.id, requesterId) as {
+    id: string;
+    requester_id: string;
+    addressee_id: string;
+    status: 'pending' | 'accepted' | 'declined';
+    created_at: string;
+    updated_at: string;
+  } | undefined;
+
+  const now = new Date().toISOString();
+
+  if (existing) {
+    if (existing.status === 'accepted') {
+      throw new Error(`Vous êtes déjà ami avec ${targetUser.name} (@${targetUser.username}).`);
+    }
+    // Si l'autre personne nous avait déjà envoyé une demande OU qu'on utilise son Code Ami direct -> acceptation immédiate
+    if (existing.requester_id === targetUser.id || matchedByFriendCode) {
+      db.prepare("UPDATE friendships SET status = 'accepted', updated_at = ? WHERE id = ?").run(now, existing.id);
+      return {
+        friendship: {
+          id: existing.id,
+          requesterId: existing.requester_id,
+          addresseeId: existing.addressee_id,
+          status: 'accepted',
+          createdAt: existing.created_at,
+          updatedAt: now,
+          friend: targetUser,
+          direction: 'accepted',
+        },
+        autoAccepted: true,
+        message: `Vous êtes maintenant ami avec ${targetUser.name} !`,
+      };
+    }
+    // Réactiver si déclinée auparavant
+    db.prepare("UPDATE friendships SET status = 'pending', updated_at = ? WHERE id = ?").run(now, existing.id);
+    return {
+      friendship: {
+        id: existing.id,
+        requesterId: requesterId,
+        addresseeId: targetUser.id,
+        status: 'pending',
+        createdAt: existing.created_at,
+        updatedAt: now,
+        friend: targetUser,
+        direction: 'outgoing',
+      },
+      autoAccepted: false,
+      message: `Demande d'ami envoyée à ${targetUser.name} (@${targetUser.username}).`,
+    };
+  }
+
+  const newId = `friend_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const initialStatus: 'pending' | 'accepted' = matchedByFriendCode ? 'accepted' : 'pending';
+
+  db.prepare(`
+    INSERT INTO friendships (id, requester_id, addressee_id, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(newId, requesterId, targetUser.id, initialStatus, now, now);
+
+  return {
+    friendship: {
+      id: newId,
+      requesterId,
+      addresseeId: targetUser.id,
+      status: initialStatus,
+      createdAt: now,
+      updatedAt: now,
+      friend: targetUser,
+      direction: initialStatus === 'accepted' ? 'accepted' : 'outgoing',
+    },
+    autoAccepted: initialStatus === 'accepted',
+    message:
+      initialStatus === 'accepted'
+        ? `Code Ami validé ! Vous êtes maintenant ami avec ${targetUser.name}.`
+        : `Demande d'ami envoyée à ${targetUser.name} (@${targetUser.username}).`,
+  };
+}
+
+export function respondToFriendRequest(friendshipId: string, accountId: string, accept: boolean): Friendship | null {
+  const db = getDatabase();
+  const row = db.prepare(`
+    SELECT id, requester_id, addressee_id, status, created_at, updated_at
+    FROM friendships
+    WHERE id = ?
+  `).get(friendshipId) as {
+    id: string;
+    requester_id: string;
+    addressee_id: string;
+    status: string;
+    created_at: string;
+    updated_at: string;
+  } | undefined;
+
+  if (!row) {
+    throw new Error("Demande d'ami introuvable.");
+  }
+  if (row.addressee_id !== accountId && row.requester_id !== accountId) {
+    throw new Error('Action non autorisée.');
+  }
+
+  const now = new Date().toISOString();
+  const newStatus = accept ? 'accepted' : 'declined';
+  db.prepare('UPDATE friendships SET status = ?, updated_at = ? WHERE id = ?').run(newStatus, now, friendshipId);
+
+  const otherId = row.requester_id === accountId ? row.addressee_id : row.requester_id;
+  const otherUser = getAccountById(otherId);
+  if (!otherUser) return null;
+
+  return {
+    id: row.id,
+    requesterId: row.requester_id,
+    addresseeId: row.addressee_id,
+    status: newStatus,
+    createdAt: row.created_at,
+    updatedAt: now,
+    friend: otherUser,
+    direction: accept ? 'accepted' : 'incoming',
+  };
+}
+
+export function removeFriendship(accountId: string, friendAccountId: string): boolean {
+  const db = getDatabase();
+  const res = db.prepare(`
+    DELETE FROM friendships
+    WHERE (requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)
+  `).run(accountId, friendAccountId, friendAccountId, accountId);
+  return (res as unknown as { changes: number }).changes > 0;
+}
+
+// --- COURSES JOINTES ENTRE AMIS (SHARED GROCERY GROUPS) ---
+
+export function getSharedGroceryGroupsForAccount(accountId: string): SharedGroceryGroup[] {
+  const db = getDatabase();
+  const rows = db.prepare('SELECT * FROM shared_grocery_groups ORDER BY updated_at DESC').all() as {
+    id: string;
+    name: string;
+    created_by: string;
+    member_ids_json: string;
+    checked_items_json: string;
+    created_at: string;
+    updated_at: string;
+  }[];
+
+  const groups: SharedGroceryGroup[] = [];
+  for (const r of rows) {
+    let memberIds: string[] = [];
+    let checkedItems: Record<string, boolean> = {};
+    try {
+      memberIds = JSON.parse(r.member_ids_json || '[]');
+    } catch {
+      memberIds = [];
+    }
+    if (!memberIds.includes(accountId)) continue;
+
+    try {
+      checkedItems = JSON.parse(r.checked_items_json || '{}');
+    } catch {
+      checkedItems = {};
+    }
+
+    const members = memberIds
+      .map((id) => getAccountById(id))
+      .filter((u): u is UserAccount => u !== null);
+
+    groups.push({
+      id: r.id,
+      name: r.name,
+      createdBy: r.created_by,
+      memberIds,
+      members,
+      checkedItems,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    });
+  }
+
+  return groups;
+}
+
+export function createSharedGroceryGroup(
+  createdBy: string,
+  name: string,
+  friendIds: string[]
+): SharedGroceryGroup {
+  const db = getDatabase();
+  const { friends } = getFriendsAndRequests(createdBy);
+  const acceptedFriendIds = new Set(friends.map((f) => f.id));
+
+  const validFriendIds = friendIds.filter((fid) => fid !== createdBy && acceptedFriendIds.has(fid));
+  if (validFriendIds.length === 0) {
+    throw new Error('Veuillez sélectionner au moins un ami accepté pour créer une course jointe.');
+  }
+
+  const allMemberIds = Array.from(new Set([createdBy, ...validFriendIds]));
+  const members = allMemberIds
+    .map((id) => getAccountById(id))
+    .filter((u): u is UserAccount => u !== null);
+
+  const cleanName =
+    name.trim() ||
+    `Course jointe (${members.map((m) => m.name).join(' & ')})`;
+
+  const id = `joint_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO shared_grocery_groups (id, name, created_by, member_ids_json, checked_items_json, created_at, updated_at)
+    VALUES (?, ?, ?, ?, '{}', ?, ?)
+  `).run(id, cleanName, createdBy, JSON.stringify(allMemberIds), now, now);
+
+  return {
+    id,
+    name: cleanName,
+    createdBy,
+    memberIds: allMemberIds,
+    members,
+    checkedItems: {},
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function toggleSharedGroupCheckedItem(
+  groupId: string,
+  accountId: string,
+  itemId: string,
+  checked?: boolean
+): SharedGroceryGroup | null {
+  const db = getDatabase();
+  const row = db.prepare('SELECT * FROM shared_grocery_groups WHERE id = ?').get(groupId) as {
+    id: string;
+    name: string;
+    created_by: string;
+    member_ids_json: string;
+    checked_items_json: string;
+    created_at: string;
+    updated_at: string;
+  } | undefined;
+
+  if (!row) return null;
+  let memberIds: string[] = [];
+  try {
+    memberIds = JSON.parse(row.member_ids_json || '[]');
+  } catch {
+    memberIds = [];
+  }
+  if (!memberIds.includes(accountId)) {
+    throw new Error('Vous ne faites pas partie de cette course jointe.');
+  }
+
+  let checkedItems: Record<string, boolean> = {};
+  try {
+    checkedItems = JSON.parse(row.checked_items_json || '{}');
+  } catch {
+    checkedItems = {};
+  }
+
+  const nextVal = checked !== undefined ? checked : !checkedItems[itemId];
+  if (nextVal) {
+    checkedItems[itemId] = true;
+  } else {
+    delete checkedItems[itemId];
+  }
+
+  const now = new Date().toISOString();
+  db.prepare('UPDATE shared_grocery_groups SET checked_items_json = ?, updated_at = ? WHERE id = ?').run(
+    JSON.stringify(checkedItems),
+    now,
+    groupId
+  );
+
+  const members = memberIds
+    .map((id) => getAccountById(id))
+    .filter((u): u is UserAccount => u !== null);
+
+  return {
+    id: row.id,
+    name: row.name,
+    createdBy: row.created_by,
+    memberIds,
+    members,
+    checkedItems,
+    createdAt: row.created_at,
+    updatedAt: now,
+  };
+}
+
+export function deleteSharedGroceryGroup(groupId: string, accountId: string): boolean {
+  const db = getDatabase();
+  const row = db.prepare('SELECT member_ids_json FROM shared_grocery_groups WHERE id = ?').get(groupId) as {
+    member_ids_json: string;
+  } | undefined;
+  if (!row) return false;
+  const memberIds: string[] = JSON.parse(row.member_ids_json || '[]');
+  if (!memberIds.includes(accountId)) {
+    throw new Error('Action non autorisée.');
+  }
+  const res = db.prepare('DELETE FROM shared_grocery_groups WHERE id = ?').run(groupId);
+  return (res as unknown as { changes: number }).changes > 0;
+}
+
+export function shareRecipeWithFriend(recipe: Recipe, fromAccountId: string, toFriendId: string): Recipe {
+  const { friends } = getFriendsAndRequests(fromAccountId);
+  if (!friends.some((f) => f.id === toFriendId)) {
+    throw new Error('Vous ne pouvez partager une recette qu’avec un ami accepté.');
+  }
+  const sender = getAccountById(fromAccountId);
+  const sharedTag = sender ? `partagé-par-${sender.username || sender.id}` : 'partagé';
+  const tags = Array.from(new Set([...(recipe.tags || []), sharedTag]));
+
+  return saveCustomRecipe({
+    ...recipe,
+    id: `shared_recipe_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    createdBy: toFriendId,
+    tags,
+  });
 }
 
 export function renameAccount(id: string, newName: string): void {
@@ -568,10 +1287,13 @@ export interface CustomRecipeRow {
   updated_at: string;
 }
 
-export function getAllCustomRecipes(): Recipe[] {
+export function getAllCustomRecipes(accountId?: string): Recipe[] {
   const db = getDatabase();
-  const stmt = db.prepare('SELECT * FROM custom_recipes ORDER BY updated_at DESC');
-  const rows = stmt.all() as unknown as CustomRecipeRow[];
+  const rows = (
+    accountId
+      ? db.prepare('SELECT * FROM custom_recipes WHERE created_by = ? ORDER BY updated_at DESC').all(accountId)
+      : db.prepare('SELECT * FROM custom_recipes ORDER BY updated_at DESC').all()
+  ) as unknown as CustomRecipeRow[];
 
   return rows.map((r) => {
     let ingredients: RecipeIngredientItem[] = [];
@@ -906,8 +1628,18 @@ export function deleteCustomProduct(id: string): boolean {
 
 // --- GESTION DU GARDE-MANGER (PANTRY) ---
 
-export function getPantryMap(): Record<string, boolean> {
+export function getPantryMap(accountId?: string): Record<string, boolean> {
   const db = getDatabase();
+  if (accountId && accountId !== 'ethan') {
+    const rows = db
+      .prepare('SELECT ingredient_id, in_stock FROM account_pantry_items WHERE account_id = ? AND in_stock = 1')
+      .all(accountId) as { ingredient_id: string; in_stock: number }[];
+    const map: Record<string, boolean> = {};
+    for (const r of rows) {
+      map[r.ingredient_id] = true;
+    }
+    return map;
+  }
   const rows = db.prepare('SELECT ingredient_id, in_stock FROM pantry_items WHERE in_stock = 1').all() as { ingredient_id: string; in_stock: number }[];
   const map: Record<string, boolean> = {};
   for (const r of rows) {
@@ -916,17 +1648,29 @@ export function getPantryMap(): Record<string, boolean> {
   return map;
 }
 
-export function setPantryItem(ingredientId: string, inStock: boolean): boolean {
+export function setPantryItem(ingredientId: string, inStock: boolean, accountId: string = 'ethan'): boolean {
   const db = getDatabase();
   const now = new Date().toISOString();
   if (inStock) {
     db.prepare(`
-      INSERT INTO pantry_items (ingredient_id, in_stock, updated_at)
-      VALUES (?, 1, ?)
-      ON CONFLICT(ingredient_id) DO UPDATE SET in_stock = 1, updated_at = excluded.updated_at
-    `).run(ingredientId, now);
+      INSERT INTO account_pantry_items (account_id, ingredient_id, in_stock, updated_at)
+      VALUES (?, ?, 1, ?)
+      ON CONFLICT(account_id, ingredient_id) DO UPDATE SET in_stock = 1, updated_at = excluded.updated_at
+    `).run(accountId, ingredientId, now);
   } else {
-    db.prepare('DELETE FROM pantry_items WHERE ingredient_id = ?').run(ingredientId);
+    db.prepare('DELETE FROM account_pantry_items WHERE account_id = ? AND ingredient_id = ?').run(accountId, ingredientId);
+  }
+
+  if (accountId === 'ethan') {
+    if (inStock) {
+      db.prepare(`
+        INSERT INTO pantry_items (ingredient_id, in_stock, updated_at)
+        VALUES (?, 1, ?)
+        ON CONFLICT(ingredient_id) DO UPDATE SET in_stock = 1, updated_at = excluded.updated_at
+      `).run(ingredientId, now);
+    } else {
+      db.prepare('DELETE FROM pantry_items WHERE ingredient_id = ?').run(ingredientId);
+    }
   }
   return inStock;
 }

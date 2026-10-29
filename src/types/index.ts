@@ -253,15 +253,40 @@ export const DEFAULT_LAURINE_SETTINGS: UserCustomizationSettings = {
 export const DEFAULT_COPINE_SETTINGS = DEFAULT_LAURINE_SETTINGS;
 
 export interface UserAccount {
-  id: string; // Ex: 'ethan', 'laurine'
+  id: string; // Ex: 'ethan', 'laurine', 'user_123'
   name: string; // Ex: 'Ethan', 'Laurine'
+  username?: string; // Ex: 'ethan', 'laurine'
+  email?: string; // Ex: 'ethan@foodplanner.app'
+  friendCode?: string; // Ex: 'FP-ETHAN'
   avatarInitials: string; // Ex: 'E', 'L'
   isDefault?: boolean;
 }
 
+export interface Friendship {
+  id: string;
+  requesterId: string;
+  addresseeId: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: string;
+  updatedAt: string;
+  friend: UserAccount;
+  direction: 'incoming' | 'outgoing' | 'accepted';
+}
+
+export interface SharedGroceryGroup {
+  id: string;
+  name: string;
+  createdBy: string;
+  memberIds: string[];
+  members: UserAccount[];
+  checkedItems: Record<string, boolean>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const DEFAULT_ACCOUNTS: UserAccount[] = [
-  { id: 'ethan', name: 'Ethan', avatarInitials: 'E', isDefault: true },
-  { id: 'laurine', name: 'Laurine', avatarInitials: 'L' },
+  { id: 'ethan', name: 'Ethan', username: 'ethan', friendCode: 'FP-ETHAN', avatarInitials: 'E', isDefault: true },
+  { id: 'laurine', name: 'Laurine', username: 'laurine', friendCode: 'FP-LAURINE', avatarInitials: 'L' },
 ];
 
 export type GroceryViewScope = 'common' | string; // 'common' ou accountId
