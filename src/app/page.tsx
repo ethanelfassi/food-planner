@@ -86,9 +86,11 @@ export default function Home() {
 
   const isDark = theme === 'dark';
 
-  const todayDayIndex = React.useMemo(() => {
+  const [todayDayIndex, setTodayDayIndex] = useState<number>(0);
+
+  useEffect(() => {
     const d = new Date().getDay();
-    return d === 0 ? 6 : d - 1;
+    setTodayDayIndex(d === 0 ? 6 : d - 1);
   }, []);
 
   // Helper pour injecter les repas programmés (via MCP / ChatMCP ou UI) dans un plan hebdomadaire
