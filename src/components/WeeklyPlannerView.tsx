@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ProductPreferencesMap, Recipe, WeeklyPlan, UserCustomizationSettings } from '@/types';
 import { RECIPES } from '@/data/recipes';
 import { calculateRecipeScore } from '@/lib/planner';
