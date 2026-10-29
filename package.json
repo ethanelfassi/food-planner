@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "mcp": "tsx src/mcp/server.ts",
+    "mcp:sse": "tsx src/mcp/sse-server.ts",
     "lint": "eslint"
   },
   "dependencies": {
