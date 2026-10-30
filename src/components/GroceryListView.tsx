@@ -77,7 +77,7 @@ interface GroceryListViewProps {
   onUpdateCustomPrice?: (ingredientId: string, price: number | null) => void;
 }
 
-// Subcomposant mémoïsé pour chaque ligne d'article (évite le re-render des ~50 articles au toggle d'un seul)
+// Subcomposant mémoïsé pour chaque ligne d'article (optimisé mobile-first sans troncature abrasive)
 const GroceryItemRow = React.memo<{
   item: GroceryItem;
   isDark: boolean;
@@ -106,7 +106,7 @@ const GroceryItemRow = React.memo<{
   return (
     <div
       onClick={() => onToggle(item.id)}
-      className={`flex items-start justify-between p-3.5 rounded-2xl border transition-colors cursor-pointer group ${
+      className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer group select-none ${
         item.checked
           ? 'opacity-50 grayscale bg-black/5 dark:bg-black/30 border-transparent'
           : isDark
@@ -114,8 +114,9 @@ const GroceryItemRow = React.memo<{
           : 'bg-white/70 hover:bg-white border-stone-200/80 shadow-xs'
       }`}
     >
-      <div className="flex items-start gap-3 min-w-0">
-        {/* Checkbox minimaliste ergonomique */}
+      {/* 1. LIGNE SUPÉRIEURE : Checkbox + Photo + Titre + Prix */}
+      <div className="flex items-start gap-2.5 sm:gap-3">
+        {/* Checkbox ergonomique */}
         <div
           className={`w-6 h-6 mt-0.5 rounded-xl flex items-center justify-center shrink-0 transition-transform active:scale-90 ${
             item.checked
@@ -131,7 +132,7 @@ const GroceryItemRow = React.memo<{
         {/* Photo Produit */}
         {item.imageUrl && (
           <div
-            className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 border relative ${
+            className={`w-11 h-11 sm:w-13 sm:h-13 rounded-xl overflow-hidden shrink-0 border relative ${
               isDark ? 'border-white/10 bg-black/40' : 'border-stone-200 bg-stone-100'
             }`}
           >
@@ -146,11 +147,11 @@ const GroceryItemRow = React.memo<{
           </div>
         )}
 
-        {/* Informations Produit */}
-        <div className="min-w-0 pr-2">
-          <div className="flex items-center gap-2 flex-wrap">
+        {/* Nom & Prix */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
             <span
-              className={`text-sm font-medium truncate ${
+              className={`text-sm font-medium leading-snug break-words ${
                 item.checked
                   ? 'line-through text-stone-400'
                   : 'text-stone-900 dark:text-white'
@@ -159,110 +160,106 @@ const GroceryItemRow = React.memo<{
               {item.name}
             </span>
 
-            {preference === 'liked' && (
-              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
-                <Heart className="w-2.5 h-2.5 fill-current" /> Favori
-              </span>
-            )}
-
-            {preference === 'disliked' && (
-              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-300 dark:border-stone-700 font-semibold">
-                <Ban className="w-2.5 h-2.5" /> Exclu
-              </span>
-            )}
-            {item.isInPantry && (
-              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-semibold" title="Produit déjà présent dans votre garde-manger">
-                📦 Garde-manger
-              </span>
-            )}
-            {item.isCustomPrice && (
-              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
-                <Pencil className="w-2.5 h-2.5" /> Prix Modifié
-              </span>
-            )}
-            {(scope === 'common' || scope.startsWith('joint_')) && item.neededBy && item.neededBy.length > 1 && (
-              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-100 text-stone-900 dark:bg-white/10 dark:text-white font-semibold border border-stone-300 dark:border-white/20">
-                <Users className="w-2.5 h-2.5" /> Commun
-              </span>
-            )}
-            {(scope === 'common' || scope.startsWith('joint_')) && neededByAccountName && (
-              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold border border-stone-300 dark:border-stone-700">
-                <User className="w-2.5 h-2.5" /> Pour {neededByAccountName}
-              </span>
-            )}
-            {(scope === 'common' || scope.startsWith('joint_')) && forAccountName && (
-              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold border border-stone-300 dark:border-stone-700">
-                <User className="w-2.5 h-2.5" /> Pour {forAccountName}
-              </span>
-            )}
+            {/* Prix en haut à droite */}
+            <div className="text-right shrink-0">
+              <div className="font-mono tabular-nums text-sm sm:text-base font-semibold text-stone-950 dark:text-white">
+                {item.exactPriceMetro.toFixed(2)} $
+              </div>
+              {item.savingsAmount > 0 && (
+                <div className="font-mono text-[10px] text-stone-500 dark:text-stone-400 line-through">
+                  {item.regularPriceMetro.toFixed(2)} $
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="text-xs text-stone-700 dark:text-stone-300 mt-0.5 truncate font-sans">
+          <div className="text-xs text-stone-600 dark:text-stone-400 mt-0.5 font-sans leading-tight">
             {item.packageDescription}
           </div>
-
-          {/* Prix au 100g, Statut Vérifié & Badge Taxe */}
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap font-mono text-[11px]">
-            {item.unitPriceLabel && (
-              <span className="font-semibold text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-white/10 border border-stone-300 dark:border-white/20 px-2 py-0.5 rounded-md">
-                {item.unitPriceLabel}
-              </span>
-            )}
-            <span className="text-[10px] text-stone-600 dark:text-stone-400">
-              {item.isTaxable ? 'Taxé (14.975%)' : '0% Taxe'}
-            </span>
-            <span className="text-[10px] text-stone-700 dark:text-stone-400 flex items-center gap-0.5 font-medium">
-              <Check className="w-2.5 h-2.5" /> Fiche active
-            </span>
-          </div>
-
-          {/* Badge Membre Moi */}
-          {item.isMoiMemberPrice && (
-            <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-stone-900 dark:text-white bg-stone-100 dark:bg-white/10 px-2 py-0.5 rounded-md mt-1.5 border border-stone-300 dark:border-white/20 font-semibold">
-              <Crown className="w-3 h-3 text-stone-700 dark:text-stone-300" />
-              <span>{item.moiPriceLabel || 'Prix Membre Moi'}</span>
-            </div>
-          )}
-
-          {/* Accès Direct aux Macros du Produit */}
-          {macros && (
-            <div className="flex items-center gap-1 mt-2 flex-wrap text-[10px] font-mono">
-              <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-white/10 font-medium">
-                🔥 {macros.calories} kcal
-              </span>
-              <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-white/10 font-medium">
-                🥩 {macros.protein}g P
-              </span>
-              <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-white/10">
-                🌾 {macros.carbs}g G
-              </span>
-              <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-white/10">
-                🥑 {macros.fat}g L
-              </span>
-              <span className="text-[9px] text-stone-400">/ 100g</span>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Prix Exact & Actions */}
-      <div className="text-right shrink-0 ml-2 flex flex-col items-end justify-between self-stretch">
-        <div>
-          <div className="font-mono tabular-nums text-sm font-semibold text-stone-950 dark:text-white">
-            {item.exactPriceMetro.toFixed(2)} $
-          </div>
-          {item.savingsAmount > 0 && (
-            <div className="font-mono text-[10px] text-stone-500 dark:text-stone-400 line-through">
-              {item.regularPriceMetro.toFixed(2)} $
-            </div>
-          )}
-        </div>
+      {/* 2. LIGNE CENTRALE : Badges & Prix unitaire */}
+      <div className="flex items-center gap-1.5 flex-wrap mt-2 pl-8 sm:pl-9">
+        {preference === 'liked' && (
+          <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
+            <Heart className="w-2.5 h-2.5 fill-current" /> Favori
+          </span>
+        )}
 
-        <div className="flex items-center gap-1.5 mt-2">
-          {/* Boutons Préférences Rapides J'aime / Exclure */}
+        {preference === 'disliked' && (
+          <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-300 dark:border-stone-700 font-semibold">
+            <Ban className="w-2.5 h-2.5" /> Exclu
+          </span>
+        )}
+        {item.isInPantry && (
+          <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-semibold" title="Produit déjà présent dans votre garde-manger">
+            📦 En stock
+          </span>
+        )}
+        {item.isCustomPrice && (
+          <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-semibold">
+            <Pencil className="w-2.5 h-2.5" /> Prix Modifié
+          </span>
+        )}
+        {(scope === 'common' || scope.startsWith('joint_')) && item.neededBy && item.neededBy.length > 1 && (
+          <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-100 text-stone-900 dark:bg-white/10 dark:text-white font-semibold border border-stone-300 dark:border-white/20">
+            <Users className="w-2.5 h-2.5" /> Commun
+          </span>
+        )}
+        {(scope === 'common' || scope.startsWith('joint_')) && neededByAccountName && (
+          <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold border border-stone-300 dark:border-stone-700">
+            <User className="w-2.5 h-2.5" /> Pour {neededByAccountName}
+          </span>
+        )}
+        {(scope === 'common' || scope.startsWith('joint_')) && forAccountName && (
+          <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold border border-stone-300 dark:border-stone-700">
+            <User className="w-2.5 h-2.5" /> Pour {forAccountName}
+          </span>
+        )}
+        {item.unitPriceLabel && (
+          <span className="font-semibold text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-white/10 border border-stone-300 dark:border-white/20 px-2 py-0.5 rounded-md text-[10px] font-mono">
+            {item.unitPriceLabel}
+          </span>
+        )}
+        <span className="text-[10px] font-mono text-stone-500 dark:text-stone-400">
+          {item.isTaxable ? 'Taxé (14.975%)' : '0% Taxe'}
+        </span>
+        {item.isMoiMemberPrice && (
+          <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-stone-900 dark:text-white bg-stone-100 dark:bg-white/10 px-2 py-0.5 rounded-md border border-stone-300 dark:border-white/20 font-semibold">
+            <Crown className="w-2.5 h-2.5 text-stone-700 dark:text-stone-300" />
+            {item.moiPriceLabel || 'Prix Membre'}
+          </span>
+        )}
+      </div>
+
+      {/* 3. LIGNE INFÉRIEURE : Macros à gauche + Actions à droite */}
+      <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-stone-200/50 dark:border-white/5 pl-8 sm:pl-9 flex-wrap">
+        {macros ? (
+          <div className="flex items-center gap-1 text-[10px] font-mono flex-wrap">
+            <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-white/10 font-medium">
+              🔥 {macros.calories} kcal
+            </span>
+            <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-white/10 font-medium">
+              🥩 {macros.protein}g P
+            </span>
+            <span className="hidden sm:inline px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-white/10">
+              🌾 {macros.carbs}g G
+            </span>
+            <span className="hidden sm:inline px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-white/10">
+              🥑 {macros.fat}g L
+            </span>
+            <span className="text-[9px] text-stone-400">/ 100g</span>
+          </div>
+        ) : (
+          <div />
+        )}
+
+        <div className="flex items-center gap-1 shrink-0 ml-auto">
           {item.ingredientId && onPreference && (
-            <div className="flex items-center gap-1">
+            <>
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onPreference(item.ingredientId!, preference === 'liked' ? 'neutral' : 'liked');
@@ -274,7 +271,7 @@ const GroceryItemRow = React.memo<{
                     ? 'bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border-white/10'
                     : 'bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 border-stone-200'
                 }`}
-                title={preference === 'liked' ? 'Produit favori (cliquer pour retirer)' : 'Aimer ce produit'}
+                title={preference === 'liked' ? 'Produit favori (retirer)' : 'Favori'}
               >
                 <Heart
                   className={`w-3 h-3 ${
@@ -286,18 +283,19 @@ const GroceryItemRow = React.memo<{
               </button>
 
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onPreference(item.ingredientId!, preference === 'disliked' ? 'neutral' : 'disliked');
                 }}
                 className={`p-1.5 rounded-xl border transition-colors active:scale-90 ${
                   preference === 'disliked'
-                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white shadow-xs'
+                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 border-stone-900 dark:border-white'
                     : isDark
                     ? 'bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border-white/10'
                     : 'bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 border-stone-200'
                 }`}
-                title={preference === 'disliked' ? 'Produit exclu (cliquer pour réautoriser)' : 'Exclure ce produit (ne plus acheter)'}
+                title={preference === 'disliked' ? 'Produit exclu (réautoriser)' : 'Exclure'}
               >
                 <Ban
                   className={`w-3 h-3 ${
@@ -307,12 +305,12 @@ const GroceryItemRow = React.memo<{
                   }`}
                 />
               </button>
-            </div>
+            </>
           )}
 
-          {/* Bouton Personnaliser le Prix */}
           {item.ingredientId && onOpenEditPrice && (
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onOpenEditPrice(item);
@@ -324,7 +322,7 @@ const GroceryItemRow = React.memo<{
                   ? 'bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border-white/10'
                   : 'bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 border-stone-200'
               }`}
-              title={item.isCustomPrice ? 'Prix personnalisé actif (cliquer pour modifier)' : 'Définir un prix personnalisé pour cet article'}
+              title="Modifier le prix"
             >
               <Pencil className="w-3 h-3" />
             </button>
@@ -336,7 +334,7 @@ const GroceryItemRow = React.memo<{
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-1 rounded-xl border transition-colors active:scale-95 ${
+              className={`inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-1 rounded-xl border transition-colors active:scale-95 ${
                 item.metroProductUrl.includes('/p/')
                   ? isDark
                     ? 'bg-white/10 hover:bg-white/20 text-white border-white/20'
@@ -345,15 +343,16 @@ const GroceryItemRow = React.memo<{
                   ? 'bg-white/5 hover:bg-white/15 text-stone-200 border-white/10'
                   : 'bg-stone-100 hover:bg-stone-200 text-stone-900 border-stone-300 shadow-xs'
               }`}
-              title={item.metroProductUrl.includes('/p/') ? "Fiche produit directe Metro.ca (UPC certifié)" : "Rechercher sur Metro.ca"}
+              title="Ouvrir sur Metro.ca"
             >
-              <span>{item.metroProductUrl.includes('/p/') ? 'Fiche Metro' : 'Recherche'}</span>
+              <span>Metro</span>
               <ExternalLink className="w-2.5 h-2.5 opacity-70" />
             </a>
           )}
 
           {item.isCustom && onRemove && (
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onRemove(item.id);
@@ -1006,7 +1005,7 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
 
       {/* Mode Couple & Split Équitable */}
       <div
-        className={`rounded-3xl p-6 transition-all border ${
+        className={`rounded-2xl sm:rounded-3xl p-4 sm:p-6 transition-all border ${
           isDark ? 'liquid-glass' : 'liquid-glass-light'
         }`}
       >
@@ -1101,10 +1100,10 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
           isDark ? 'bg-white/[0.02] border-white/10' : 'bg-stone-200/50 border-stone-300/60'
         }`}
       >
-        <div className="grid grid-cols-3 sm:flex items-center gap-1.5 text-xs font-mono w-full sm:w-auto">
+        <div className="flex items-center gap-1.5 text-xs font-mono overflow-x-auto pb-1 scrollbar-none flex-nowrap w-full sm:w-auto">
           <button
             onClick={() => setFilterMode('all')}
-            className={`py-2 sm:py-1.5 px-2 sm:px-3 rounded-xl transition-all text-center ${
+            className={`py-2 sm:py-1.5 px-3 rounded-xl transition-all text-center shrink-0 ${
               filterMode === 'all'
                 ? isDark
                   ? 'bg-white text-stone-950 font-bold'
@@ -1116,7 +1115,7 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
           </button>
           <button
             onClick={() => setFilterMode('pending')}
-            className={`py-2 sm:py-1.5 px-2 sm:px-3 rounded-xl transition-all text-center ${
+            className={`py-2 sm:py-1.5 px-3 rounded-xl transition-all text-center shrink-0 ${
               filterMode === 'pending'
                 ? isDark
                   ? 'bg-white text-stone-950 font-bold'
@@ -1128,7 +1127,7 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
           </button>
           <button
             onClick={() => setFilterMode('completed')}
-            className={`py-2 sm:py-1.5 px-2 sm:px-3 rounded-xl transition-all text-center ${
+            className={`py-2 sm:py-1.5 px-3 rounded-xl transition-all text-center shrink-0 ${
               filterMode === 'completed'
                 ? isDark
                   ? 'bg-white text-stone-950 font-bold'
@@ -1375,7 +1374,7 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
             return (
               <div
                 key={aisleKey}
-                className={`rounded-3xl p-5 sm:p-6 transition-all border ${
+                className={`rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 transition-all border ${
                   isDark ? 'liquid-glass' : 'liquid-glass-light'
                 }`}
               >
@@ -1431,7 +1430,7 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
 
       {/* BARRE FLOTTANTE D'ÉPICERIE MOBILE (Toujours accessible au pouce dans les allées) */}
       {totalItems > 0 && (
-        <div className="fixed bottom-20 left-3 right-3 z-30 md:hidden pointer-events-none">
+        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] left-3 right-3 z-30 md:hidden pointer-events-none">
           <div
             className={`pointer-events-auto flex items-center justify-between px-3.5 py-2.5 rounded-2xl border shadow-xl transition-colors ${
               isDark

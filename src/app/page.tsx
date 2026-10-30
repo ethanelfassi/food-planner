@@ -1181,7 +1181,7 @@ export default function Home() {
         onBackupRestored={initAppData}
       />
 
-      <main className="flex-1 max-w-[1536px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24 md:pb-8">
+      <main className="flex-1 max-w-[1536px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-36 sm:pb-28 md:pb-8">
         {activeTab === 'planner' && (
           <WeeklyPlannerView
             plan={activePlan}
