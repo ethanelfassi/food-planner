@@ -286,8 +286,8 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = React.memo(
   customProducts = [],
 }) => {
   const [title, setTitle] = useState('');
-  const [mealType, setMealType] = useState<MealType>('souper');
-  const [servings, setServings] = useState(2);
+  const [mealType, setMealType] = useState<MealType>('diner');
+  const [servings, setServings] = useState(1);
   const [prepTime, setPrepTime] = useState(10);
   const [cookTime, setCookTime] = useState(15);
   const [ingredients, setIngredients] = useState<RecipeIngredientItem[]>([]);
@@ -309,8 +309,8 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = React.memo(
       setTagsText((recipeToEdit.tags || []).join(', '));
     } else {
       setTitle('');
-      setMealType('souper');
-      setServings(2);
+      setMealType('diner');
+      setServings(1);
       setPrepTime(10);
       setCookTime(15);
       setIngredients([]);
@@ -414,7 +414,7 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = React.memo(
       }
     } catch (err: any) {
       console.error(err);
-      setErrorMessage(err.message || 'Impossible d\'enregistrer la recette dans SQLite');
+      setErrorMessage(err.message || 'Impossible d\'enregistrer la recette');
     } finally {
       setIsSaving(false);
     }
@@ -516,9 +516,9 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = React.memo(
                     isDark ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
                   }`}
                 >
-                  <option value="dejeuner">Déjeuner</option>
-                  <option value="souper">Souper</option>
-                  <option value="diner">Dîner</option>
+                  <option value="dejeuner">Petit-déjeuner</option>
+                  <option value="diner">Déjeuner</option>
+                  <option value="souper">Dîner</option>
                   <option value="collation">Collation</option>
                 </select>
               </div>
@@ -630,7 +630,7 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = React.memo(
             </div>
           </div>
 
-          {/* AJOUT D'INGRÉDIENTS DEPUIS LE CATALOGUE SQLITE */}
+          {/* AJOUT D'INGRÉDIENTS DEPUIS LE CATALOGUE */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-mono uppercase tracking-wider text-stone-700 dark:text-stone-300 font-bold flex items-center gap-1.5">

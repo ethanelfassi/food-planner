@@ -63,7 +63,6 @@ export const FriendsAndProfileModal: React.FC<FriendsAndProfileModalProps> = ({
   const [activeTab, setActiveTab] = useState<'friends' | 'profile'>('friends');
   const [friendSearchInput, setFriendSearchInput] = useState('');
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -79,16 +78,10 @@ export const FriendsAndProfileModal: React.FC<FriendsAndProfileModalProps> = ({
 
   if (!isOpen) return null;
 
-  const friendCode = currentUser.friendCode || `FP-${currentUser.id.toUpperCase()}`;
-
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(friendCode);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
+  const inviteIdentifier = currentUser.username || currentUser.id;
 
   const handleCopyInviteLink = () => {
-    const url = `${window.location.origin}/?invite=${encodeURIComponent(friendCode)}`;
+    const url = `${window.location.origin}/?invite=${encodeURIComponent(inviteIdentifier)}`;
     navigator.clipboard.writeText(url);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
@@ -238,7 +231,7 @@ export const FriendsAndProfileModal: React.FC<FriendsAndProfileModalProps> = ({
 
           {activeTab === 'friends' ? (
             <>
-              {/* Mon Code Ami & Lien d'invitation */}
+              {/* Lien d'invitation */}
               <div
                 className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
                   isDark ? 'bg-white/[0.03] border-white/10' : 'bg-stone-50 border-stone-200'
@@ -246,39 +239,24 @@ export const FriendsAndProfileModal: React.FC<FriendsAndProfileModalProps> = ({
               >
                 <div>
                   <div className="text-[11px] font-mono uppercase tracking-wider text-stone-500">
-                    Votre Code Ami & Lien d’invitation
+                    Lien d’invitation
                   </div>
-                  <div className="text-lg font-mono font-bold tracking-wider mt-0.5">{friendCode}</div>
+                  <div className="text-base font-mono font-bold tracking-tight mt-0.5">
+                    @{currentUser.username || currentUser.id}
+                  </div>
                   <p className="text-xs text-stone-500 mt-0.5">
-                    Partagez votre code ou votre pseudo{' '}
-                    <span className="font-mono font-semibold text-stone-800 dark:text-stone-200">
-                      @{currentUser.username || currentUser.id}
-                    </span>{' '}
-                    pour créer des courses jointes.
+                    Partagez votre lien d’invitation pour que vos amis puissent se connecter avec vous.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
-                    onClick={handleCopyCode}
-                    className={`px-3 py-2 rounded-xl border text-xs font-mono font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                      isDark
-                        ? 'border-white/15 bg-white/5 hover:bg-white/10'
-                        : 'border-stone-300 bg-white hover:bg-stone-100'
-                    }`}
-                  >
-                    {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copiedCode ? 'Copié' : 'Copier Code'}
-                  </button>
-
-                  <button
-                    type="button"
                     onClick={handleCopyInviteLink}
-                    className="px-3 py-2 rounded-xl bg-stone-900 text-white dark:bg-white dark:text-stone-950 text-xs font-semibold flex items-center gap-1.5 hover:opacity-90 transition-opacity cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-stone-900 text-white dark:bg-white dark:text-stone-950 text-xs font-semibold flex items-center gap-1.5 hover:opacity-90 transition-opacity cursor-pointer"
                   >
                     {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-                    {copiedLink ? 'Lien copié !' : "Lien d'invitation"}
+                    {copiedLink ? 'Lien copié !' : "Copier mon lien d'invitation"}
                   </button>
                 </div>
               </div>
@@ -286,14 +264,14 @@ export const FriendsAndProfileModal: React.FC<FriendsAndProfileModalProps> = ({
               {/* Ajouter un ami */}
               <form onSubmit={handleAddFriend} className="space-y-2">
                 <label className="block text-xs font-mono uppercase tracking-wider text-stone-500">
-                  Ajouter un ami (par @pseudo ou Code Ami)
+                  Ajouter un ami (par son pseudo @pseudo)
                 </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={friendSearchInput}
                     onChange={(e) => setFriendSearchInput(e.target.value)}
-                    placeholder="Ex: @laurine ou FP-LAURINE"
+                    placeholder="Ex: @alex"
                     className={`flex-1 px-4 py-2.5 rounded-xl border text-sm outline-none ${
                       isDark
                         ? 'bg-black/40 border-white/15 text-white focus:border-white/40'
@@ -310,7 +288,7 @@ export const FriendsAndProfileModal: React.FC<FriendsAndProfileModalProps> = ({
                   </button>
                 </div>
                 <p className="text-[11px] text-stone-500">
-                  Astuce : Entrer le <strong>Code Ami</strong> (ex: <code>FP-XXXX</code>) connecte l’amitié immédiatement, tandis qu’une recherche par <code>@pseudo</code> envoie une demande d’ami à accepter.
+                  Entrez le pseudo de votre ami (avec ou sans @) pour lui envoyer une demande d'ami.
                 </p>
               </form>
 

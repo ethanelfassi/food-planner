@@ -279,7 +279,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <Users className="w-4 h-4 mb-2 text-stone-500" />
                 <div className="text-xs font-semibold">Système d’Amis</div>
                 <p className="text-[11px] text-stone-500 mt-1">
-                  Ajoutez vos proches par @pseudo ou Code Ami et partagez vos recettes.
+                  Ajoutez vos proches par @pseudo et partagez vos courses et recettes.
                 </p>
               </div>
 
@@ -364,7 +364,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                         required
                         value={loginIdentifier}
                         onChange={(e) => setLoginIdentifier(e.target.value)}
-                        placeholder="ethan ou ethan@foodplanner.app"
+                        placeholder="Votre pseudo ou adresse courriel"
                         className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm outline-none transition-all ${
                           isDark
                             ? 'bg-black/40 border-white/15 text-white focus:border-white/40'
@@ -531,7 +531,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
                       <div>
                         <label className="block text-xs font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-1.5">
-                          Code Ami ou @pseudo d’un ami (optionnel)
+                          Pseudo d’un ami qui vous a invité (optionnel)
                         </label>
                         <div className="relative">
                           <Users className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -539,7 +539,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                             type="text"
                             value={inviteCode}
                             onChange={(e) => setInviteCode(e.target.value)}
-                            placeholder="Ex: FP-ETHAN ou @ethan"
+                            placeholder="Ex: @alex"
                             className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm font-mono outline-none ${
                               isDark
                                 ? 'bg-black/40 border-white/15 text-white'
@@ -685,7 +685,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       </main>
 
       <footer className="max-w-6xl w-full mx-auto px-6 py-4 text-center text-xs text-stone-500 font-mono">
-        MetroOptiMeal • Plateforme multi-comptes avec courses jointes entre amis
+        FoodPlanner • Plateforme multi-comptes avec courses jointes entre amis
       </footer>
     </div>
   );

@@ -28,7 +28,7 @@ interface WeeklyPlannerViewProps {
   customRecipes?: Recipe[];
   isDark: boolean;
   onRegenerateAll: () => void;
-  onReplaceRecipe: (dayIndex: number, mealType: 'breakfast' | 'dinner' | 'snack', newRecipeId: string) => void;
+  onReplaceRecipe: (dayIndex: number, mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack', newRecipeId: string) => void;
   onSelectRecipe: (recipe: Recipe) => void;
   onOpenRecipeCreator?: () => void;
 }
@@ -52,7 +52,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
   }, []);
   const [swapMealState, setSwapMealState] = useState<{
     dayIndex: number;
-    mealType: 'breakfast' | 'dinner' | 'snack';
+    mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   } | null>(null);
 
   const currentDay = plan.days[selectedDayIndex];
@@ -65,6 +65,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
     ? allRecipesPool.filter((r) => {
         // 1. Filtrer par type de repas
         if (swapMealState.mealType === 'breakfast' && r.mealType !== 'dejeuner') return false;
+        if (swapMealState.mealType === 'lunch' && r.mealType !== 'diner' && r.mealType !== 'souper') return false;
         if (swapMealState.mealType === 'dinner' && r.mealType !== 'souper' && r.mealType !== 'diner') return false;
         if (swapMealState.mealType === 'snack' && r.mealType !== 'collation') return false;
 
@@ -108,7 +109,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
             </h1>
 
             <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 mt-2 max-w-2xl font-sans leading-relaxed">
-              Chaque souper est cuisiné frais le soir en portion double pour garnir automatiquement votre dîner du lendemain. Zéro perte de temps, 100 % d'aliments complets.
+              Chaque repas est planifié de manière indépendante avec 100 % d'aliments complets adaptés à vos cibles nutritionnelles.
             </p>
           </div>
 
@@ -246,9 +247,9 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
           </span>
         </div>
 
-        {/* Grille des 4 Repas */}
+        {/* Grille des 4 Repas Indépendants */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* 1. DÉJEUNER */}
+          {/* 1. PETIT-DÉJEUNER */}
           <div
             onClick={() => onSelectRecipe(currentDay.breakfast)}
             className={`p-5 rounded-3xl border transition-colors cursor-pointer flex flex-col justify-between group ${cardGlassClass}`}
@@ -256,7 +257,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
             <div>
               <div className="flex items-center justify-between mb-3">
                 <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
-                  <Coffee className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Déjeuner (~750 kcal)
+                  <Coffee className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Petit-déjeuner
                 </span>
                 <button
                   onClick={(e) => {
@@ -294,7 +295,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
             </div>
           </div>
 
-          {/* 2. DÎNER (MIDI) - Portion de la veille */}
+          {/* 2. DÉJEUNER (MIDI) */}
           <div
             onClick={() => onSelectRecipe(currentDay.lunch)}
             className={`p-5 rounded-3xl border transition-colors cursor-pointer flex flex-col justify-between group ${cardGlassClass}`}
@@ -302,18 +303,26 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
             <div>
               <div className="flex items-center justify-between mb-3">
                 <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
-                  <Sun className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Dîner (Midi)
+                  <Sun className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Déjeuner (Midi)
                 </span>
-                <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/20 font-semibold">
-                  Portion de la veille
-                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'lunch' });
+                  }}
+                  className="text-xs text-stone-500 hover:text-stone-950 dark:hover:text-stone-200 transition-colors px-2 py-0.5 rounded-lg"
+                >
+                  Changer ▾
+                </button>
               </div>
 
               <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
                 {currentDay.lunch.title}
               </h3>
-              <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 font-sans">
-                Cuisiné hier soir en portion double. Prêt à réchauffer au dîner.
+              <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 line-clamp-2 font-sans">
+                {currentDay.lunch.ingredients.length > 0
+                  ? `${currentDay.lunch.ingredients.slice(0, 4).map((i) => i.ingredientId.replace(/_/g, ' ')).join(', ')}...`
+                  : 'Aucun ingrédient défini'}
               </p>
             </div>
 
@@ -332,7 +341,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
             </div>
           </div>
 
-          {/* 3. SOUPER (SOIR) - Cuisiné en 2 portions */}
+          {/* 3. DÎNER (SOIR) */}
           <div
             onClick={() => onSelectRecipe(currentDay.dinner)}
             className={`p-5 rounded-3xl border-2 transition-colors cursor-pointer flex flex-col justify-between group ${
@@ -344,7 +353,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/10 font-semibold">
-                  <Moon className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Souper du Soir (Cuisiné frais)
+                  <Moon className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Dîner (Soir)
                 </span>
                 <button
                   onClick={(e) => {
@@ -358,9 +367,6 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
               </div>
 
               <div className="flex items-center gap-2 mb-1.5">
-                <span className="font-mono text-[10px] uppercase tracking-wider text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-white/10 border border-stone-300 dark:border-white/20 px-2 py-0.5 rounded-md font-semibold">
-                  2 portions à préparer
-                </span>
                 <span className="text-xs text-stone-600 dark:text-stone-400 font-mono">
                   ~{currentDay.dinner.prepTimeMinutes + currentDay.dinner.cookTimeMinutes} min
                 </span>
@@ -391,7 +397,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
             </div>
           </div>
 
-          {/* 4. COLLATION SPORTIVE */}
+          {/* 4. COLLATION */}
           <div
             onClick={() => onSelectRecipe(currentDay.snack)}
             className={`p-5 rounded-3xl border transition-colors cursor-pointer flex flex-col justify-between group ${cardGlassClass}`}
@@ -399,7 +405,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
             <div>
               <div className="flex items-center justify-between mb-3">
                 <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
-                  <Zap className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Collation Sportive (~450 kcal)
+                  <Zap className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Collation
                 </span>
                 <button
                   onClick={(e) => {

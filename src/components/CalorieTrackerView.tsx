@@ -324,7 +324,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
               </div>
               <div className="min-w-0">
                 <div className="font-mono text-[10px] uppercase tracking-wider text-stone-600 dark:text-stone-400 font-medium">
-                  Déjeuner
+                  Petit-déjeuner
                 </div>
                 <div className="font-serif text-sm font-medium text-stone-900 dark:text-white truncate">
                   {currentDayPlan.breakfast.title}
@@ -362,7 +362,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
               </div>
               <div className="min-w-0">
                 <div className="font-mono text-[10px] uppercase tracking-wider text-stone-600 dark:text-stone-400 font-medium">
-                  Dîner (Midi)
+                  Déjeuner (Midi)
                 </div>
                 <div className="font-serif text-sm font-medium text-stone-900 dark:text-white truncate">
                   {currentDayPlan.lunch.title}
@@ -377,7 +377,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
             </div>
           </div>
 
-          {/* Souper */}
+          {/* Dîner */}
           <div
             onClick={() => toggleMeal('dinner')}
             className={`p-3.5 sm:p-4 rounded-2xl border transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 ${
@@ -400,7 +400,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
               </div>
               <div className="min-w-0">
                 <div className="font-mono text-[10px] uppercase tracking-wider text-stone-600 dark:text-stone-400 font-medium">
-                  Souper (Soir)
+                  Dîner (Soir)
                 </div>
                 <div className="font-serif text-sm font-medium text-stone-900 dark:text-white truncate">
                   {currentDayPlan.dinner.title}

@@ -114,7 +114,7 @@ export const ProductCreatorModal: React.FC<ProductCreatorModalProps> = ({
 
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        setError(data.error || "Erreur lors de l'enregistrement SQLite");
+        setError(data.error || "Erreur lors de l'enregistrement du produit");
         setSaving(false);
         return;
       }

@@ -1355,7 +1355,7 @@ export default function Home() {
           }`}
       >
         <p className="font-serif italic text-sm">
-          FoodPlanner • Profil : {activeAccount.name} ({activeSettings.targetCalories} kcal & {activeSettings.targetProtein}g P) • Base de Données SQLite locale
+          FoodPlanner • Profil : {activeAccount.name} ({activeSettings.targetCalories} kcal & {activeSettings.targetProtein}g P) • Base locale synchronisée
         </p>
       </footer>
     </div>

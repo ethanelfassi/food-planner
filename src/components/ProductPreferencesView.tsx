@@ -98,6 +98,9 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
   const [sortBy, setSortBy] = useState<'default' | 'protein_ratio' | 'protein_pct' | 'price_asc'>('default');
   const [saveToast, setSaveToast] = useState<string | null>(null);
 
+  const currentAccount = accounts.find((a) => a.id === activeAccountId);
+  const partnerAccount = accounts.find((a) => a.id !== activeAccountId);
+
   const handleRestoreBackupFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -243,9 +246,9 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
     onUpdatePreference(id, newStatus);
     const label =
       newStatus === 'liked'
-        ? `"${name}" ajouté à vos favoris (sauvegardé dans SQLite)`
+        ? `"${name}" ajouté à vos favoris`
         : newStatus === 'disliked'
-        ? `"${name}" exclu des achats et recettes (sauvegardé dans SQLite)`
+        ? `"${name}" exclu des achats et recettes`
         : `"${name}" réinitialisé à neutre`;
     setSaveToast(label);
     setTimeout(() => setSaveToast(null), 3000);
@@ -290,7 +293,7 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
     if (onUpdateSettings) {
       onUpdateSettings(localSettings);
       setIsSettingsDirty(false);
-      setSaveToast('Cibles métaboliques et budget enregistrés dans SQLite');
+      setSaveToast('Cibles métaboliques et budget enregistrés');
       setTimeout(() => setSaveToast(null), 3000);
     }
   };
@@ -411,11 +414,7 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="font-mono text-[10px] uppercase tracking-widest text-stone-700 dark:text-stone-300 font-semibold flex items-center gap-1.5">
-                <Database className="w-3.5 h-3.5" /> Base de Données SQLite Locale
-              </span>
-              <span className="text-stone-400 text-xs">•</span>
-              <span className="text-xs text-stone-500 dark:text-stone-400 font-mono">
-                data/food_planner.sqlite
+                <SlidersHorizontal className="w-3.5 h-3.5" /> Personnalisation & Cibles
               </span>
             </div>
 
@@ -516,7 +515,7 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
             <div className="flex items-center justify-between pb-4 border-b border-stone-200/60 dark:border-white/10">
               <div>
                 <h2 className="font-serif text-xl font-normal text-stone-900 dark:text-white">
-                  Variables Personnelles <span className="italic font-light">(Ethan • Sportif)</span>
+                  Variables Personnelles <span className="italic font-light">({currentAccount ? currentAccount.name : 'Profil actif'})</span>
                 </h2>
                 <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
                   Configurez vos cibles caloriques et macro-nutritionnelles. Ces valeurs pilotent l'anneau du Tracker et le calibrage des portions.
@@ -798,11 +797,11 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-stone-700 dark:text-stone-300" />
                 <h3 className="font-serif text-lg font-medium text-stone-900 dark:text-white">
-                  Variables Partenaire <span className="italic font-light">(Laurine)</span>
+                  Variables Partenaire <span className="italic font-light">({partnerAccount ? partnerAccount.name : 'Partage'})</span>
                 </h3>
               </div>
               <p className="text-xs text-stone-500 dark:text-stone-400 font-sans">
-                Ajustez les besoins métaboliques complets de Laurine (Calories, Protéines, Glucides, Lipides). Ces cibles pilotent la pondération mathématique exacte du partage des coûts d'épicerie.
+                Ajustez les besoins métaboliques complets du profil partenaire ({partnerAccount ? partnerAccount.name : 'second utilisateur'} : Calories, Protéines, Glucides, Lipides). Ces cibles pilotent la pondération mathématique exacte du partage des coûts d'épicerie.
               </p>
 
               <div className="grid grid-cols-2 gap-3 pt-1">
@@ -895,7 +894,7 @@ const ProductPreferencesViewComponent: React.FC<ProductPreferencesViewProps> = (
               }`}
             >
               <Check className="w-3.5 h-3.5" />
-              <span>Enregistrer dans SQLite</span>
+              <span>Enregistrer mes préférences</span>
             </button>
           </div>
         </div>

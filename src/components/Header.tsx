@@ -231,7 +231,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             <div className="flex items-center gap-1 text-xs font-mono tabular-nums whitespace-nowrap">
               <Flame className="w-3.5 h-3.5 text-stone-600 dark:text-stone-300 shrink-0" />
               <span className="font-bold text-stone-900 dark:text-stone-100">
-                {userSettings?.targetCalories ?? 3050}
+                {userSettings?.targetCalories ?? 2200}
               </span>
               <span className={isDark ? 'text-stone-400 text-[11px]' : 'text-stone-500 text-[11px]'}>kcal</span>
             </div>
@@ -239,7 +239,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             <div className="flex items-center gap-1 text-xs font-mono tabular-nums whitespace-nowrap">
               <Dumbbell className="w-3.5 h-3.5 text-stone-600 dark:text-stone-400 shrink-0" />
               <span className="font-bold text-stone-900 dark:text-stone-100">
-                {userSettings?.targetProtein ?? 165}g
+                {userSettings?.targetProtein ?? 120}g
               </span>
               <span className={isDark ? 'text-stone-400 text-[11px]' : 'text-stone-500 text-[11px]'}>P</span>
             </div>
@@ -247,7 +247,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             <div className="flex items-center gap-1 text-xs font-mono tabular-nums whitespace-nowrap">
               <Wheat className="w-3.5 h-3.5 text-stone-500 dark:text-stone-400 shrink-0" />
               <span className="font-bold text-stone-900 dark:text-stone-100">
-                {userSettings?.targetCarbs ?? 390}g
+                {userSettings?.targetCarbs ?? 250}g
               </span>
               <span className={isDark ? 'text-stone-400 text-[11px]' : 'text-stone-500 text-[11px]'}>G</span>
             </div>
@@ -255,7 +255,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             <div className="flex items-center gap-1 text-xs font-mono tabular-nums whitespace-nowrap">
               <Droplet className="w-3.5 h-3.5 text-stone-400 dark:text-stone-500 shrink-0" />
               <span className="font-bold text-stone-900 dark:text-stone-100">
-                {userSettings?.targetFat ?? 90}g
+                {userSettings?.targetFat ?? 70}g
               </span>
               <span className={isDark ? 'text-stone-400 text-[11px]' : 'text-stone-500 text-[11px]'}>L</span>
             </div>
@@ -626,7 +626,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                 <div>
                   <h3 className="font-serif text-lg font-medium">Paramètres</h3>
                   <p className="text-[11px] text-stone-500 dark:text-stone-400 font-sans">
-                    Affichage et base de données SQLite
+                    Affichage et données locales
                   </p>
                 </div>
               </div>
@@ -691,7 +691,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               </div>
             </div>
 
-            {/* 2. Base de données SQLite */}
+            {/* 2. Données locales */}
             <div className="space-y-2.5 pt-2 border-t border-stone-200/60 dark:border-white/10">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 font-semibold flex items-center gap-1.5">
@@ -708,9 +708,8 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                   isDark ? 'bg-black/40 border-white/5 text-stone-400' : 'bg-stone-50 border-stone-200 text-stone-600'
                 }`}
               >
-                Fichier : <span className="text-stone-900 dark:text-stone-200 font-semibold">data/food_planner.sqlite</span>
-                <p className="text-[11px] font-sans text-stone-500 dark:text-stone-400 mt-1">
-                  Vos profils, recettes créées, préférences, articles d'épicerie et garde-manger sont sauvegardés dans SQLite.
+                <p className="text-[11px] font-sans text-stone-500 dark:text-stone-400">
+                  Vos profils, recettes créées, préférences, articles d'épicerie et garde-manger sont sauvegardés en toute sécurité.
                 </p>
               </div>
 
@@ -723,7 +722,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                       ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
                       : 'bg-white hover:bg-stone-50 border-stone-300 text-stone-900 shadow-xs'
                   }`}
-                  title="Télécharger une sauvegarde complète de la base SQLite en JSON"
+                  title="Télécharger une sauvegarde complète de vos données en JSON"
                 >
                   <Download className="w-4 h-4 text-blue-500" />
                   <span>Sauvegarder BD</span>

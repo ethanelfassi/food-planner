@@ -84,11 +84,7 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
     return allRecipes.filter((recipe) => {
       // 1. Filtre par type de repas
       if (mealTypeFilter !== 'all') {
-        if (mealTypeFilter === 'souper' && recipe.mealType !== 'souper' && recipe.mealType !== 'diner') {
-          return false;
-        } else if (mealTypeFilter === 'diner' && recipe.mealType !== 'diner' && recipe.mealType !== 'souper') {
-          return false;
-        } else if (mealTypeFilter !== 'souper' && mealTypeFilter !== 'diner' && recipe.mealType !== mealTypeFilter) {
+        if (recipe.mealType !== mealTypeFilter) {
           return false;
         }
       }
@@ -153,11 +149,11 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
     const dayName = DAYS[targetDayIndex];
     const slotLabel =
       targetMealSlot === 'breakfast'
-        ? 'Déjeuner'
+        ? 'Petit-déjeuner'
         : targetMealSlot === 'lunch'
-        ? 'Dîner'
+        ? 'Déjeuner'
         : targetMealSlot === 'dinner'
-        ? 'Souper'
+        ? 'Dîner'
         : 'Collation';
 
     setToastMessage(`« ${planningRecipe.title} » planifié pour ${dayName} (${slotLabel})`);
@@ -263,8 +259,9 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
           <div className="md:col-span-4 flex items-center p-1 rounded-xl sm:rounded-2xl border bg-stone-100/70 dark:bg-black/30 border-stone-200/80 dark:border-white/10 text-xs font-mono overflow-x-auto scrollbar-none">
             {[
               { id: 'all', label: 'Tous' },
-              { id: 'dejeuner', label: 'Déjeuners' },
-              { id: 'souper', label: 'Dîners/Soupers' },
+              { id: 'dejeuner', label: 'Petits-déjeuners' },
+              { id: 'diner', label: 'Déjeuners' },
+              { id: 'souper', label: 'Dîners' },
               { id: 'collation', label: 'Collations' },
             ].map((tab) => (
               <button
@@ -349,18 +346,18 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
                         {recipe.mealType === 'collation' && <Zap className="w-3 h-3 text-emerald-400" />}
                         <span>
                           {recipe.mealType === 'dejeuner'
-                            ? 'Déjeuner'
+                            ? 'Petit-déjeuner'
                             : recipe.mealType === 'diner'
-                            ? 'Dîner'
+                            ? 'Déjeuner'
                             : recipe.mealType === 'souper'
-                            ? 'Souper'
+                            ? 'Dîner'
                             : 'Collation'}
                         </span>
                       </span>
 
                       {recipe.isCustom ? (
                         <span className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
-                          <Database className="w-2.5 h-2.5" /> Fait-Maison SQLite
+                          <Sparkles className="w-2.5 h-2.5" /> Fait maison
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-white/10 font-semibold">
@@ -466,7 +463,7 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
                   <button
                     onClick={() => onEditRecipe(recipe)}
                     className="p-2 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10 text-stone-700 dark:text-stone-300 transition-colors"
-                    title={recipe.isCustom ? 'Modifier cette recette dans SQLite' : 'Personnaliser et enregistrer dans SQLite'}
+                    title={recipe.isCustom ? 'Modifier cette recette' : 'Personnaliser et enregistrer'}
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
@@ -475,7 +472,7 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
                     <button
                       onClick={() => onDeleteRecipe(recipe.id)}
                       className="p-2 rounded-xl border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-                      title="Supprimer définitivement de SQLite"
+                      title="Supprimer définitivement ce plat"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -558,9 +555,9 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { id: 'breakfast', label: 'Déjeuner (Matin)', icon: Coffee },
-                  { id: 'lunch', label: 'Dîner (Midi)', icon: Sun },
-                  { id: 'dinner', label: 'Souper (Soir)', icon: Moon },
+                  { id: 'breakfast', label: 'Petit-déjeuner (Matin)', icon: Coffee },
+                  { id: 'lunch', label: 'Déjeuner (Midi)', icon: Sun },
+                  { id: 'dinner', label: 'Dîner (Soir)', icon: Moon },
                   { id: 'snack', label: 'Collation', icon: Zap },
                 ].map((slot) => {
                   const Icon = slot.icon;

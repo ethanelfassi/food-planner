@@ -50,10 +50,10 @@ const RecipeModalComponent: React.FC<RecipeModalProps> = ({
           <div>
             <div className="flex items-center gap-2 mb-2 flex-wrap font-mono text-[10px] uppercase tracking-widest">
               <span className="px-2.5 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
-                {recipe.mealType === 'dejeuner' && 'Déjeuner Sportif'}
-                {recipe.mealType === 'souper' && 'Souper & Dîner (2 portions)'}
-                {recipe.mealType === 'collation' && 'Collation Sportive'}
-                {recipe.mealType === 'diner' && 'Dîner'}
+                {recipe.mealType === 'dejeuner' && 'Petit-déjeuner'}
+                {recipe.mealType === 'diner' && 'Déjeuner'}
+                {recipe.mealType === 'souper' && 'Dîner'}
+                {recipe.mealType === 'collation' && 'Collation'}
               </span>
               {recipe.isCustom && (
                 <span className="px-2.5 py-0.5 rounded-full bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold">
@@ -176,7 +176,7 @@ const RecipeModalComponent: React.FC<RecipeModalProps> = ({
               <h3 className="font-serif text-lg font-normal text-stone-900 dark:text-white flex items-center gap-2">
                 Ingrédients{' '}
                 <span className="font-sans text-xs text-stone-600 dark:text-stone-400 font-normal">
-                  {recipe.servings > 1 ? `(${recipe.servings} portions - souper + dîner)` : '(1 portion)'}
+                  {recipe.servings > 1 ? `(${recipe.servings} portions)` : '(1 portion)'}
                 </span>
               </h3>
             </div>

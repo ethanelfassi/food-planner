@@ -99,8 +99,9 @@ export function generateWeeklyPlan(
   }
 
   // Fallbacks si aucune recette n'existe dans le catalogue
-  const defaultEmptyBreakfast = createEmptyMeal('dejeuner', 'Aucun déjeuner planifié');
-  const defaultEmptyDinner = createEmptyMeal('souper', 'Aucun souper planifié');
+  const defaultEmptyBreakfast = createEmptyMeal('dejeuner', 'Aucun petit-déjeuner planifié');
+  const defaultEmptyLunch = createEmptyMeal('diner', 'Aucun déjeuner planifié');
+  const defaultEmptyDinner = createEmptyMeal('souper', 'Aucun dîner planifié');
   const defaultEmptySnack = createEmptyMeal('collation', 'Aucune collation planifiée');
 
   // Trier par score décroissant (produits aimés + promos en premier)
@@ -114,20 +115,12 @@ export function generateWeeklyPlan(
     ? [...validSnacks].sort((a, b) => b.recipeScore - a.recipeScore)
     : [defaultEmptySnack];
 
-  // Construire la sélection des soupers avec variété
-  const dinnerSelection: Recipe[] = [];
-  for (let i = 0; i < 7; i++) {
-    dinnerSelection.push(sortedDinners[i % sortedDinners.length]);
-  }
-
   for (let i = 0; i < 7; i++) {
     const dayName = DAY_NAMES[i];
     const breakfast = sortedBreakfasts[i % sortedBreakfasts.length];
+    const lunch = defaultEmptyLunch;
+    const dinner = sortedDinners[i % sortedDinners.length];
     const snack = sortedSnacks[i % sortedSnacks.length];
-    const dinner = dinnerSelection[i];
-
-    // Le midi : portion de la veille au soir
-    const lunch = i === 0 ? (dinnerSelection[dinnerSelection.length - 1] || defaultEmptyDinner) : (dinnerSelection[i - 1] || defaultEmptyDinner);
 
     const dailyCalories =
       breakfast.caloriesPerServing +
@@ -209,22 +202,6 @@ export function replaceRecipeInPlan(
     targetDay.lunch = candidate;
   } else if (mealType === 'dinner') {
     targetDay.dinner = candidate;
-    const nextDayIndex = (dayIndex + 1) % 7;
-    if (newDays[nextDayIndex]) {
-      const nextDay = { ...newDays[nextDayIndex] };
-      nextDay.lunch = candidate;
-      nextDay.dailyCalories =
-        nextDay.breakfast.caloriesPerServing +
-        nextDay.lunch.caloriesPerServing +
-        nextDay.dinner.caloriesPerServing +
-        nextDay.snack.caloriesPerServing;
-      nextDay.dailyProtein =
-        nextDay.breakfast.proteinPerServing +
-        nextDay.lunch.proteinPerServing +
-        nextDay.dinner.proteinPerServing +
-        nextDay.snack.proteinPerServing;
-      newDays[nextDayIndex] = nextDay;
-    }
   } else if (mealType === 'snack') {
     targetDay.snack = candidate;
   }

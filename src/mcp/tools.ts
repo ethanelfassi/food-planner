@@ -720,9 +720,9 @@ export const toolSchemas = {
           protein: `${Math.round((d.breakfast.proteinPerServing + d.lunch.proteinPerServing + d.dinner.proteinPerServing + d.snack.proteinPerServing) * 10) / 10}g`,
         };
         const message = `📅 **Menu du ${d.dayName} (${accId})**\n` +
-          `• 🥐 **Déjeuner** : ${d.breakfast.title} (${d.breakfast.caloriesPerServing} kcal, ${d.breakfast.proteinPerServing}g P)\n` +
-          `• 🥗 **Dîner** : ${d.lunch.title} (${d.lunch.caloriesPerServing} kcal, ${d.lunch.proteinPerServing}g P)\n` +
-          `• 🍲 **Souper** : ${d.dinner.title} (${d.dinner.caloriesPerServing} kcal, ${d.dinner.proteinPerServing}g P)\n` +
+          `• 🥐 **Petit-déjeuner** : ${d.breakfast.title} (${d.breakfast.caloriesPerServing} kcal, ${d.breakfast.proteinPerServing}g P)\n` +
+          `• 🥗 **Déjeuner** : ${d.lunch.title} (${d.lunch.caloriesPerServing} kcal, ${d.lunch.proteinPerServing}g P)\n` +
+          `• 🍲 **Dîner** : ${d.dinner.title} (${d.dinner.caloriesPerServing} kcal, ${d.dinner.proteinPerServing}g P)\n` +
           `• 🍎 **Collation** : ${d.snack.title} (${d.snack.caloriesPerServing} kcal, ${d.snack.proteinPerServing}g P)\n` +
           `📊 **Total** : ${totals.calories} kcal | ${totals.protein} P`;
 
