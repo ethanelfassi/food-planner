@@ -35,6 +35,9 @@ interface WeeklyPlannerViewProps {
   onOpenRecipeCreator?: () => void;
   weekOffset?: number;
   onNavigateWeek?: (direction: -1 | 1 | 0) => void;
+  onOpenCalendar?: () => void;
+  selectedDayIndex?: number;
+  onSelectDayIndex?: (idx: number) => void;
 }
 
 const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
@@ -49,19 +52,27 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
   onOpenRecipeCreator,
   weekOffset = 0,
   onNavigateWeek,
+  onOpenCalendar,
+  selectedDayIndex: controlledDayIndex,
+  onSelectDayIndex,
 }) => {
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
+  const [internalDayIndex, setInternalDayIndex] = useState<number>(0);
 
   useEffect(() => {
     const d = new Date().getDay();
-    setSelectedDayIndex(d === 0 ? 6 : d - 1);
+    const idx = d === 0 ? 6 : d - 1;
+    setInternalDayIndex(idx);
   }, []);
+
+  const selectedDayIndex = controlledDayIndex !== undefined ? controlledDayIndex : internalDayIndex;
+  const handleSelectDay = onSelectDayIndex || setInternalDayIndex;
+
   const [swapMealState, setSwapMealState] = useState<{
     dayIndex: number;
     mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   } | null>(null);
 
-  const currentDay = plan.days[selectedDayIndex];
+  const currentDay = plan.days[selectedDayIndex] || plan.days[0];
 
   const allRecipesPool = React.useMemo(() => {
     return [...RECIPES, ...(customRecipes || [])];
@@ -166,88 +177,111 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+        </div>
 
-            <div className="flex items-center gap-2 self-end sm:self-center shrink-0 flex-wrap">
-              {onNavigateWeek && (
-                <div className="flex items-center gap-1 p-1 rounded-2xl border border-stone-200 dark:border-white/10 bg-white/70 dark:bg-white/[0.04] shadow-xs">
-                  <button
-                    onClick={() => onNavigateWeek(-1)}
-                    className="p-1.5 sm:p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 text-stone-700 dark:text-stone-300 transition-colors cursor-pointer"
-                    title="Semaine précédente"
-                    type="button"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="font-mono text-xs font-semibold px-2 text-stone-800 dark:text-stone-200 whitespace-nowrap">
-                    {plan.weekLabel || 'Semaine courante'}
-                  </span>
-                  {weekOffset !== 0 && (
-                    <button
-                      onClick={() => onNavigateWeek(0)}
-                      className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-lg bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold transition-all shadow-xs cursor-pointer mr-0.5"
-                      title="Revenir à la semaine en cours"
-                      type="button"
-                    >
-                      Aujourd'hui
-                    </button>
-                  )}
-                  <button
-                    onClick={() => onNavigateWeek(1)}
-                    className="p-1.5 sm:p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 text-stone-700 dark:text-stone-300 transition-colors cursor-pointer"
-                    title="Semaine suivante"
-                    type="button"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-              {onOpenRecipeCreator && (
+        {/* Barre de Navigation Semaine & Actions (Dédiée et responsive, sans débordement) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-stone-200/60 dark:border-white/10">
+          <div className="flex items-center gap-2 flex-wrap">
+            {onNavigateWeek && (
+              <div className="inline-flex items-center gap-1 p-1 rounded-2xl border border-stone-200 dark:border-white/10 bg-white/70 dark:bg-white/[0.04] shadow-xs">
                 <button
-                  onClick={onOpenRecipeCreator}
-                  className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2.5 sm:py-3 rounded-2xl border text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 border-stone-300 dark:border-white/20 hover:bg-stone-100 dark:hover:bg-white/10 text-stone-900 dark:text-stone-100 shadow-xs"
-                  title="Créer un nouveau repas personnalisé"
+                  onClick={() => onNavigateWeek(-1)}
+                  className="p-1.5 sm:p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 text-stone-700 dark:text-stone-300 transition-colors cursor-pointer"
+                  title="Semaine précédente"
+                  type="button"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Repas</span>
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
-              )}
-
+                <button
+                  onClick={onOpenCalendar}
+                  type="button"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 text-stone-800 dark:text-stone-200 font-mono text-xs font-semibold transition-colors cursor-pointer"
+                  title="Cliquer pour ouvrir le calendrier et l'historique"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>{plan.weekLabel || 'Semaine courante'}</span>
+                </button>
+                <button
+                  onClick={() => onNavigateWeek(1)}
+                  className="p-1.5 sm:p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 text-stone-700 dark:text-stone-300 transition-colors cursor-pointer"
+                  title="Semaine suivante"
+                  type="button"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            {weekOffset !== 0 && onNavigateWeek && (
               <button
-                onClick={canAutoGenerate ? onRegenerateAll : undefined}
-                disabled={!canAutoGenerate}
-                className={`p-2.5 sm:p-3.5 rounded-2xl border transition-all flex items-center gap-2 ${
-                  !canAutoGenerate
-                    ? 'opacity-45 cursor-not-allowed border-stone-300 dark:border-white/10 text-stone-400 dark:text-stone-500'
-                    : isDark
-                    ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white active:scale-95'
-                    : 'bg-stone-900 hover:bg-stone-800 text-stone-50 border-stone-900 shadow-xs active:scale-95'
-                }`}
-                title={
-                  canAutoGenerate
-                    ? 'Régénérer le menu de la semaine'
-                    : `Génération auto désactivée : enregistrez au moins ${MIN_RECIPES_FOR_AUTO_GENERATION} repas (${allRecipesPool.length}/${MIN_RECIPES_FOR_AUTO_GENERATION})`
-                }
+                onClick={() => onNavigateWeek(0)}
+                className="text-[11px] font-mono uppercase px-2.5 py-1.5 rounded-xl bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold transition-all shadow-xs cursor-pointer hover:opacity-90"
+                title="Revenir à la semaine en cours"
+                type="button"
               >
-                <RefreshCw className="w-4 h-4 text-current" />
-                {!canAutoGenerate && (
-                  <span className="text-[10px] font-mono uppercase tracking-wider">
-                    {allRecipesPool.length}/{MIN_RECIPES_FOR_AUTO_GENERATION} repas
-                  </span>
-                )}
+                Semaine actuelle
               </button>
-            </div>
+            )}
+            {onOpenCalendar && (
+              <button
+                onClick={onOpenCalendar}
+                type="button"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-300 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/5 text-stone-700 dark:text-stone-300 font-mono text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+                title="Ouvrir le calendrier et l'historique"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Calendrier</span>
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+            {onOpenRecipeCreator && (
+              <button
+                onClick={onOpenRecipeCreator}
+                className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl border text-xs font-mono uppercase tracking-wider transition-all font-semibold active:scale-95 border-stone-300 dark:border-white/20 hover:bg-stone-100 dark:hover:bg-white/10 text-stone-900 dark:text-stone-100 shadow-xs cursor-pointer"
+                title="Créer un nouveau repas personnalisé"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Repas</span>
+              </button>
+            )}
+
+            <button
+              onClick={canAutoGenerate ? onRegenerateAll : undefined}
+              disabled={!canAutoGenerate}
+              className={`p-2 sm:p-2.5 rounded-xl border transition-all flex items-center gap-2 cursor-pointer ${
+                !canAutoGenerate
+                  ? 'opacity-45 cursor-not-allowed border-stone-300 dark:border-white/10 text-stone-400 dark:text-stone-500'
+                  : isDark
+                  ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white active:scale-95'
+                  : 'bg-stone-900 hover:bg-stone-800 text-stone-50 border-stone-900 shadow-xs active:scale-95'
+              }`}
+              title={
+                canAutoGenerate
+                  ? 'Régénérer le menu de la semaine'
+                  : `Génération auto désactivée : enregistrez au moins ${MIN_RECIPES_FOR_AUTO_GENERATION} repas (${allRecipesPool.length}/${MIN_RECIPES_FOR_AUTO_GENERATION})`
+              }
+            >
+              <RefreshCw className="w-4 h-4 text-current" />
+              {!canAutoGenerate && (
+                <span className="text-[10px] font-mono uppercase tracking-wider">
+                  {allRecipesPool.length}/{MIN_RECIPES_FOR_AUTO_GENERATION} repas
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
         {/* Sélecteur des 7 Jours (Nordic Minimalist Pills) */}
-        <div className="grid grid-cols-7 gap-1 sm:gap-2 mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-stone-200/60 dark:border-white/10">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 mt-4 sm:mt-6">
           {plan.days.map((day, idx) => {
             const isSelected = selectedDayIndex === idx;
             const isToday = Boolean(day.isToday);
             return (
               <button
                 key={day.date || day.dayName}
-                onClick={() => setSelectedDayIndex(idx)}
+                onClick={() => handleSelectDay(idx)}
                 className={`relative py-2 sm:py-3 px-0.5 sm:px-2 rounded-xl sm:rounded-2xl text-center transition-colors flex flex-col items-center gap-0.5 sm:gap-1 active:scale-95 touch-manipulation ${
                   isSelected
                     ? isDark

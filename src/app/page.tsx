@@ -34,11 +34,12 @@ import {
   AccountSplitSummary
 } from '@/lib/grocery';
 import { DEFAULT_COUPLE_SETTINGS, calculateSplitCost } from '@/lib/couple-split';
-import { getMondayOfWeek, addWeeks } from '@/lib/date-utils';
+import { getMondayOfWeek, addWeeks, getDayIndex } from '@/lib/date-utils';
 import { Header } from '@/components/Header';
 import { AuthScreen } from '@/components/AuthScreen';
 import { FriendsAndProfileModal } from '@/components/FriendsAndProfileModal';
 import { WeeklyPlannerView } from '@/components/WeeklyPlannerView';
+import { CalendarModal } from '@/components/CalendarModal';
 import { RecipeBookView } from '@/components/RecipeBookView';
 import { GroceryListView } from '@/components/GroceryListView';
 import { DealsAndPricesView } from '@/components/DealsAndPricesView';
@@ -105,13 +106,17 @@ export default function Home() {
   const isDark = theme === 'dark';
 
   const [todayDayIndex, setTodayDayIndex] = useState<number>(0);
+  const [selectedPlannerDayIndex, setSelectedPlannerDayIndex] = useState<number>(0);
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [baseMonday, setBaseMonday] = useState<Date | null>(null);
+  const [isCalendarOpen, setIsCalendarOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const now = new Date();
     const d = now.getDay();
-    setTodayDayIndex(d === 0 ? 6 : d - 1);
+    const idx = d === 0 ? 6 : d - 1;
+    setTodayDayIndex(idx);
+    setSelectedPlannerDayIndex(idx);
     setBaseMonday(getMondayOfWeek(now));
   }, []);
 
@@ -119,6 +124,15 @@ export default function Home() {
     if (!baseMonday) return undefined;
     return addWeeks(baseMonday, weekOffset);
   }, [baseMonday, weekOffset]);
+
+  const handleSelectDateFromCalendar = useCallback((dateKey: string, date: Date) => {
+    if (!baseMonday) return;
+    const targetMonday = getMondayOfWeek(date);
+    const diffWeeks = Math.round((targetMonday.getTime() - baseMonday.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    setWeekOffset(diffWeeks);
+    const dayIndex = getDayIndex(date);
+    setSelectedPlannerDayIndex(dayIndex);
+  }, [baseMonday]);
 
   // Mettre à jour les plans hebdomadaires lors du changement de semaine
   useEffect(() => {
@@ -268,13 +282,14 @@ export default function Home() {
       setCheckedItemsMap((prev) => ({ ...initialChecked, ...prev }));
 
       const allAvailableRecs = [...RECIPES, ...loadedCustomRecipes];
+      const curMon = referenceMonday || getMondayOfWeek(new Date());
       // Générer les plans de chaque compte selon leurs préférences, leurs propres recettes et repas programmés
       const initialPlans: Record<string, WeeklyPlan> = {};
       for (const acc of loadedAccounts) {
         const userPrefs = loadedPrefs[acc.id] || {};
         const userSett = loadedSettings[acc.id] || DEFAULT_USER_SETTINGS;
         const accRecipes = loadedCustomRecipes.filter((r) => !r.createdBy || r.createdBy === acc.id);
-        const basePlan = generateWeeklyPlan(userPrefs, accRecipes, userSett);
+        const basePlan = generateWeeklyPlan(userPrefs, accRecipes, userSett, curMon);
         initialPlans[acc.id] = applyScheduledMealsToPlan(basePlan, acc.id, loadedScheduledMeals, allAvailableRecs);
       }
       setPlansByAccount(initialPlans);
@@ -1314,6 +1329,7 @@ export default function Home() {
         theme={theme}
         onToggleTheme={toggleTheme}
         onBackupRestored={initAppData}
+        onOpenCalendar={() => setIsCalendarOpen(true)}
       />
 
       <main className="flex-1 max-w-[1536px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-36 sm:pb-28 md:pb-8">
@@ -1325,6 +1341,9 @@ export default function Home() {
             customRecipes={userCustomRecipes}
             isDark={isDark}
             weekOffset={weekOffset}
+            selectedDayIndex={selectedPlannerDayIndex}
+            onSelectDayIndex={setSelectedPlannerDayIndex}
+            onOpenCalendar={() => setIsCalendarOpen(true)}
             onNavigateWeek={(dir) => {
               if (dir === 0) setWeekOffset(0);
               else setWeekOffset((prev) => prev + dir);
@@ -1425,6 +1444,7 @@ export default function Home() {
             activeAccountId={activeAccountId}
             userSettings={activeSettings}
             isDark={isDark}
+            onOpenCalendar={() => setIsCalendarOpen(true)}
           />
         )}
 
@@ -1495,6 +1515,16 @@ export default function Home() {
         onClose={() => setIsProductCreatorOpen(false)}
         onProductCreated={handleProductCreated}
         isDark={isDark}
+      />
+
+      <CalendarModal
+        isOpen={isCalendarOpen}
+        onClose={() => setIsCalendarOpen(false)}
+        accountId={activeAccountId}
+        isDark={isDark}
+        userSettings={activeSettings}
+        activeDateKey={activePlan.days[selectedPlannerDayIndex]?.date}
+        onSelectDate={handleSelectDateFromCalendar}
       />
 
       <footer

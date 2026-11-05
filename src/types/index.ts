@@ -351,5 +351,7 @@ export interface DailyTrackerLog {
   eatenMeals: Record<'breakfast' | 'lunch' | 'dinner' | 'snack', boolean>;
   customEntries: TrackerCustomEntry[];
   updatedAt?: string;
+  totalCaloriesEaten?: number;
+  totalProteinEaten?: number;
 }
 

@@ -19,6 +19,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { toDateKey } from '@/lib/date-utils';
+import { CalendarModal } from './CalendarModal';
 
 interface CalorieTrackerViewProps {
   currentDayPlan: DayPlan;
@@ -26,6 +27,7 @@ interface CalorieTrackerViewProps {
   activeAccountId?: string;
   userSettings?: UserCustomizationSettings;
   isDark: boolean;
+  onOpenCalendar?: () => void;
 }
 
 const DEFAULT_EATEN_MEALS: Record<'breakfast' | 'lunch' | 'dinner' | 'snack', boolean> = {
@@ -41,6 +43,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
   activeAccountId = 'ethan',
   userSettings,
   isDark,
+  onOpenCalendar,
 }) => {
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(currentDayPlan.dayIndex ?? 0);
   const [logsByDay, setLogsByDay] = useState<Record<number, DailyTrackerLog>>({});
@@ -257,7 +260,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
 
           <div className="flex items-center gap-3 flex-wrap">
             <button
-              onClick={() => setIsHistoryModalOpen(true)}
+              onClick={onOpenCalendar || (() => setIsHistoryModalOpen(true))}
               type="button"
               className="flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl sm:rounded-2xl border text-xs font-mono font-semibold transition-all cursor-pointer border-stone-300 dark:border-white/15 bg-white/70 hover:bg-stone-100 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-stone-900 dark:text-stone-100 shadow-xs"
               title="Ouvrir le calendrier et l'historique complet des repas enregistrés"
@@ -769,6 +772,23 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
           </div>
         )}
       </div>
+
+      {isHistoryModalOpen && (
+        <CalendarModal
+          isOpen={isHistoryModalOpen}
+          onClose={() => setIsHistoryModalOpen(false)}
+          accountId={activeAccountId}
+          isDark={isDark}
+          userSettings={userSettings}
+          activeDateKey={activeDayPlan.date}
+          onSelectDate={(dateKey) => {
+            const foundDayIdx = weeklyPlan?.days.findIndex((d) => d.date === dateKey);
+            if (foundDayIdx !== undefined && foundDayIdx >= 0) {
+              setSelectedDayIndex(foundDayIdx);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

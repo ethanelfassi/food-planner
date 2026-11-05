@@ -48,6 +48,7 @@ interface HeaderProps {
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
   onBackupRestored?: () => void;
+  onOpenCalendar?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = React.memo(({
@@ -68,6 +69,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   theme,
   onToggleTheme,
   onBackupRestored,
+  onOpenCalendar,
 }) => {
   const isDark = theme === 'dark';
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -205,16 +207,18 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                   Metro QC
                 </span>
                 {todayFormatted && (
-                  <span
-                    className={`hidden md:inline-flex items-center gap-1 text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded-full border whitespace-nowrap ${isDark
-                      ? 'bg-white/5 text-stone-300 border-white/10'
-                      : 'bg-stone-100 text-stone-800 border-stone-200 font-medium'
+                  <button
+                    onClick={onOpenCalendar}
+                    type="button"
+                    className={`hidden md:inline-flex items-center gap-1 text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded-full border whitespace-nowrap transition-colors cursor-pointer ${isDark
+                      ? 'bg-white/5 hover:bg-white/10 text-stone-300 hover:text-white border-white/10'
+                      : 'bg-stone-100 hover:bg-stone-200 text-stone-800 border-stone-200 font-medium'
                       }`}
-                    title="Date du jour"
+                    title="Cliquer pour ouvrir le calendrier et l'historique"
                   >
                     <Calendar className="w-2.5 h-2.5 text-stone-500" />
                     {todayFormatted}
-                  </span>
+                  </button>
                 )}
                 {coupleModeEnabled && (
                   <span

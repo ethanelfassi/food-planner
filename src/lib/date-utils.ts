@@ -183,3 +183,41 @@ export function formatHeaderDateFrench(date: Date = new Date()): string {
   const monthName = MONTH_NAMES_SHORT[date.getMonth()];
   return `${dayName} ${dayNum} ${monthName}`;
 }
+
+export interface MonthCalendarDay {
+  date: Date;
+  dateKey: string;
+  dayNumber: number;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  dayIndex: number;
+}
+
+/**
+ * Génère toutes les cellules (Lundi à Dimanche) pour la vue mensuelle du calendrier
+ */
+export function getMonthCalendarDays(year: number, monthIndex: number, todayKey?: string): MonthCalendarDay[] {
+  const firstOfMonth = new Date(year, monthIndex, 1, 12, 0, 0);
+  const startMonday = getMondayOfWeek(firstOfMonth);
+
+  const lastOfMonth = new Date(year, monthIndex + 1, 0, 12, 0, 0);
+  const endSunday = addDays(getMondayOfWeek(lastOfMonth), 6);
+
+  const days: MonthCalendarDay[] = [];
+
+  let curr = new Date(startMonday);
+  while (curr <= endSunday) {
+    const dateKey = toDateKey(curr);
+    days.push({
+      date: new Date(curr),
+      dateKey,
+      dayNumber: curr.getDate(),
+      isCurrentMonth: curr.getMonth() === monthIndex,
+      isToday: Boolean(todayKey && dateKey === todayKey),
+      dayIndex: getDayIndex(curr),
+    });
+    curr = addDays(curr, 1);
+  }
+
+  return days;
+}
