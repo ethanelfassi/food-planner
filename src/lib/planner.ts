@@ -178,11 +178,11 @@ export function generateWeeklyPlan(
   preferences: ProductPreferencesMap = {},
   customRecipes: Recipe[] = [],
   userSettings?: UserCustomizationSettings,
-  referenceMonday: Date = getMondayOfWeek()
+  referenceMonday?: Date | null
 ): WeeklyPlan {
-  const weekDays = getWeekDays(referenceMonday);
-  const weekStartDate = toDateKey(getMondayOfWeek(referenceMonday));
-  const weekLabel = formatWeekRangeFrench(referenceMonday);
+  const weekDays = referenceMonday ? getWeekDays(referenceMonday) : null;
+  const weekStartDate = referenceMonday ? toDateKey(getMondayOfWeek(referenceMonday)) : undefined;
+  const weekLabel = referenceMonday ? formatWeekRangeFrench(referenceMonday) : undefined;
   const days: DayPlan[] = [];
   const allRecipes = [...RECIPES, ...customRecipes];
 
@@ -194,14 +194,15 @@ export function generateWeeklyPlan(
   // Règle métier : si l'utilisateur a moins de 5 recettes enregistrées, le générateur ne génère rien automatiquement.
   if (allRecipes.length < MIN_RECIPES_FOR_AUTO_GENERATION) {
     for (let i = 0; i < 7; i++) {
-      const wDay = weekDays[i];
+      const dayName = DAY_NAMES[i];
+      const wDay = weekDays ? weekDays[i] : null;
       days.push({
         dayIndex: i,
-        dayName: wDay.dayName,
-        date: wDay.dateStr,
-        formattedDate: wDay.formattedShort,
-        formattedFullDate: wDay.formattedFull,
-        isToday: wDay.isToday,
+        dayName: wDay ? wDay.dayName : dayName,
+        date: wDay ? wDay.dateStr : undefined,
+        formattedDate: wDay ? wDay.formattedShort : undefined,
+        formattedFullDate: wDay ? wDay.formattedFull : undefined,
+        isToday: wDay ? wDay.isToday : false,
         breakfast: defaultEmptyBreakfast,
         lunch: defaultEmptyLunch,
         dinner: defaultEmptyDinner,
@@ -327,15 +328,15 @@ export function generateWeeklyPlan(
       snack = bestCombo.snack;
     }
 
-    const wDay = weekDays[i];
+    const wDay = weekDays ? weekDays[i] : null;
     days.push(
       recalculateDayMacros({
         dayIndex: i,
-        dayName: wDay.dayName,
-        date: wDay.dateStr,
-        formattedDate: wDay.formattedShort,
-        formattedFullDate: wDay.formattedFull,
-        isToday: wDay.isToday,
+        dayName: wDay ? wDay.dayName : dayName,
+        date: wDay ? wDay.dateStr : undefined,
+        formattedDate: wDay ? wDay.formattedShort : undefined,
+        formattedFullDate: wDay ? wDay.formattedFull : undefined,
+        isToday: wDay ? wDay.isToday : false,
         breakfast,
         lunch,
         dinner,

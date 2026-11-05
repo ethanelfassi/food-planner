@@ -106,12 +106,19 @@ export default function Home() {
 
   const [todayDayIndex, setTodayDayIndex] = useState<number>(0);
   const [weekOffset, setWeekOffset] = useState<number>(0);
-  const referenceMonday = React.useMemo(() => addWeeks(getMondayOfWeek(), weekOffset), [weekOffset]);
+  const [baseMonday, setBaseMonday] = useState<Date | null>(null);
 
   useEffect(() => {
-    const d = new Date().getDay();
+    const now = new Date();
+    const d = now.getDay();
     setTodayDayIndex(d === 0 ? 6 : d - 1);
+    setBaseMonday(getMondayOfWeek(now));
   }, []);
+
+  const referenceMonday = React.useMemo(() => {
+    if (!baseMonday) return undefined;
+    return addWeeks(baseMonday, weekOffset);
+  }, [baseMonday, weekOffset]);
 
   // Mettre à jour les plans hebdomadaires lors du changement de semaine
   useEffect(() => {
@@ -437,7 +444,7 @@ export default function Home() {
     const defaultSett = { ...DEFAULT_LAURINE_SETTINGS, goalName: 'Alimentation saine & équilibrée' };
     setSettingsByAccount((prev) => ({ ...prev, [cleanId]: defaultSett }));
     setPreferencesByAccount((prev) => ({ ...prev, [cleanId]: {} }));
-    const newPlan = generateWeeklyPlan({}, customRecipes);
+    const newPlan = generateWeeklyPlan({}, customRecipes, undefined, referenceMonday);
     setPlansByAccount((prev) => ({ ...prev, [cleanId]: newPlan }));
     setActiveAccountId(cleanId);
 
@@ -485,7 +492,7 @@ export default function Home() {
 
     // Si banni, réadapter immédiatement le plan du compte actif tout en préservant les repas programmés
     if (status === 'disliked') {
-      const basePlan = generateWeeklyPlan(nextPrefs, userCustomRecipes, activeSettings);
+      const basePlan = generateWeeklyPlan(nextPrefs, userCustomRecipes, activeSettings, referenceMonday);
       const newPlan = applyScheduledMealsToPlan(basePlan, activeAccountId, scheduledMeals, allRecipes);
       setPlansByAccount((prev) => ({
         ...prev,
@@ -520,7 +527,7 @@ export default function Home() {
       console.error('Erreur reset preferences SQLite:', err);
     }
 
-    const basePlan = generateWeeklyPlan({}, userCustomRecipes, activeSettings);
+    const basePlan = generateWeeklyPlan({}, userCustomRecipes, activeSettings, referenceMonday);
     const newPlan = applyScheduledMealsToPlan(basePlan, activeAccountId, scheduledMeals, allRecipes);
     setPlansByAccount((prev) => ({
       ...prev,
@@ -530,7 +537,7 @@ export default function Home() {
 
   const handleApplyPreferencesToPlan = () => {
     const prefs = preferencesByAccount[activeAccountId] || {};
-    const basePlan = generateWeeklyPlan(prefs, userCustomRecipes, activeSettings);
+    const basePlan = generateWeeklyPlan(prefs, userCustomRecipes, activeSettings, referenceMonday);
     const newPlan = applyScheduledMealsToPlan(basePlan, activeAccountId, scheduledMeals, allRecipes);
     setPlansByAccount((prev) => ({
       ...prev,
@@ -605,7 +612,7 @@ export default function Home() {
     // Mettre à jour le plan hebdomadaire pour intégrer le repas tout en conservant les repas programmés
     const prefs = preferencesByAccount[activeAccountId] || {};
     const userRecs = updatedRecipes.filter((r) => !r.createdBy || r.createdBy === activeAccountId);
-    const basePlan = generateWeeklyPlan(prefs, userRecs, activeSettings);
+    const basePlan = generateWeeklyPlan(prefs, userRecs, activeSettings, referenceMonday);
     const newPlan = applyScheduledMealsToPlan(
       basePlan,
       activeAccountId,
@@ -626,7 +633,7 @@ export default function Home() {
 
     const prefs = preferencesByAccount[activeAccountId] || {};
     const userRecs = remaining.filter((r) => !r.createdBy || r.createdBy === activeAccountId);
-    const basePlan = generateWeeklyPlan(prefs, userRecs, activeSettings);
+    const basePlan = generateWeeklyPlan(prefs, userRecs, activeSettings, referenceMonday);
     const newPlan = applyScheduledMealsToPlan(
       basePlan,
       activeAccountId,
