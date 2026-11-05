@@ -22,7 +22,11 @@ import {
   Friendship,
   SharedGroceryGroup
 } from '@/types';
-import { generateWeeklyPlan, replaceRecipeInPlan } from '@/lib/planner';
+import {
+  generateWeeklyPlan,
+  replaceRecipeInPlan,
+  applyScheduledMealsToWeeklyPlan,
+} from '@/lib/planner';
 import {
   generateGroceryList,
   generateCommonGroceryList,
@@ -109,40 +113,7 @@ export default function Home() {
   // Helper pour injecter les repas programmés (via MCP / ChatMCP ou UI) dans un plan hebdomadaire
   const applyScheduledMealsToPlan = useCallback(
     (plan: WeeklyPlan, accountId: string, meals: ScheduledMealRecord[], allRecipes: Recipe[]): WeeklyPlan => {
-      const recMap = new Map(allRecipes.map((r) => [r.id, r]));
-      const updatedDays = plan.days.map((day, idx) => {
-        const matches = meals.filter((m) => m.accountId === accountId && m.dayIndex === idx);
-        if (matches.length === 0) return day;
-        const newDay = { ...day };
-        for (const m of matches) {
-          const found = recMap.get(m.recipeId);
-          if (found) {
-            (newDay as any)[m.mealSlot] = found;
-          }
-        }
-        newDay.dailyCalories =
-          newDay.breakfast.caloriesPerServing +
-          newDay.lunch.caloriesPerServing +
-          newDay.dinner.caloriesPerServing +
-          newDay.snack.caloriesPerServing;
-        newDay.dailyProtein =
-          newDay.breakfast.proteinPerServing +
-          newDay.lunch.proteinPerServing +
-          newDay.dinner.proteinPerServing +
-          newDay.snack.proteinPerServing;
-        newDay.dailyCarbs =
-          newDay.breakfast.carbsPerServing +
-          newDay.lunch.carbsPerServing +
-          newDay.dinner.carbsPerServing +
-          newDay.snack.carbsPerServing;
-        newDay.dailyFat =
-          newDay.breakfast.fatPerServing +
-          newDay.lunch.fatPerServing +
-          newDay.dinner.fatPerServing +
-          newDay.snack.fatPerServing;
-        return newDay;
-      });
-      return { ...plan, days: updatedDays };
+      return applyScheduledMealsToWeeklyPlan(plan, accountId, meals, allRecipes);
     },
     []
   );
@@ -274,38 +245,33 @@ export default function Home() {
       const initialPlans: Record<string, WeeklyPlan> = {};
       for (const acc of loadedAccounts) {
         const userPrefs = loadedPrefs[acc.id] || {};
+        const userSett = loadedSettings[acc.id] || DEFAULT_USER_SETTINGS;
         const accRecipes = loadedCustomRecipes.filter((r) => !r.createdBy || r.createdBy === acc.id);
-        const basePlan = generateWeeklyPlan(userPrefs, accRecipes);
+        const basePlan = generateWeeklyPlan(userPrefs, accRecipes, userSett);
         initialPlans[acc.id] = applyScheduledMealsToPlan(basePlan, acc.id, loadedScheduledMeals, allAvailableRecs);
-      }
-      if (!initialPlans['ethan']) {
-        const ethanRecipes = loadedCustomRecipes.filter((r) => !r.createdBy || r.createdBy === 'ethan');
-        const basePlan = generateWeeklyPlan(loadedPrefs['ethan'] || {}, ethanRecipes);
-        initialPlans['ethan'] = applyScheduledMealsToPlan(basePlan, 'ethan', loadedScheduledMeals, allAvailableRecs);
-      }
-      if (!initialPlans['laurine']) {
-        const laurineRecipes = loadedCustomRecipes.filter((r) => r.createdBy === 'laurine');
-        const basePlan = generateWeeklyPlan(loadedPrefs['laurine'] || {}, laurineRecipes);
-        initialPlans['laurine'] = applyScheduledMealsToPlan(basePlan, 'laurine', loadedScheduledMeals, allAvailableRecs);
       }
       setPlansByAccount(initialPlans);
 
-      // Mettre à jour coupleSettings pour Ethan & Laurine
-      const ethanSett = loadedSettings['ethan'] || DEFAULT_USER_SETTINGS;
-      const laurineSett = loadedSettings['laurine'] || loadedSettings['copine'] || DEFAULT_LAURINE_SETTINGS;
+      // Mettre à jour coupleSettings dynamiquement selon les 2 premiers comptes disponibles
+      const primaryAcc = loadedAccounts[0] || DEFAULT_ACCOUNTS[0];
+      const secondaryAcc = loadedAccounts[1] || DEFAULT_ACCOUNTS[1] || primaryAcc;
+      const primarySett = loadedSettings[primaryAcc.id] || DEFAULT_USER_SETTINGS;
+      const secondarySett = loadedSettings[secondaryAcc.id] || DEFAULT_LAURINE_SETTINGS;
       setCoupleSettings({
-        coupleModeEnabled: true,
+        coupleModeEnabled: loadedAccounts.length > 1,
         user1: {
           ...DEFAULT_COUPLE_SETTINGS.user1,
-          targetCalories: ethanSett.targetCalories,
-          targetProtein: ethanSett.targetProtein,
+          id: primaryAcc.id,
+          name: primaryAcc.name,
+          targetCalories: primarySett.targetCalories,
+          targetProtein: primarySett.targetProtein,
         },
         user2: {
           ...DEFAULT_COUPLE_SETTINGS.user2,
-          name: 'Laurine',
-          id: 'laurine',
-          targetCalories: laurineSett.targetCalories,
-          targetProtein: laurineSett.targetProtein,
+          id: secondaryAcc.id,
+          name: secondaryAcc.name,
+          targetCalories: secondarySett.targetCalories,
+          targetProtein: secondarySett.targetProtein,
         },
       });
     } catch (fatalErr) {
@@ -319,8 +285,31 @@ export default function Home() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const invite = params.get('invite');
-      if (invite) {
-        setInitialInviteCode(invite);
+      if (invite || true) {
+      if (invite) setInitialInviteCode(invite);
+      const importRecipeParam = params.get('importRecipe');
+      if (importRecipeParam) {
+        try {
+          const decoded = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(importRecipeParam)))));
+          if (decoded && decoded.title && Array.isArray(decoded.ingredients)) {
+            const importedRecipe: Recipe = {
+              ...decoded,
+              id: decoded.id?.startsWith('custom_') ? decoded.id : `custom_link_${Date.now()}`,
+              isCustom: true,
+            };
+            fetch('/api/recipes', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(importedRecipe),
+            }).finally(() => {
+              window.history.replaceState({}, '', window.location.pathname);
+              initAppData();
+            });
+          }
+        } catch (err) {
+          console.warn('Lien de recette partagée invalide:', err);
+        }
+      }
       }
     }
     const savedTheme = typeof window !== 'undefined' ? (localStorage.getItem('fp_theme') as 'dark' | 'light' | null) : null;
@@ -334,6 +323,30 @@ export default function Home() {
 
     initAppData();
   }, [initAppData]);
+
+  // Synchronisation légère en temps réel pour les courses jointes entre amis
+  useEffect(() => {
+    if (activeTab !== 'grocery') return;
+    if (groceryScope !== 'common' && !groceryScope.startsWith('joint_')) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/grocery/groups?accountId=${encodeURIComponent(activeAccountId)}`, {
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.groups)) {
+            setSharedGroceryGroups(data.groups);
+          }
+        }
+      } catch {
+        // Ignorer les erreurs réseau temporaires du polling
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, groceryScope, activeAccountId]);
 
   const toggleTheme = () => {
     setTheme((prev) => {
@@ -450,9 +463,10 @@ export default function Home() {
       console.error('Erreur sauvegarde preference SQLite:', err);
     }
 
-    // Si banni, réadapter immédiatement le plan du compte actif
+    // Si banni, réadapter immédiatement le plan du compte actif tout en préservant les repas programmés
     if (status === 'disliked') {
-      const newPlan = generateWeeklyPlan(nextPrefs, customRecipes);
+      const basePlan = generateWeeklyPlan(nextPrefs, userCustomRecipes, activeSettings);
+      const newPlan = applyScheduledMealsToPlan(basePlan, activeAccountId, scheduledMeals, allRecipes);
       setPlansByAccount((prev) => ({
         ...prev,
         [activeAccountId]: newPlan,
@@ -486,7 +500,8 @@ export default function Home() {
       console.error('Erreur reset preferences SQLite:', err);
     }
 
-    const newPlan = generateWeeklyPlan({}, customRecipes);
+    const basePlan = generateWeeklyPlan({}, userCustomRecipes, activeSettings);
+    const newPlan = applyScheduledMealsToPlan(basePlan, activeAccountId, scheduledMeals, allRecipes);
     setPlansByAccount((prev) => ({
       ...prev,
       [activeAccountId]: newPlan,
@@ -495,7 +510,8 @@ export default function Home() {
 
   const handleApplyPreferencesToPlan = () => {
     const prefs = preferencesByAccount[activeAccountId] || {};
-    const newPlan = generateWeeklyPlan(prefs, customRecipes);
+    const basePlan = generateWeeklyPlan(prefs, userCustomRecipes, activeSettings);
+    const newPlan = applyScheduledMealsToPlan(basePlan, activeAccountId, scheduledMeals, allRecipes);
     setPlansByAccount((prev) => ({
       ...prev,
       [activeAccountId]: newPlan,
@@ -566,9 +582,16 @@ export default function Home() {
 
     setCustomRecipes(updatedRecipes);
 
-    // Mettre à jour le plan hebdomadaire pour intégrer le repas
+    // Mettre à jour le plan hebdomadaire pour intégrer le repas tout en conservant les repas programmés
     const prefs = preferencesByAccount[activeAccountId] || {};
-    const newPlan = generateWeeklyPlan(prefs, updatedRecipes);
+    const userRecs = updatedRecipes.filter((r) => !r.createdBy || r.createdBy === activeAccountId);
+    const basePlan = generateWeeklyPlan(prefs, userRecs, activeSettings);
+    const newPlan = applyScheduledMealsToPlan(
+      basePlan,
+      activeAccountId,
+      scheduledMeals,
+      [...RECIPES, ...userRecs]
+    );
     setPlansByAccount((prev) => ({
       ...prev,
       [activeAccountId]: newPlan,
@@ -577,10 +600,19 @@ export default function Home() {
 
   const handleDeleteCustomRecipe = (recipeId: string) => {
     const remaining = customRecipes.filter((r) => r.id !== recipeId);
+    const remainingScheduled = scheduledMeals.filter((m) => m.recipeId !== recipeId);
     setCustomRecipes(remaining);
+    setScheduledMeals(remainingScheduled);
 
     const prefs = preferencesByAccount[activeAccountId] || {};
-    const newPlan = generateWeeklyPlan(prefs, remaining);
+    const userRecs = remaining.filter((r) => !r.createdBy || r.createdBy === activeAccountId);
+    const basePlan = generateWeeklyPlan(prefs, userRecs, activeSettings);
+    const newPlan = applyScheduledMealsToPlan(
+      basePlan,
+      activeAccountId,
+      remainingScheduled,
+      [...RECIPES, ...userRecs]
+    );
     setPlansByAccount((prev) => ({
       ...prev,
       [activeAccountId]: newPlan,
@@ -627,7 +659,7 @@ export default function Home() {
 
   const handleRegenerateAll = () => {
     const prefs = preferencesByAccount[activeAccountId] || {};
-    const basePlan = generateWeeklyPlan(prefs, userCustomRecipes);
+    const basePlan = generateWeeklyPlan(prefs, userCustomRecipes, activeSettings);
     const updatedPlan = applyScheduledMealsToPlan(
       basePlan,
       activeAccountId,
@@ -849,6 +881,82 @@ export default function Home() {
     if (res.ok && data.ok) {
       setSharedGroceryGroups(data.groups || []);
       setGroceryScope(activeAccountId);
+    }
+  };
+
+  const handleRecordSharedExpense = async (params: {
+    groupId: string;
+    paidByAccountId: string;
+    totalAmount: number;
+    sharesByAccount: Record<string, number>;
+    note?: string;
+    uncheckItems?: boolean;
+  }) => {
+    const res = await fetch('/api/grocery/groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'record_expense',
+        accountId: activeAccountId,
+        ...params,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok && Array.isArray(data.groups)) {
+      setSharedGroceryGroups(data.groups);
+    }
+  };
+
+  const handleDeleteSharedExpense = async (groupId: string, expenseId: string) => {
+    const res = await fetch('/api/grocery/groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'delete_expense',
+        accountId: activeAccountId,
+        groupId,
+        expenseId,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok && Array.isArray(data.groups)) {
+      setSharedGroceryGroups(data.groups);
+    }
+  };
+
+  const handleSettleSharedBalances = async (groupId: string) => {
+    const res = await fetch('/api/grocery/groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'settle_balances',
+        accountId: activeAccountId,
+        groupId,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok && Array.isArray(data.groups)) {
+      setSharedGroceryGroups(data.groups);
+    }
+  };
+
+  const handleImportRecipeJson = async (importedRecipe: Recipe) => {
+    const recipeWithCreator: Recipe = {
+      ...importedRecipe,
+      createdBy: activeAccountId,
+      isCustom: true,
+    };
+    try {
+      const res = await fetch('/api/recipes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(recipeWithCreator),
+      });
+      if (res.ok) {
+        handleSaveCustomRecipe(recipeWithCreator);
+      }
+    } catch (err) {
+      console.error('Erreur import recette:', err);
     }
   };
 
@@ -1214,6 +1322,7 @@ export default function Home() {
             onEditRecipe={handleEditRecipe}
             onDeleteRecipe={handleDeleteRecipe}
             onPlanRecipeToDay={handlePlanRecipeToDay}
+            onImportRecipe={handleImportRecipeJson}
           />
         )}
 
@@ -1243,6 +1352,9 @@ export default function Home() {
             onOpenFriendsModal={() => setIsFriendsModalOpen(true)}
             onUpdatePreference={handleUpdatePreference}
             onUpdateCustomPrice={handleUpdateCustomPrice}
+            onRecordSharedExpense={handleRecordSharedExpense}
+            onDeleteSharedExpense={handleDeleteSharedExpense}
+            onSettleSharedBalances={handleSettleSharedBalances}
           />
         )}
 
@@ -1264,6 +1376,9 @@ export default function Home() {
             onBackupRestored={initAppData}
             onUpdatePreference={handleUpdatePreference}
             onUpdateCustomPrice={handleUpdateCustomPrice}
+            onRecordSharedExpense={handleRecordSharedExpense}
+            onDeleteSharedExpense={handleDeleteSharedExpense}
+            onSettleSharedBalances={handleSettleSharedBalances}
             onUpdateSettings={handleUpdateSettings}
             onSwitchAccount={handleSwitchAccount}
             onResetAllPreferences={handleResetAllPreferences}
@@ -1274,6 +1389,8 @@ export default function Home() {
         {activeTab === 'tracker' && (
           <CalorieTrackerView
             currentDayPlan={activePlan.days[todayDayIndex] || activePlan.days[0]}
+            weeklyPlan={activePlan}
+            activeAccountId={activeAccountId}
             userSettings={activeSettings}
             isDark={isDark}
           />

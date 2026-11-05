@@ -15,7 +15,10 @@ import {
   RecipeIngredientItem,
   Ingredient,
   GroceryItem,
-  DatabaseBackup
+  DatabaseBackup,
+  DailyTrackerLog,
+  TrackerCustomEntry,
+  SharedGroceryTripExpense
 } from '@/types';
 import { calculateRecipeNutrients } from './nutrition';
 export { calculateRecipeNutrients };
@@ -209,6 +212,25 @@ export function getDatabase(): DatabaseSync {
         checked_items_json TEXT NOT NULL DEFAULT '{}',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS daily_tracker_logs (
+        account_id TEXT NOT NULL,
+        day_index INTEGER NOT NULL CHECK(day_index >= 0 AND day_index <= 6),
+        eaten_meals_json TEXT NOT NULL DEFAULT '{}',
+        custom_entries_json TEXT NOT NULL DEFAULT '[]',
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (account_id, day_index)
+      );
+
+      CREATE TABLE IF NOT EXISTS shared_grocery_expenses (
+        id TEXT PRIMARY KEY,
+        group_id TEXT NOT NULL,
+        paid_by_account_id TEXT NOT NULL,
+        total_amount REAL NOT NULL,
+        shares_json TEXT NOT NULL,
+        note TEXT,
+        created_at TEXT NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS account_pantry_items (
@@ -868,6 +890,7 @@ export function getSharedGroceryGroupsForAccount(accountId: string): SharedGroce
       memberIds,
       members,
       checkedItems,
+      expenses: getSharedGroceryExpenses(r.id),
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     });
@@ -1827,6 +1850,186 @@ export function clearDaySchedule(accountId: string, dayIndex: number): boolean {
   return (res as unknown as { changes: number }).changes > 0;
 }
 
+// --- DÉPENSES & BALANCE DES COMPTES DES COURSES JOINTES (TRICOUNT / SPLITWISE) ---
+
+export function getSharedGroceryExpenses(groupId?: string): SharedGroceryTripExpense[] {
+  const db = getDatabase();
+  const rows = (
+    groupId
+      ? db.prepare('SELECT * FROM shared_grocery_expenses WHERE group_id = ? ORDER BY created_at DESC').all(groupId)
+      : db.prepare('SELECT * FROM shared_grocery_expenses ORDER BY created_at DESC').all()
+  ) as {
+    id: string;
+    group_id: string;
+    paid_by_account_id: string;
+    total_amount: number;
+    shares_json: string;
+    note?: string;
+    created_at: string;
+  }[];
+
+  return rows.map((r) => {
+    let sharesByAccount: Record<string, number> = {};
+    try {
+      sharesByAccount = JSON.parse(r.shares_json || '{}');
+    } catch {
+      sharesByAccount = {};
+    }
+    const payer = getAccountById(r.paid_by_account_id);
+    return {
+      id: r.id,
+      groupId: r.group_id,
+      paidByAccountId: r.paid_by_account_id,
+      paidByName: payer?.name || r.paid_by_account_id,
+      totalAmount: Math.round(Number(r.total_amount) * 100) / 100,
+      sharesByAccount,
+      note: r.note || undefined,
+      createdAt: r.created_at,
+    };
+  });
+}
+
+export function recordSharedGroceryExpense(params: {
+  groupId: string;
+  paidByAccountId: string;
+  totalAmount: number;
+  sharesByAccount: Record<string, number>;
+  note?: string;
+  uncheckItems?: boolean;
+}): SharedGroceryTripExpense {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  const id = `expense_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const totalAmount = Math.round(Math.max(0, Number(params.totalAmount) || 0) * 100) / 100;
+
+  db.prepare(`
+    INSERT INTO shared_grocery_expenses (id, group_id, paid_by_account_id, total_amount, shares_json, note, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    params.groupId,
+    params.paidByAccountId,
+    totalAmount,
+    JSON.stringify(params.sharesByAccount || {}),
+    params.note?.trim() || null,
+    now
+  );
+
+  if (params.uncheckItems) {
+    db.prepare("UPDATE shared_grocery_groups SET checked_items_json = '{}', updated_at = ? WHERE id = ?").run(
+      now,
+      params.groupId
+    );
+  } else {
+    db.prepare('UPDATE shared_grocery_groups SET updated_at = ? WHERE id = ?').run(now, params.groupId);
+  }
+
+  const payer = getAccountById(params.paidByAccountId);
+  return {
+    id,
+    groupId: params.groupId,
+    paidByAccountId: params.paidByAccountId,
+    paidByName: payer?.name || params.paidByAccountId,
+    totalAmount,
+    sharesByAccount: params.sharesByAccount || {},
+    note: params.note?.trim() || undefined,
+    createdAt: now,
+  };
+}
+
+export function deleteSharedGroceryExpense(expenseId: string): boolean {
+  const db = getDatabase();
+  const res = db.prepare('DELETE FROM shared_grocery_expenses WHERE id = ?').run(expenseId);
+  return (res as unknown as { changes: number }).changes > 0;
+}
+
+export function settleSharedGroceryGroupBalances(groupId: string): boolean {
+  const db = getDatabase();
+  const res = db.prepare('DELETE FROM shared_grocery_expenses WHERE group_id = ?').run(groupId);
+  return (res as unknown as { changes: number }).changes > 0;
+}
+
+// --- JOURNAL QUOTIDIEN DU TRACKER DE CALORIES (SQLITE) ---
+
+export function getDailyTrackerLogs(accountId?: string): DailyTrackerLog[] {
+  const db = getDatabase();
+  const rows = (
+    accountId
+      ? db.prepare('SELECT * FROM daily_tracker_logs WHERE account_id = ? ORDER BY day_index ASC').all(accountId)
+      : db.prepare('SELECT * FROM daily_tracker_logs ORDER BY account_id, day_index ASC').all()
+  ) as {
+    account_id: string;
+    day_index: number;
+    eaten_meals_json: string;
+    custom_entries_json: string;
+    updated_at: string;
+  }[];
+
+  return rows.map((r) => {
+    let eatenMeals = { breakfast: false, lunch: false, dinner: false, snack: false };
+    let customEntries: TrackerCustomEntry[] = [];
+    try {
+      const parsed = JSON.parse(r.eaten_meals_json || '{}');
+      eatenMeals = {
+        breakfast: Boolean(parsed.breakfast),
+        lunch: Boolean(parsed.lunch),
+        dinner: Boolean(parsed.dinner),
+        snack: Boolean(parsed.snack),
+      };
+    } catch {
+      // fallback
+    }
+    try {
+      customEntries = JSON.parse(r.custom_entries_json || '[]');
+    } catch {
+      customEntries = [];
+    }
+    return {
+      accountId: r.account_id,
+      dayIndex: Number(r.day_index),
+      eatenMeals,
+      customEntries,
+      updatedAt: r.updated_at,
+    };
+  });
+}
+
+export function saveDailyTrackerLog(log: DailyTrackerLog): DailyTrackerLog {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  const dayIndex = Math.max(0, Math.min(6, Math.floor(Number(log.dayIndex) || 0)));
+  const eatenMeals = {
+    breakfast: Boolean(log.eatenMeals?.breakfast),
+    lunch: Boolean(log.eatenMeals?.lunch),
+    dinner: Boolean(log.eatenMeals?.dinner),
+    snack: Boolean(log.eatenMeals?.snack),
+  };
+  const customEntries = Array.isArray(log.customEntries) ? log.customEntries : [];
+
+  db.prepare(`
+    INSERT INTO daily_tracker_logs (account_id, day_index, eaten_meals_json, custom_entries_json, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(account_id, day_index) DO UPDATE SET
+      eaten_meals_json = excluded.eaten_meals_json,
+      custom_entries_json = excluded.custom_entries_json,
+      updated_at = excluded.updated_at
+  `).run(
+    log.accountId,
+    dayIndex,
+    JSON.stringify(eatenMeals),
+    JSON.stringify(customEntries),
+    now
+  );
+
+  return {
+    accountId: log.accountId,
+    dayIndex,
+    eatenMeals,
+    customEntries,
+    updatedAt: now,
+  };
+}
+
 // --- SAUVEGARDE & RESTAURATION COMPLÈTE DE LA BASE DE DONNÉES ---
 
 export function exportDatabaseBackup(): DatabaseBackup {
@@ -1841,6 +2044,8 @@ export function exportDatabaseBackup(): DatabaseBackup {
   const pantryItems = Object.keys(pantryMap);
   const customGroceryItems = getCustomGroceryItems();
   const scheduledMeals = getScheduledMeals();
+  const dailyTrackerLogs = getDailyTrackerLogs();
+  const sharedGroceryExpenses = getSharedGroceryExpenses();
 
   return {
     version: 1,
@@ -1854,6 +2059,8 @@ export function exportDatabaseBackup(): DatabaseBackup {
     customProducts,
     pantryItems,
     customGroceryItems,
+    dailyTrackerLogs,
+    sharedGroceryExpenses,
     scheduledMeals,
   };
 }
@@ -1976,6 +2183,34 @@ export function importDatabaseBackup(backup: Partial<DatabaseBackup>): { success
         if (sm.accountId && sm.recipeId && sm.mealSlot !== undefined && sm.dayIndex !== undefined) {
           stmt.run(sm.accountId, sm.dayIndex, sm.mealSlot, sm.recipeId, now);
           stats.scheduledMeals++;
+        }
+      }
+    }
+
+    if (backup.dailyTrackerLogs && Array.isArray(backup.dailyTrackerLogs)) {
+      for (const log of backup.dailyTrackerLogs) {
+        if (log.accountId && log.dayIndex !== undefined) {
+          saveDailyTrackerLog(log);
+        }
+      }
+    }
+
+    if (backup.sharedGroceryExpenses && Array.isArray(backup.sharedGroceryExpenses)) {
+      const stmt = db.prepare(`
+        INSERT OR REPLACE INTO shared_grocery_expenses (id, group_id, paid_by_account_id, total_amount, shares_json, note, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const exp of backup.sharedGroceryExpenses) {
+        if (exp.id && exp.groupId && exp.paidByAccountId) {
+          stmt.run(
+            exp.id,
+            exp.groupId,
+            exp.paidByAccountId,
+            exp.totalAmount || 0,
+            JSON.stringify(exp.sharesByAccount || {}),
+            exp.note || null,
+            exp.createdAt || now
+          );
         }
       }
     }

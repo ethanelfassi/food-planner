@@ -1,5 +1,7 @@
 import { Ingredient, MetroAisle } from '@/types';
 import { INGREDIENTS } from '@/data/ingredients';
+import { estimateTotalWeightGrams } from './nutrition';
+export { estimateTotalWeightGrams };
 
 export type ProteinTier = 'EXCELLENT' | 'GOOD' | 'AVERAGE' | 'EXPENSIVE';
 
@@ -40,61 +42,6 @@ export interface RankedProteinItem {
   proteinPer100g: number;
   caloriesPer100g: number;
   result: ProteinEfficiencyResult;
-}
-
-// Convertit une quantité en grammes équivalents selon l'unité et le type d'aliment
-export function estimateTotalWeightGrams(amount: number, unit: string, ingredientId = ''): number {
-  const cleanUnit = (unit || 'g').toLowerCase().trim();
-  const safeAmount = Math.max(0, Number(amount) || 0);
-  const id = ingredientId.toLowerCase();
-
-  if (cleanUnit === 'g' || cleanUnit === 'ml') {
-    // Si c'est du thon en conserve avec le poids brut de la boîte (170g),
-    // le poids net réel consommable (égoutté) est de 120g
-    if (id.includes('thon') && safeAmount >= 140 && safeAmount <= 190) {
-      return 120;
-    }
-    return safeAmount;
-  }
-
-  if (cleanUnit === 'unite' || cleanUnit === 'unité') {
-    if (id.includes('oeuf')) return safeAmount * 50; // 1 gros œuf = ~50g
-    if (id.includes('banane')) return safeAmount * 120;
-    if (id.includes('pomme')) return safeAmount * 170;
-    if (id.includes('avocat')) return safeAmount * 150;
-    if (id.includes('bagel')) return safeAmount * 95;
-    if (id.includes('pita')) return safeAmount * 60;
-    if (id.includes('tortilla')) return safeAmount * 61;
-    if (id.includes('muffin')) return safeAmount * 57;
-    if (id.includes('patate_douce')) return safeAmount * 200;
-    if (id.includes('concombre')) return safeAmount * 300;
-    if (id.includes('poivron')) return safeAmount * 150;
-    if (id.includes('brocoli')) return safeAmount * 300;
-    if (id.includes('chou_fleur')) return safeAmount * 600;
-    if (id.includes('citron')) return safeAmount * 100;
-    if (id.includes('ail')) return safeAmount * 10;
-    if (id.includes('echalote') || id.includes('oignon_vert')) return safeAmount * 15;
-    return safeAmount * 100; // estimation par défaut
-  }
-
-  if (cleanUnit === 'c_a_soupe' || cleanUnit === 'cuillere') {
-    return safeAmount * 15;
-  }
-
-  if (cleanUnit === 'tranche') {
-    return safeAmount * 25;
-  }
-
-  if (cleanUnit === 'canne') {
-    if (id.includes('thon')) return safeAmount * 120; // 1 boîte de thon 170g = 120g net égoutté
-    if (id.includes('tomate')) return safeAmount * 796;
-    if (id.includes('haricot') || id.includes('pois')) return safeAmount * 390;
-    if (id.includes('coco')) return safeAmount * 400;
-    if (id.includes('mais') || id.includes('corn')) return safeAmount * 280; // canne 341ml égoutté ~280g
-    return safeAmount * 400;
-  }
-
-  return safeAmount;
 }
 
 // Calcule la rentabilité protéique précise d'un produit

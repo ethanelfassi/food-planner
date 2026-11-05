@@ -6,6 +6,9 @@ import {
   createSharedGroceryGroup,
   toggleSharedGroupCheckedItem,
   deleteSharedGroceryGroup,
+  recordSharedGroceryExpense,
+  deleteSharedGroceryExpense,
+  settleSharedGroceryGroupBalances,
 } from '@/lib/db';
 
 const SESSION_COOKIE = 'fp_session';
@@ -71,6 +74,44 @@ export async function POST(request: NextRequest) {
     if (action === 'delete_group') {
       const { groupId } = body;
       deleteSharedGroceryGroup(groupId, accountId);
+      const groups = getSharedGroceryGroupsForAccount(accountId);
+      return NextResponse.json({
+        ok: true,
+        groups,
+      });
+    }
+
+    if (action === 'record_expense') {
+      const { groupId, paidByAccountId, totalAmount, sharesByAccount, note, uncheckItems } = body;
+      const expense = recordSharedGroceryExpense({
+        groupId,
+        paidByAccountId: paidByAccountId || accountId,
+        totalAmount: Number(totalAmount) || 0,
+        sharesByAccount: sharesByAccount || {},
+        note,
+        uncheckItems: Boolean(uncheckItems),
+      });
+      const groups = getSharedGroceryGroupsForAccount(accountId);
+      return NextResponse.json({
+        ok: true,
+        expense,
+        groups,
+      });
+    }
+
+    if (action === 'delete_expense') {
+      const { expenseId } = body;
+      deleteSharedGroceryExpense(expenseId);
+      const groups = getSharedGroceryGroupsForAccount(accountId);
+      return NextResponse.json({
+        ok: true,
+        groups,
+      });
+    }
+
+    if (action === 'settle_balances') {
+      const { groupId } = body;
+      settleSharedGroceryGroupBalances(groupId);
       const groups = getSharedGroceryGroupsForAccount(accountId);
       return NextResponse.json({
         ok: true,

@@ -137,6 +137,7 @@ export function calculateReceiptTaxes(items: GroceryItem[]): ReceiptTaxCalculati
   let regularTotal = 0;
 
   for (const item of items) {
+    if (item.isInPantry) continue;
     regularTotal += item.regularPriceMetro;
     if (item.isTaxable) {
       subtotalTaxable += item.exactPriceMetro;
@@ -359,6 +360,7 @@ export function calculateCommonListSplit(
   }
 
   for (const item of items) {
+    if (item.isInPantry) continue;
     const cost = item.exactPriceMetro;
     const isTax = item.isTaxable;
 

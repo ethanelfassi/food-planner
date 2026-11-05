@@ -75,6 +75,16 @@ interface GroceryListViewProps {
   onOpenFriendsModal?: () => void;
   onUpdatePreference?: (ingredientId: string, status: ProductPreferenceStatus) => void;
   onUpdateCustomPrice?: (ingredientId: string, price: number | null) => void;
+  onRecordSharedExpense?: (params: {
+    groupId: string;
+    paidByAccountId: string;
+    totalAmount: number;
+    sharesByAccount: Record<string, number>;
+    note?: string;
+    uncheckItems?: boolean;
+  }) => Promise<void>;
+  onDeleteSharedExpense?: (groupId: string, expenseId: string) => Promise<void>;
+  onSettleSharedBalances?: (groupId: string) => Promise<void>;
 }
 
 // Subcomposant mémoïsé pour chaque ligne d'article (optimisé mobile-first sans troncature abrasive)
@@ -394,8 +404,16 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
   onOpenFriendsModal,
   onUpdatePreference,
   onUpdateCustomPrice,
+  onRecordSharedExpense,
+  onDeleteSharedExpense,
+  onSettleSharedBalances,
 }) => {
   const [copySuccess, setCopySuccess] = useState(false);
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [expensePayerId, setExpensePayerId] = useState<string>(activeAccountId);
+  const [expenseNote, setExpenseNote] = useState('');
+  const [expenseUncheck, setExpenseUncheck] = useState(true);
+  const [savingExpense, setSavingExpense] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showNewGroupModal, setShowNewGroupModal] = useState(false);
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
@@ -897,6 +915,249 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
                 <p className="text-[10px] text-stone-400 mt-2 font-mono italic">
                   {commonSplitReport.explanation}
                 </p>
+
+                {/* SECTION : BALANCE DES COMPTES ("QUI DOIT COMBIEN ?") & ARCHIVAGE TICKET */}
+                {(() => {
+                  const activeGrp =
+                    scope === 'common'
+                      ? sharedGroups[0]
+                      : sharedGroups.find((g) => g.id === scope);
+                  if (!activeGrp) return null;
+
+                  const groupMembers =
+                    activeGrp.members && activeGrp.members.length > 0
+                      ? activeGrp.members
+                      : accounts;
+                  const expenses = activeGrp.expenses || [];
+
+                  // Calcul du solde net par membre : + payé en caisse, - part consommée
+                  const netByAccount: Record<string, number> = {};
+                  for (const m of groupMembers) netByAccount[m.id] = 0;
+
+                  for (const exp of expenses) {
+                    netByAccount[exp.paidByAccountId] =
+                      (netByAccount[exp.paidByAccountId] || 0) + (Number(exp.totalAmount) || 0);
+                    for (const [accId, share] of Object.entries(exp.sharesByAccount || {})) {
+                      netByAccount[accId] = (netByAccount[accId] || 0) - (Number(share) || 0);
+                    }
+                  }
+
+                  // Résolution simplifiée des dettes entre membres
+                  const debtors = Object.entries(netByAccount)
+                    .filter(([, bal]) => bal < -0.02)
+                    .map(([id, bal]) => ({ id, amount: -bal }))
+                    .sort((a, b) => b.amount - a.amount);
+                  const creditors = Object.entries(netByAccount)
+                    .filter(([, bal]) => bal > 0.02)
+                    .map(([id, bal]) => ({ id, amount: bal }))
+                    .sort((a, b) => b.amount - a.amount);
+
+                  const settlements: Array<{ fromName: string; toName: string; amount: number }> = [];
+                  let dIdx = 0;
+                  let cIdx = 0;
+                  while (dIdx < debtors.length && cIdx < creditors.length) {
+                    const transfer = Math.min(debtors[dIdx].amount, creditors[cIdx].amount);
+                    if (transfer > 0.02) {
+                      const fromName =
+                        groupMembers.find((m) => m.id === debtors[dIdx].id)?.name ||
+                        accounts.find((a) => a.id === debtors[dIdx].id)?.name ||
+                        debtors[dIdx].id;
+                      const toName =
+                        groupMembers.find((m) => m.id === creditors[cIdx].id)?.name ||
+                        accounts.find((a) => a.id === creditors[cIdx].id)?.name ||
+                        creditors[cIdx].id;
+                      settlements.push({
+                        fromName,
+                        toName,
+                        amount: Math.round(transfer * 100) / 100,
+                      });
+                    }
+                    debtors[dIdx].amount -= transfer;
+                    creditors[cIdx].amount -= transfer;
+                    if (debtors[dIdx].amount <= 0.02) dIdx++;
+                    if (creditors[cIdx].amount <= 0.02) cIdx++;
+                  }
+
+                  return (
+                    <div className="mt-4 pt-3.5 border-t border-stone-200/80 dark:border-white/10 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <div className="text-[11px] font-mono uppercase tracking-wider font-semibold text-stone-800 dark:text-stone-200 flex items-center gap-1.5">
+                            <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>Balance des comptes (« Qui doit combien ? »)</span>
+                          </div>
+                          {settlements.length === 0 ? (
+                            <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 font-mono">
+                              Les comptes sont à l’équilibre (0,00 $).
+                            </p>
+                          ) : (
+                            <div className="mt-1 space-y-1">
+                              {settlements.map((s, idx) => (
+                                <div
+                                  key={idx}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300 text-xs font-mono font-semibold mr-2"
+                                >
+                                  <span>
+                                    {s.fromName} doit {s.amount.toFixed(2)} $ à {s.toName}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {settlements.length > 0 && onSettleSharedBalances && (
+                            <button
+                              type="button"
+                              onClick={() => onSettleSharedBalances(activeGrp.id)}
+                              className="px-2.5 py-1.5 rounded-xl border border-stone-300 dark:border-white/15 text-[11px] font-mono text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                            >
+                              Solder les comptes
+                            </button>
+                          )}
+                          {onRecordSharedExpense && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setExpensePayerId(activeAccountId);
+                                setShowExpenseForm(!showExpenseForm);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-stone-900 text-white dark:bg-white dark:text-stone-950 text-[11px] font-mono font-semibold transition-all active:scale-95 cursor-pointer"
+                            >
+                              {showExpenseForm ? 'Fermer' : '+ Archiver ce passage en caisse'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {showExpenseForm && onRecordSharedExpense && (
+                        <div
+                          className={`p-3 rounded-xl border space-y-2.5 ${
+                            isDark ? 'bg-black/40 border-white/10' : 'bg-white border-stone-200'
+                          }`}
+                        >
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">
+                                Qui a payé le ticket ({receipt.totalWithTax.toFixed(2)} $) ?
+                              </label>
+                              <select
+                                value={expensePayerId}
+                                onChange={(e) => setExpensePayerId(e.target.value)}
+                                className={`w-full px-2.5 py-1.5 rounded-lg border text-xs font-mono ${
+                                  isDark
+                                    ? 'bg-stone-900 border-white/15 text-white'
+                                    : 'bg-stone-50 border-stone-300 text-stone-900'
+                                }`}
+                              >
+                                {groupMembers.map((m) => (
+                                  <option key={m.id} value={m.id}>
+                                    {m.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">
+                                Note (optionnel)
+                              </label>
+                              <input
+                                type="text"
+                                value={expenseNote}
+                                onChange={(e) => setExpenseNote(e.target.value)}
+                                placeholder="Ex: Course Metro du samedi"
+                                className={`w-full px-2.5 py-1.5 rounded-lg border text-xs font-mono ${
+                                  isDark
+                                    ? 'bg-stone-900 border-white/15 text-white'
+                                    : 'bg-stone-50 border-stone-300 text-stone-900'
+                                }`}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1">
+                            <label className="flex items-center gap-1.5 text-[11px] font-mono text-stone-500 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={expenseUncheck}
+                                onChange={(e) => setExpenseUncheck(e.target.checked)}
+                              />
+                              <span>Réinitialiser les cases cochées après l’archivage</span>
+                            </label>
+
+                            <button
+                              type="button"
+                              disabled={savingExpense || receipt.totalWithTax <= 0}
+                              onClick={async () => {
+                                setSavingExpense(true);
+                                try {
+                                  const shares: Record<string, number> = {};
+                                  for (const split of Object.values(commonSplitReport.accountSplits)) {
+                                    shares[split.accountId] = split.totalWithTax;
+                                  }
+                                  await onRecordSharedExpense({
+                                    groupId: activeGrp.id,
+                                    paidByAccountId: expensePayerId,
+                                    totalAmount: receipt.totalWithTax,
+                                    sharesByAccount: shares,
+                                    note: expenseNote.trim() || undefined,
+                                    uncheckItems: expenseUncheck,
+                                  });
+                                  setShowExpenseForm(false);
+                                  setExpenseNote('');
+                                } finally {
+                                  setSavingExpense(false);
+                                }
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-mono font-semibold disabled:opacity-50 cursor-pointer"
+                            >
+                              {savingExpense ? 'Enregistrement...' : 'Valider le ticket'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {expenses.length > 0 && (
+                        <div className="space-y-1 pt-1">
+                          <div className="text-[10px] font-mono uppercase text-stone-400">
+                            Historique des tickets enregistrés ({expenses.length}) :
+                          </div>
+                          <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
+                            {expenses.slice(0, 6).map((exp) => {
+                              const payerName =
+                                groupMembers.find((m) => m.id === exp.paidByAccountId)?.name ||
+                                accounts.find((a) => a.id === exp.paidByAccountId)?.name ||
+                                exp.paidByAccountId;
+                              return (
+                                <div
+                                  key={exp.id}
+                                  className="flex items-center justify-between text-[11px] font-mono py-1 px-2 rounded-lg bg-stone-100/70 dark:bg-white/[0.03]"
+                                >
+                                  <span className="truncate">
+                                    <strong>{payerName}</strong> a payé{' '}
+                                    <strong>{exp.totalAmount.toFixed(2)} $</strong>
+                                    {exp.note ? ` • ${exp.note}` : ''}
+                                  </span>
+                                  {onDeleteSharedExpense && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onDeleteSharedExpense(activeGrp.id, exp.id)}
+                                      className="text-stone-400 hover:text-red-500 ml-2 shrink-0 cursor-pointer"
+                                      title="Supprimer ce ticket"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

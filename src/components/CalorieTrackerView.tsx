@@ -1,47 +1,145 @@
 'use client';
 
-import React, { useState } from 'react';
-import { DayPlan, UserCustomizationSettings } from '@/types';
-import { Flame, Dumbbell, Wheat, Droplet, Plus, Check, Circle, Trophy, AlertCircle, Apple } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { DayPlan, WeeklyPlan, UserCustomizationSettings, DailyTrackerLog, TrackerCustomEntry } from '@/types';
+import {
+  Flame,
+  Dumbbell,
+  Wheat,
+  Droplet,
+  Check,
+  Trophy,
+  AlertCircle,
+  Database,
+  Trash2,
+  Calendar,
+} from 'lucide-react';
 
 interface CalorieTrackerViewProps {
   currentDayPlan: DayPlan;
+  weeklyPlan?: WeeklyPlan;
+  activeAccountId?: string;
   userSettings?: UserCustomizationSettings;
   isDark: boolean;
 }
 
-interface CustomEntry {
-  id: string;
-  name: string;
-  calories: number;
-  protein: number;
-  carbs?: number;
-  fat?: number;
-}
+const DEFAULT_EATEN_MEALS: Record<'breakfast' | 'lunch' | 'dinner' | 'snack', boolean> = {
+  breakfast: false,
+  lunch: false,
+  dinner: false,
+  snack: false,
+};
 
-const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ currentDayPlan, userSettings, isDark }) => {
-  const [eatenMeals, setEatenMeals] = useState<Record<string, boolean>>({
-    breakfast: true,
-    lunch: true,
-    dinner: false,
-    snack: false,
-  });
+const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
+  currentDayPlan,
+  weeklyPlan,
+  activeAccountId = 'ethan',
+  userSettings,
+  isDark,
+}) => {
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(currentDayPlan.dayIndex ?? 0);
+  const [logsByDay, setLogsByDay] = useState<Record<number, DailyTrackerLog>>({});
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
-  const [customEntries, setCustomEntries] = useState<CustomEntry[]>([]);
   const [extraName, setExtraName] = useState('');
   const [extraCals, setExtraCals] = useState('');
   const [extraProt, setExtraProt] = useState('');
   const [extraCarbs, setExtraCarbs] = useState('');
   const [extraFat, setExtraFat] = useState('');
 
+  useEffect(() => {
+    if (typeof currentDayPlan.dayIndex === 'number') {
+      setSelectedDayIndex(currentDayPlan.dayIndex);
+    }
+  }, [currentDayPlan.dayIndex]);
+
+  // Charger les logs SQLite du compte actif
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTrackerLogs() {
+      try {
+        const res = await fetch(`/api/tracker?accountId=${encodeURIComponent(activeAccountId)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.ok && Array.isArray(data.logs)) {
+          const map: Record<number, DailyTrackerLog> = {};
+          for (const log of data.logs as DailyTrackerLog[]) {
+            map[log.dayIndex] = log;
+          }
+          setLogsByDay(map);
+        }
+      } catch (err) {
+        console.warn('Impossible de charger les logs du tracker depuis SQLite:', err);
+      } finally {
+        if (!cancelled) setIsLoaded(true);
+      }
+    }
+    loadTrackerLogs();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeAccountId]);
+
+  const activeDayPlan: DayPlan =
+    weeklyPlan?.days?.find((d) => d.dayIndex === selectedDayIndex) || currentDayPlan;
+
+  const currentLog: DailyTrackerLog = logsByDay[selectedDayIndex] || {
+    accountId: activeAccountId,
+    dayIndex: selectedDayIndex,
+    eatenMeals: { ...DEFAULT_EATEN_MEALS },
+    customEntries: [],
+  };
+
+  const eatenMeals = currentLog.eatenMeals || DEFAULT_EATEN_MEALS;
+  const customEntries = currentLog.customEntries || [];
+
+  const persistDayLog = useCallback(
+    async (
+      dayIdx: number,
+      nextEaten: Record<'breakfast' | 'lunch' | 'dinner' | 'snack', boolean>,
+      nextExtras: TrackerCustomEntry[]
+    ) => {
+      const updatedLog: DailyTrackerLog = {
+        accountId: activeAccountId,
+        dayIndex: dayIdx,
+        eatenMeals: nextEaten,
+        customEntries: nextExtras,
+      };
+      setLogsByDay((prev) => ({
+        ...prev,
+        [dayIdx]: updatedLog,
+      }));
+      setSaveStatus('saving');
+      try {
+        await fetch('/api/tracker', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedLog),
+        });
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } catch (err) {
+        console.error('Erreur sauvegarde SQLite tracker:', err);
+        setSaveStatus('idle');
+      }
+    },
+    [activeAccountId]
+  );
+
   const toggleMeal = (key: 'breakfast' | 'lunch' | 'dinner' | 'snack') => {
-    setEatenMeals((prev) => ({ ...prev, [key]: !prev[key] }));
+    const nextEaten = {
+      ...eatenMeals,
+      [key]: !eatenMeals[key],
+    };
+    persistDayLog(selectedDayIndex, nextEaten, customEntries);
   };
 
   const handleAddExtra = (e: React.FormEvent) => {
     e.preventDefault();
     if (!extraName.trim()) return;
-    const newEntry: CustomEntry = {
+    const newEntry: TrackerCustomEntry = {
       id: `extra_${Date.now()}`,
       name: extraName.trim(),
       calories: parseInt(extraCals) || 0,
@@ -49,12 +147,18 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
       carbs: parseInt(extraCarbs) || 0,
       fat: parseInt(extraFat) || 0,
     };
-    setCustomEntries((prev) => [...prev, newEntry]);
+    const nextExtras = [...customEntries, newEntry];
+    persistDayLog(selectedDayIndex, eatenMeals, nextExtras);
     setExtraName('');
     setExtraCals('');
     setExtraProt('');
     setExtraCarbs('');
     setExtraFat('');
+  };
+
+  const handleDeleteExtra = (entryId: string) => {
+    const nextExtras = customEntries.filter((e) => e.id !== entryId);
+    persistDayLog(selectedDayIndex, eatenMeals, nextExtras);
   };
 
   let consumedCalories = 0;
@@ -63,28 +167,28 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
   let consumedFat = 0;
 
   if (eatenMeals.breakfast) {
-    consumedCalories += currentDayPlan.breakfast.caloriesPerServing;
-    consumedProtein += currentDayPlan.breakfast.proteinPerServing;
-    consumedCarbs += currentDayPlan.breakfast.carbsPerServing;
-    consumedFat += currentDayPlan.breakfast.fatPerServing;
+    consumedCalories += activeDayPlan.breakfast.caloriesPerServing;
+    consumedProtein += activeDayPlan.breakfast.proteinPerServing;
+    consumedCarbs += activeDayPlan.breakfast.carbsPerServing;
+    consumedFat += activeDayPlan.breakfast.fatPerServing;
   }
   if (eatenMeals.lunch) {
-    consumedCalories += currentDayPlan.lunch.caloriesPerServing;
-    consumedProtein += currentDayPlan.lunch.proteinPerServing;
-    consumedCarbs += currentDayPlan.lunch.carbsPerServing;
-    consumedFat += currentDayPlan.lunch.fatPerServing;
+    consumedCalories += activeDayPlan.lunch.caloriesPerServing;
+    consumedProtein += activeDayPlan.lunch.proteinPerServing;
+    consumedCarbs += activeDayPlan.lunch.carbsPerServing;
+    consumedFat += activeDayPlan.lunch.fatPerServing;
   }
   if (eatenMeals.dinner) {
-    consumedCalories += currentDayPlan.dinner.caloriesPerServing;
-    consumedProtein += currentDayPlan.dinner.proteinPerServing;
-    consumedCarbs += currentDayPlan.dinner.carbsPerServing;
-    consumedFat += currentDayPlan.dinner.fatPerServing;
+    consumedCalories += activeDayPlan.dinner.caloriesPerServing;
+    consumedProtein += activeDayPlan.dinner.proteinPerServing;
+    consumedCarbs += activeDayPlan.dinner.carbsPerServing;
+    consumedFat += activeDayPlan.dinner.fatPerServing;
   }
   if (eatenMeals.snack) {
-    consumedCalories += currentDayPlan.snack.caloriesPerServing;
-    consumedProtein += currentDayPlan.snack.proteinPerServing;
-    consumedCarbs += currentDayPlan.snack.carbsPerServing;
-    consumedFat += currentDayPlan.snack.fatPerServing;
+    consumedCalories += activeDayPlan.snack.caloriesPerServing;
+    consumedProtein += activeDayPlan.snack.proteinPerServing;
+    consumedCarbs += activeDayPlan.snack.carbsPerServing;
+    consumedFat += activeDayPlan.snack.fatPerServing;
   }
 
   for (const extra of customEntries) {
@@ -99,10 +203,10 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
   const targetCarbs = userSettings?.targetCarbs ?? 390;
   const targetFat = userSettings?.targetFat ?? 90;
 
-  const calPercent = Math.min(100, Math.round((consumedCalories / targetCalories) * 100));
-  const protPercent = Math.min(100, Math.round((consumedProtein / targetProtein) * 100));
-  const carbsPercent = Math.min(100, Math.round((consumedCarbs / targetCarbs) * 100));
-  const fatPercent = Math.min(100, Math.round((consumedFat / targetFat) * 100));
+  const calPercent = Math.min(100, Math.round((consumedCalories / Math.max(1, targetCalories)) * 100));
+  const protPercent = Math.min(100, Math.round((consumedProtein / Math.max(1, targetProtein)) * 100));
+  const carbsPercent = Math.min(100, Math.round((consumedCarbs / Math.max(1, targetCarbs)) * 100));
+  const fatPercent = Math.min(100, Math.round((consumedFat / Math.max(1, targetFat)) * 100));
 
   const cardGlassClass = isDark ? 'liquid-glass' : 'liquid-glass-light';
 
@@ -112,10 +216,20 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
       <div className={`rounded-2xl sm:rounded-3xl p-4 sm:p-8 transition-all border ${cardGlassClass}`}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
           <div>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="font-mono text-[10px] uppercase tracking-widest text-stone-700 dark:text-stone-300 font-semibold">
-                Suivi Nutritionnel • {currentDayPlan.dayName}
+                Suivi Nutritionnel • {activeDayPlan.dayName}
               </span>
+              {isLoaded && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-medium">
+                  <Database className="w-2.5 h-2.5" />
+                  {saveStatus === 'saving'
+                    ? 'Sauvegarde...'
+                    : saveStatus === 'saved'
+                    ? 'Enregistré ✓'
+                    : 'Persistance SQLite'}
+                </span>
+              )}
             </div>
 
             <h1 className="font-serif text-2xl sm:text-4xl font-normal tracking-tight text-stone-900 dark:text-white">
@@ -123,7 +237,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
             </h1>
 
             <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mt-2 font-sans">
-              Consignez vos repas consommés en direct pour maintenir votre progression de prise de masse.
+              Consignez vos repas consommés en direct. Vos cases cochées et extras sont sauvegardés automatiquement pour chaque jour.
             </p>
           </div>
 
@@ -136,14 +250,58 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
             ) : (
               <div className="flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl sm:rounded-2xl bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700 text-xs font-mono font-semibold">
                 <AlertCircle className="w-4 h-4 text-stone-600 dark:text-stone-400 shrink-0" />
-                <span>Reste {Math.max(0, targetProtein - consumedProtein)} g de protéines</span>
+                <span>Reste {Math.max(0, Math.round((targetProtein - consumedProtein) * 10) / 10)} g de protéines</span>
               </div>
             )}
           </div>
         </div>
 
+        {/* Sélecteur de jour de la semaine */}
+        {weeklyPlan?.days && weeklyPlan.days.length > 0 && (
+          <div className="flex items-center gap-1.5 mt-5 overflow-x-auto pb-1 scrollbar-none">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400 flex items-center gap-1 mr-1 shrink-0">
+              <Calendar className="w-3 h-3" /> Jour :
+            </span>
+            {weeklyPlan.days.map((d) => {
+              const isSelected = d.dayIndex === selectedDayIndex;
+              const isToday = d.dayIndex === currentDayPlan.dayIndex;
+              const dayLog = logsByDay[d.dayIndex];
+              const hasActivity =
+                dayLog &&
+                (Object.values(dayLog.eatenMeals || {}).some(Boolean) ||
+                  (dayLog.customEntries && dayLog.customEntries.length > 0));
+              return (
+                <button
+                  key={d.dayIndex}
+                  type="button"
+                  onClick={() => setSelectedDayIndex(d.dayIndex)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all border shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                    isSelected
+                      ? isDark
+                        ? 'bg-white text-stone-950 font-bold border-white shadow-xs'
+                        : 'bg-stone-900 text-stone-50 font-bold border-stone-900 shadow-xs'
+                      : isDark
+                      ? 'bg-white/[0.03] border-white/10 text-stone-400 hover:text-white'
+                      : 'bg-stone-100 border-stone-200 text-stone-700 hover:bg-stone-200'
+                  }`}
+                >
+                  <span>{d.dayName.slice(0, 3)}</span>
+                  {isToday && (
+                    <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-amber-500/20 text-amber-500 font-bold">
+                      Auj
+                    </span>
+                  )}
+                  {hasActivity && !isSelected && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Jauges Apple Activity Style (Monochrome & Graphite - 4 Piliers) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-stone-200/60 dark:border-white/10">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mt-6 pt-5 sm:pt-6 border-t border-stone-200/60 dark:border-white/10">
           {/* 1. Énergie / Calories */}
           <div
             className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col justify-between ${
@@ -161,7 +319,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
             <div className="my-1 sm:my-2">
               <div className="flex items-baseline gap-1 flex-wrap">
                 <span className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-stone-950 dark:text-white tabular-nums">
-                  {consumedCalories}
+                  {Math.round(consumedCalories)}
                 </span>
                 <span className="font-mono text-[11px] sm:text-xs text-stone-500 dark:text-stone-400">
                   / {targetCalories} kcal
@@ -169,7 +327,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
               </div>
               <div className="text-[10px] font-mono text-stone-400 dark:text-stone-500 truncate mt-0.5">
                 {targetCalories - consumedCalories > 0
-                  ? `${targetCalories - consumedCalories} kcal restantes`
+                  ? `${Math.round(targetCalories - consumedCalories)} kcal restantes`
                   : 'Cible atteinte 🎉'}
               </div>
             </div>
@@ -198,7 +356,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
             <div className="my-1 sm:my-2">
               <div className="flex items-baseline gap-1 flex-wrap">
                 <span className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-stone-950 dark:text-white tabular-nums">
-                  {consumedProtein}
+                  {Math.round(consumedProtein * 10) / 10}
                 </span>
                 <span className="font-mono text-[11px] sm:text-xs text-stone-500 dark:text-stone-400">
                   / {targetProtein}g
@@ -206,7 +364,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
               </div>
               <div className="text-[10px] font-mono text-stone-400 dark:text-stone-500 truncate mt-0.5">
                 {targetProtein - consumedProtein > 0
-                  ? `${targetProtein - consumedProtein}g restants`
+                  ? `${Math.round((targetProtein - consumedProtein) * 10) / 10}g restants`
                   : 'Cible atteinte 🎉'}
               </div>
             </div>
@@ -235,7 +393,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
             <div className="my-1 sm:my-2">
               <div className="flex items-baseline gap-1 flex-wrap">
                 <span className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-stone-950 dark:text-white tabular-nums">
-                  {consumedCarbs}
+                  {Math.round(consumedCarbs * 10) / 10}
                 </span>
                 <span className="font-mono text-[11px] sm:text-xs text-stone-500 dark:text-stone-400">
                   / {targetCarbs}g
@@ -243,7 +401,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
               </div>
               <div className="text-[10px] font-mono text-stone-400 dark:text-stone-500 truncate mt-0.5">
                 {targetCarbs - consumedCarbs > 0
-                  ? `${targetCarbs - consumedCarbs}g restants`
+                  ? `${Math.round((targetCarbs - consumedCarbs) * 10) / 10}g restants`
                   : 'Cible atteinte 🎉'}
               </div>
             </div>
@@ -272,7 +430,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
             <div className="my-1 sm:my-2">
               <div className="flex items-baseline gap-1 flex-wrap">
                 <span className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-stone-950 dark:text-white tabular-nums">
-                  {consumedFat}
+                  {Math.round(consumedFat * 10) / 10}
                 </span>
                 <span className="font-mono text-[11px] sm:text-xs text-stone-500 dark:text-stone-400">
                   / {targetFat}g
@@ -280,7 +438,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
               </div>
               <div className="text-[10px] font-mono text-stone-400 dark:text-stone-500 truncate mt-0.5">
                 {targetFat - consumedFat > 0
-                  ? `${targetFat - consumedFat}g restants`
+                  ? `${Math.round((targetFat - consumedFat) * 10) / 10}g restants`
                   : 'Cible atteinte 🎉'}
               </div>
             </div>
@@ -297,7 +455,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
       {/* Repas du Jour */}
       <div className={`rounded-2xl sm:rounded-3xl p-4 sm:p-8 transition-all border ${cardGlassClass}`}>
         <h2 className="font-serif text-xl sm:text-2xl font-normal text-stone-900 dark:text-white mb-4">
-          Repas de la Journée <span className="italic">({currentDayPlan.dayName})</span>
+          Repas de la Journée <span className="italic">({activeDayPlan.dayName})</span>
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
@@ -317,7 +475,9 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
             <div className="flex items-center gap-3 min-w-0">
               <div
                 className={`w-6 h-6 rounded-xl flex items-center justify-center shrink-0 transition-transform active:scale-90 ${
-                  eatenMeals.breakfast ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-xs' : 'border-2 border-stone-400'
+                  eatenMeals.breakfast
+                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-xs'
+                    : 'border-2 border-stone-400'
                 }`}
               >
                 {eatenMeals.breakfast && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -327,19 +487,24 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
                   Petit-déjeuner
                 </div>
                 <div className="font-serif text-sm font-medium text-stone-900 dark:text-white truncate">
-                  {currentDayPlan.breakfast.title}
+                  {activeDayPlan.breakfast.title}
                 </div>
               </div>
             </div>
             <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-200/60 dark:border-white/5 font-mono tabular-nums text-xs shrink-0 gap-0.5">
-              <div className="text-stone-900 dark:text-stone-100 font-semibold">{currentDayPlan.breakfast.caloriesPerServing} kcal</div>
+              <div className="text-stone-900 dark:text-stone-100 font-semibold">
+                {activeDayPlan.breakfast.caloriesPerServing} kcal
+              </div>
               <div className="text-[11px] text-stone-600 dark:text-stone-400">
-                <span className="font-semibold text-stone-900 dark:text-stone-200">{currentDayPlan.breakfast.proteinPerServing}g P</span> • {currentDayPlan.breakfast.carbsPerServing}g G • {currentDayPlan.breakfast.fatPerServing}g L
+                <span className="font-semibold text-stone-900 dark:text-stone-200">
+                  {activeDayPlan.breakfast.proteinPerServing}g P
+                </span>{' '}
+                • {activeDayPlan.breakfast.carbsPerServing}g G • {activeDayPlan.breakfast.fatPerServing}g L
               </div>
             </div>
           </div>
 
-          {/* Dîner */}
+          {/* Dîner (Midi) */}
           <div
             onClick={() => toggleMeal('lunch')}
             className={`p-3.5 sm:p-4 rounded-2xl border transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 ${
@@ -355,7 +520,9 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
             <div className="flex items-center gap-3 min-w-0">
               <div
                 className={`w-6 h-6 rounded-xl flex items-center justify-center shrink-0 transition-transform active:scale-90 ${
-                  eatenMeals.lunch ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-xs' : 'border-2 border-stone-400'
+                  eatenMeals.lunch
+                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-xs'
+                    : 'border-2 border-stone-400'
                 }`}
               >
                 {eatenMeals.lunch && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -365,19 +532,24 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
                   Déjeuner (Midi)
                 </div>
                 <div className="font-serif text-sm font-medium text-stone-900 dark:text-white truncate">
-                  {currentDayPlan.lunch.title}
+                  {activeDayPlan.lunch.title}
                 </div>
               </div>
             </div>
             <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-200/60 dark:border-white/5 font-mono tabular-nums text-xs shrink-0 gap-0.5">
-              <div className="text-stone-900 dark:text-stone-100 font-semibold">{currentDayPlan.lunch.caloriesPerServing} kcal</div>
+              <div className="text-stone-900 dark:text-stone-100 font-semibold">
+                {activeDayPlan.lunch.caloriesPerServing} kcal
+              </div>
               <div className="text-[11px] text-stone-600 dark:text-stone-400">
-                <span className="font-semibold text-stone-900 dark:text-stone-200">{currentDayPlan.lunch.proteinPerServing}g P</span> • {currentDayPlan.lunch.carbsPerServing}g G • {currentDayPlan.lunch.fatPerServing}g L
+                <span className="font-semibold text-stone-900 dark:text-stone-200">
+                  {activeDayPlan.lunch.proteinPerServing}g P
+                </span>{' '}
+                • {activeDayPlan.lunch.carbsPerServing}g G • {activeDayPlan.lunch.fatPerServing}g L
               </div>
             </div>
           </div>
 
-          {/* Dîner */}
+          {/* Souper (Soir) */}
           <div
             onClick={() => toggleMeal('dinner')}
             className={`p-3.5 sm:p-4 rounded-2xl border transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 ${
@@ -393,7 +565,9 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
             <div className="flex items-center gap-3 min-w-0">
               <div
                 className={`w-6 h-6 rounded-xl flex items-center justify-center shrink-0 transition-transform active:scale-90 ${
-                  eatenMeals.dinner ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-xs' : 'border-2 border-stone-400'
+                  eatenMeals.dinner
+                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-xs'
+                    : 'border-2 border-stone-400'
                 }`}
               >
                 {eatenMeals.dinner && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -403,14 +577,19 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
                   Dîner (Soir)
                 </div>
                 <div className="font-serif text-sm font-medium text-stone-900 dark:text-white truncate">
-                  {currentDayPlan.dinner.title}
+                  {activeDayPlan.dinner.title}
                 </div>
               </div>
             </div>
             <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-200/60 dark:border-white/5 font-mono tabular-nums text-xs shrink-0 gap-0.5">
-              <div className="text-stone-900 dark:text-stone-100 font-semibold">{currentDayPlan.dinner.caloriesPerServing} kcal</div>
+              <div className="text-stone-900 dark:text-stone-100 font-semibold">
+                {activeDayPlan.dinner.caloriesPerServing} kcal
+              </div>
               <div className="text-[11px] text-stone-600 dark:text-stone-400">
-                <span className="font-semibold text-stone-900 dark:text-stone-200">{currentDayPlan.dinner.proteinPerServing}g P</span> • {currentDayPlan.dinner.carbsPerServing}g G • {currentDayPlan.dinner.fatPerServing}g L
+                <span className="font-semibold text-stone-900 dark:text-stone-200">
+                  {activeDayPlan.dinner.proteinPerServing}g P
+                </span>{' '}
+                • {activeDayPlan.dinner.carbsPerServing}g G • {activeDayPlan.dinner.fatPerServing}g L
               </div>
             </div>
           </div>
@@ -431,7 +610,9 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
             <div className="flex items-center gap-3 min-w-0">
               <div
                 className={`w-6 h-6 rounded-xl flex items-center justify-center shrink-0 transition-transform active:scale-90 ${
-                  eatenMeals.snack ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-xs' : 'border-2 border-stone-400'
+                  eatenMeals.snack
+                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950 shadow-xs'
+                    : 'border-2 border-stone-400'
                 }`}
               >
                 {eatenMeals.snack && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -441,14 +622,19 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
                   Collation
                 </div>
                 <div className="font-serif text-sm font-medium text-stone-900 dark:text-white truncate">
-                  {currentDayPlan.snack.title}
+                  {activeDayPlan.snack.title}
                 </div>
               </div>
             </div>
             <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-200/60 dark:border-white/5 font-mono tabular-nums text-xs shrink-0 gap-0.5">
-              <div className="text-stone-900 dark:text-stone-100 font-semibold">{currentDayPlan.snack.caloriesPerServing} kcal</div>
+              <div className="text-stone-900 dark:text-stone-100 font-semibold">
+                {activeDayPlan.snack.caloriesPerServing} kcal
+              </div>
               <div className="text-[11px] text-stone-600 dark:text-stone-400">
-                <span className="font-semibold text-stone-900 dark:text-stone-200">{currentDayPlan.snack.proteinPerServing}g P</span> • {currentDayPlan.snack.carbsPerServing}g G • {currentDayPlan.snack.fatPerServing}g L
+                <span className="font-semibold text-stone-900 dark:text-stone-200">
+                  {activeDayPlan.snack.proteinPerServing}g P
+                </span>{' '}
+                • {activeDayPlan.snack.carbsPerServing}g G • {activeDayPlan.snack.fatPerServing}g L
               </div>
             </div>
           </div>
@@ -510,7 +696,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
           <div className="col-span-2 sm:col-span-6 flex justify-end">
             <button
               type="submit"
-              className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold ${
+              className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold cursor-pointer ${
                 isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-stone-50 hover:bg-stone-800'
               }`}
             >
@@ -521,7 +707,9 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
 
         {customEntries.length > 0 && (
           <div className="mt-4 pt-3 border-t border-stone-200/50 dark:border-white/10 space-y-2">
-            <span className="text-xs font-mono text-stone-500 dark:text-stone-400">Extras enregistrés :</span>
+            <span className="text-xs font-mono text-stone-500 dark:text-stone-400">
+              Extras enregistrés ({activeDayPlan.dayName}) :
+            </span>
             {customEntries.map((item) => (
               <div
                 key={item.id}
@@ -530,9 +718,19 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({ curren
                 }`}
               >
                 <span className="text-stone-900 dark:text-white">{item.name}</span>
-                <span className="text-stone-700 dark:text-stone-300 tabular-nums font-semibold">
-                  +{item.calories} kcal • +{item.protein}g P • +{item.carbs || 0}g G • +{item.fat || 0}g L
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-stone-700 dark:text-stone-300 tabular-nums font-semibold">
+                    +{item.calories} kcal • +{item.protein}g P • +{item.carbs || 0}g G • +{item.fat || 0}g L
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteExtra(item.id)}
+                    className="p-1 text-stone-400 hover:text-red-500 transition-colors cursor-pointer"
+                    title="Supprimer cet extra"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

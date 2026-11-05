@@ -10,24 +10,21 @@ import {
   Search, 
   CalendarPlus, 
   Clock, 
-  Flame, 
-  Dumbbell, 
   Pencil, 
   Trash2, 
   Eye, 
   Check, 
   Sparkles, 
   UtensilsCrossed, 
-  Database, 
   Coffee, 
   Sun, 
   Moon, 
   Zap, 
   X,
-  Wheat,
-  Droplet,
-  Tag,
-  ScanBarcode
+  ScanBarcode,
+  Share2,
+  Upload,
+  Download
 } from 'lucide-react';
 
 interface RecipeBookViewProps {
@@ -41,6 +38,7 @@ interface RecipeBookViewProps {
   onEditRecipe: (recipe: Recipe) => void;
   onDeleteRecipe: (recipeId: string) => void;
   onPlanRecipeToDay: (dayIndex: number, mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack', recipeId: string) => void;
+  onImportRecipe?: (recipe: Recipe) => Promise<void> | void;
 }
 
 const DAYS = [
@@ -64,6 +62,7 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
   onEditRecipe,
   onDeleteRecipe,
   onPlanRecipeToDay,
+  onImportRecipe,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearch = useDeferredValue(searchQuery);
@@ -73,6 +72,70 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
   const [targetDayIndex, setTargetDayIndex] = useState(0);
   const [targetMealSlot, setTargetMealSlot] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('dinner');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleShareRecipeLinkOrFile = async (recipe: Recipe) => {
+    try {
+      const payload = {
+        ...recipe,
+        isCustom: true,
+      };
+      const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+      const shareUrl = `${window.location.origin}/?importRecipe=${encodeURIComponent(encoded)}`;
+      await navigator.clipboard.writeText(shareUrl);
+      setToastMessage(`Lien de partage copié pour « ${recipe.title} » !`);
+      setTimeout(() => setToastMessage(null), 3500);
+    } catch {
+      const blob = new Blob([JSON.stringify(recipe, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `recette-${recipe.id}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setToastMessage(`Fichier .json téléchargé pour « ${recipe.title} »`);
+      setTimeout(() => setToastMessage(null), 3500);
+    }
+  };
+
+  const handleDownloadRecipeJson = (recipe: Recipe) => {
+    const blob = new Blob([JSON.stringify(recipe, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `recette-${recipe.id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setToastMessage(`Fichier .json exporté (« ${recipe.title} »)`);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleImportJsonFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onImportRecipe) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!parsed || !parsed.title || !Array.isArray(parsed.ingredients)) {
+        setToastMessage('Fichier de recette invalide.');
+        setTimeout(() => setToastMessage(null), 3500);
+        return;
+      }
+      const importedRecipe: Recipe = {
+        ...parsed,
+        id: parsed.id?.startsWith('custom_') ? parsed.id : `custom_import_${Date.now()}`,
+        isCustom: true,
+      };
+      await onImportRecipe(importedRecipe);
+      setToastMessage(`Recette « ${importedRecipe.title} » importée avec succès !`);
+      setTimeout(() => setToastMessage(null), 3500);
+    } catch {
+      setToastMessage("Impossible d'importer ce fichier .json");
+      setTimeout(() => setToastMessage(null), 3500);
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const cardGlassClass = isDark
     ? 'liquid-glass text-stone-100 hover:border-white/20'
@@ -130,7 +193,6 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
 
   const handleOpenPlanning = (recipe: Recipe) => {
     setPlanningRecipe(recipe);
-    // Déterminer le créneau suggéré par défaut
     if (recipe.mealType === 'dejeuner') {
       setTargetMealSlot('breakfast');
     } else if (recipe.mealType === 'collation') {
@@ -194,12 +256,37 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
             </h1>
 
             <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 mt-2 max-w-2xl font-sans leading-relaxed">
-              Consultez, modifiez, supprimez et créez vos propres repas favoris à partir des produits exacts de Metro. Vous pouvez planifier n'importe quel plat directement dans votre semaine en un clic.
+              Consultez, modifiez, supprimez, partagez (par lien ou .json) et créez vos propres repas favoris à partir des produits exacts de Metro.
             </p>
           </div>
 
-          {/* Boutons d'Action : Créer Repas & Ajouter Code-barres */}
-          <div className="flex items-center gap-2 w-full lg:w-auto">
+          {/* Boutons d'Action : Créer Repas & Ajouter Code-barres & Importer JSON */}
+          <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap">
+            {onImportRecipe && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleImportJsonFile}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl text-xs font-mono uppercase tracking-wider transition-all border font-semibold active:scale-95 cursor-pointer ${
+                    isDark
+                      ? 'bg-white/5 text-stone-200 hover:bg-white/10 border-white/15'
+                      : 'bg-stone-100 text-stone-800 hover:bg-stone-200 border-stone-300'
+                  }`}
+                  title="Importer une recette depuis un fichier .json"
+                >
+                  <Upload className="w-4 h-4 shrink-0" />
+                  <span>Importer .json</span>
+                </button>
+              </>
+            )}
+
             {onOpenBarcodeModal && (
               <button
                 onClick={onOpenBarcodeModal}
@@ -442,7 +529,7 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
                 </div>
 
                 {/* Actions de la carte */}
-                <div className="pt-4 mt-4 border-t border-stone-200/60 dark:border-white/10 flex items-center justify-between gap-2">
+                <div className="pt-4 mt-4 border-t border-stone-200/60 dark:border-white/10 flex items-center justify-between gap-1.5">
                   <button
                     onClick={() => handleOpenPlanning(recipe)}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-stone-900 text-stone-50 dark:bg-white dark:text-stone-950 text-xs font-mono font-semibold transition-all active:scale-95 shadow-xs hover:opacity-90"
@@ -458,6 +545,22 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
                     title="Voir les instructions complètes"
                   >
                     <Eye className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    onClick={() => handleShareRecipeLinkOrFile(recipe)}
+                    className="p-2 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10 text-stone-700 dark:text-stone-300 transition-colors cursor-pointer"
+                    title="Copier le lien de partage hors-ligne de cette recette"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    onClick={() => handleDownloadRecipeJson(recipe)}
+                    className="p-2 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10 text-stone-700 dark:text-stone-300 transition-colors cursor-pointer"
+                    title="Exporter cette recette en fichier .json"
+                  >
+                    <Download className="w-3.5 h-3.5" />
                   </button>
 
                   <button

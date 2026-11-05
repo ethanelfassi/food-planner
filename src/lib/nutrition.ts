@@ -14,6 +14,67 @@ export interface RecipeNutrientCalculation {
   estimatedCostPerServing: number;
 }
 
+// Convertit une quantité en grammes équivalents selon l'unité et le type d'aliment (source unique de vérité)
+export function estimateTotalWeightGrams(
+  amount: number,
+  unit: string,
+  ingredientId = ''
+): number {
+  const cleanUnit = (unit || 'g').toLowerCase().trim();
+  const safeAmount = Math.max(0, Number(amount) || 0);
+  const id = ingredientId.toLowerCase();
+
+  if (cleanUnit === 'g' || cleanUnit === 'ml') {
+    if (id.includes('thon') && safeAmount >= 140 && safeAmount <= 190) {
+      return 120;
+    }
+    return safeAmount;
+  }
+
+  if (cleanUnit === 'unite' || cleanUnit === 'unité') {
+    if (id.includes('oeuf')) return safeAmount * 50;
+    if (id.includes('banane')) return safeAmount * 120;
+    if (id.includes('pomme')) return safeAmount * 170;
+    if (id.includes('avocat')) return safeAmount * 150;
+    if (id.includes('bagel')) return safeAmount * 95;
+    if (id.includes('pita')) return safeAmount * 60;
+    if (id.includes('tortilla')) return safeAmount * 61;
+    if (id.includes('muffin')) return safeAmount * 57;
+    if (id.includes('patate_douce')) return safeAmount * 200;
+    if (id.includes('concombre')) return safeAmount * 300;
+    if (id.includes('poivron')) return safeAmount * 150;
+    if (id.includes('brocoli')) return safeAmount * 300;
+    if (id.includes('chou_fleur')) return safeAmount * 600;
+    if (id.includes('citron')) return safeAmount * 100;
+    if (id.includes('ail')) return safeAmount * 10;
+    if (id.includes('echalote') || id.includes('oignon_vert')) return safeAmount * 15;
+    return safeAmount * 100;
+  }
+
+  if (
+    cleanUnit === 'c_a_soupe' ||
+    cleanUnit === 'cuillere' ||
+    cleanUnit === 'c. à soupe'
+  ) {
+    return safeAmount * 15;
+  }
+
+  if (cleanUnit === 'tranche') {
+    return safeAmount * 25;
+  }
+
+  if (cleanUnit === 'canne') {
+    if (id.includes('thon')) return safeAmount * 120;
+    if (id.includes('tomate')) return safeAmount * 796;
+    if (id.includes('haricot') || id.includes('pois')) return safeAmount * 390;
+    if (id.includes('coco')) return safeAmount * 400;
+    if (id.includes('mais') || id.includes('corn')) return safeAmount * 280;
+    return safeAmount * 400;
+  }
+
+  return safeAmount;
+}
+
 // Calcul automatique et temps réel des valeurs nutritionnelles et du coût d'une recette
 export function calculateRecipeNutrients(
   ingredients: RecipeIngredientItem[],
@@ -28,55 +89,14 @@ export function calculateRecipeNutrients(
   let totalCost = 0;
 
   for (const item of ingredients) {
-    const ing = (customCatalog && customCatalog[item.ingredientId]) || INGREDIENTS[item.ingredientId];
+    const ing =
+      (customCatalog && customCatalog[item.ingredientId]) ||
+      INGREDIENTS[item.ingredientId];
     if (!ing) continue;
 
-    // Calcul du poids en grammes
-    let grams = Number(item.quantity) || 0;
     const unit = (item.unit || ing.baseUnit || 'g').toLowerCase();
-
-    if (unit === 'g' || unit === 'ml') {
-      grams = Number(item.quantity) || 0;
-    } else if (unit === 'unite' || unit === 'unité') {
-      const id = item.ingredientId.toLowerCase();
-      const qty = Number(item.quantity) || 1;
-      if (id.includes('oeuf')) grams = qty * 50;
-      else if (id.includes('banane')) grams = qty * 120;
-      else if (id.includes('pomme')) grams = qty * 170;
-      else if (id.includes('avocat')) grams = qty * 150;
-      else if (id.includes('bagel')) grams = qty * 95;
-      else if (id.includes('pita')) grams = qty * 60;
-      else if (id.includes('tortilla')) grams = qty * 61;
-      else if (id.includes('muffin')) grams = qty * 57;
-      else if (id.includes('patate_douce')) grams = qty * 200;
-      else if (id.includes('concombre')) grams = qty * 300;
-      else if (id.includes('poivron')) grams = qty * 150;
-      else if (id.includes('brocoli')) grams = qty * 300;
-      else if (id.includes('chou_fleur')) grams = qty * 600;
-      else if (id.includes('citron')) grams = qty * 100;
-      else if (id.includes('ail')) grams = qty * 10;
-      else if (id.includes('echalote') || id.includes('oignon_vert')) grams = qty * 15;
-      else grams = qty * 100;
-    } else if (unit === 'c_a_soupe' || unit === 'cuillere' || unit === 'c. à soupe') {
-      grams = (Number(item.quantity) || 1) * 15;
-    } else if (unit === 'tranche') {
-      grams = (Number(item.quantity) || 1) * 25;
-    } else if (unit === 'canne') {
-      const id = item.ingredientId.toLowerCase();
-      if (id.includes('thon')) {
-        grams = (Number(item.quantity) || 1) * 120; // 1 boîte de thon standard 170g = 120g de chair égouttée
-      } else if (id.includes('tomate')) {
-        grams = (Number(item.quantity) || 1) * 796; // Boîte standard de tomates québécoise 796 ml
-      } else if (id.includes('haricot') || id.includes('pois')) {
-        grams = (Number(item.quantity) || 1) * 390; // Boîte de légumineuses 540 ml = ~390g égoutté
-      } else if (id.includes('coco')) {
-        grams = (Number(item.quantity) || 1) * 400;
-      } else if (id.includes('mais') || id.includes('corn')) {
-        grams = (Number(item.quantity) || 1) * 280; // Canne de 341 ml = ~280g égoutté
-      } else {
-        grams = (Number(item.quantity) || 1) * 400;
-      }
-    }
+    const qty = Number(item.quantity) || 0;
+    const grams = estimateTotalWeightGrams(qty, unit, item.ingredientId);
 
     const factor = grams / 100;
     totalCals += (ing.macrosPer100g?.calories ?? 0) * factor;
@@ -87,11 +107,17 @@ export function calculateRecipeNutrients(
     // Coût estimé au prorata de la portion utilisée du paquet
     if (ing.packaging && ing.packaging.amount > 0) {
       const packUnit = (ing.packaging.unit || 'g').toLowerCase();
-      if (packUnit === 'canne' || packUnit === 'unite' || packUnit === 'unité') {
+      if (
+        packUnit === 'canne' ||
+        packUnit === 'unite' ||
+        packUnit === 'unité'
+      ) {
         const itemQuantity = Number(item.quantity) || 1;
-        totalCost += (ing.packaging.exactPriceMetro / ing.packaging.amount) * itemQuantity;
+        totalCost +=
+          (ing.packaging.exactPriceMetro / ing.packaging.amount) * itemQuantity;
       } else {
-        totalCost += (ing.packaging.exactPriceMetro / ing.packaging.amount) * grams;
+        totalCost +=
+          (ing.packaging.exactPriceMetro / ing.packaging.amount) * grams;
       }
     }
   }

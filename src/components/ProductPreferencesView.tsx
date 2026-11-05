@@ -62,6 +62,9 @@ interface ProductPreferencesViewProps {
   onBackupRestored?: () => void;
   onUpdatePreference: (ingredientId: string, status: ProductPreferenceStatus) => void;
   onUpdateCustomPrice?: (ingredientId: string, price: number | null) => void;
+  onRecordSharedExpense?: any;
+  onDeleteSharedExpense?: any;
+  onSettleSharedBalances?: any;
   onUpdateSettings?: (settings: Partial<UserCustomizationSettings>) => void;
   onSwitchAccount?: (accountId: string) => void;
   onResetAllPreferences: () => void;

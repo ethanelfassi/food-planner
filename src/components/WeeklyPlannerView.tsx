@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ProductPreferencesMap, Recipe, WeeklyPlan, UserCustomizationSettings } from '@/types';
 import { RECIPES } from '@/data/recipes';
-import { calculateRecipeScore } from '@/lib/planner';
+import { calculateRecipeScore, MIN_RECIPES_FOR_AUTO_GENERATION } from '@/lib/planner';
 import { 
   RefreshCw, 
   Sun, 
@@ -60,6 +60,8 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
   const allRecipesPool = React.useMemo(() => {
     return [...RECIPES, ...(customRecipes || [])];
   }, [customRecipes]);
+
+  const canAutoGenerate = allRecipesPool.length >= MIN_RECIPES_FOR_AUTO_GENERATION;
 
   const availableReplacements = swapMealState
     ? allRecipesPool.filter((r) => {
@@ -172,15 +174,27 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
               )}
 
               <button
-                onClick={onRegenerateAll}
-                className={`p-2.5 sm:p-3.5 rounded-2xl border transition-all active:scale-95 ${
-                  isDark
-                    ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
-                    : 'bg-stone-900 hover:bg-stone-800 text-stone-50 border-stone-900 shadow-xs'
+                onClick={canAutoGenerate ? onRegenerateAll : undefined}
+                disabled={!canAutoGenerate}
+                className={`p-2.5 sm:p-3.5 rounded-2xl border transition-all flex items-center gap-2 ${
+                  !canAutoGenerate
+                    ? 'opacity-45 cursor-not-allowed border-stone-300 dark:border-white/10 text-stone-400 dark:text-stone-500'
+                    : isDark
+                    ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white active:scale-95'
+                    : 'bg-stone-900 hover:bg-stone-800 text-stone-50 border-stone-900 shadow-xs active:scale-95'
                 }`}
-                title="Régénérer le menu de la semaine"
+                title={
+                  canAutoGenerate
+                    ? 'Régénérer le menu de la semaine'
+                    : `Génération auto désactivée : enregistrez au moins ${MIN_RECIPES_FOR_AUTO_GENERATION} repas (${allRecipesPool.length}/${MIN_RECIPES_FOR_AUTO_GENERATION})`
+                }
               >
-                <RefreshCw className="w-4 h-4 text-stone-100 dark:text-stone-200" />
+                <RefreshCw className="w-4 h-4 text-current" />
+                {!canAutoGenerate && (
+                  <span className="text-[10px] font-mono uppercase tracking-wider">
+                    {allRecipesPool.length}/{MIN_RECIPES_FOR_AUTO_GENERATION} repas
+                  </span>
+                )}
               </button>
             </div>
           </div>

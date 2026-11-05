@@ -628,6 +628,175 @@ async function runAdversarialHarness() {
       assert(typeof toolDef.execute === 'function', `Tool ${key} must have execute function`);
     }
   });
+
+  // -------------------------------------------------------------------------
+  // SUITE 6: Phase 1 Audit Fixes (5-Recipe Gate, 4-Meal Generator, Metro.ca Lookup, Pantry Deduction)
+  // -------------------------------------------------------------------------
+  setSuite('Suite 6: Phase 1 Audit Fixes');
+
+  await advTest('6.1 Auto-generator gate: < 5 recipes produces empty plan (0 kcal), >= 5 recipes populates all 4 slots', async () => {
+    const plannerModule = await import('../src/lib/planner.js');
+    const { generateWeeklyPlan, MIN_RECIPES_FOR_AUTO_GENERATION } = plannerModule;
+    assertEqual(MIN_RECIPES_FOR_AUTO_GENERATION, 5, 'MIN_RECIPES_FOR_AUTO_GENERATION must be 5');
+
+    const dummyRecipe = (id: string, mealType: 'dejeuner' | 'diner' | 'souper' | 'collation', cal: number) => ({
+      id,
+      title: `Recette ${id}`,
+      mealType,
+      prepTimeMinutes: 10,
+      cookTimeMinutes: 10,
+      servings: 1,
+      caloriesPerServing: cal,
+      proteinPerServing: 30,
+      carbsPerServing: 40,
+      fatPerServing: 10,
+      ingredients: [],
+      instructions: ['Étape 1'],
+      tags: [],
+    });
+
+    // With 4 recipes (< 5), generator must return empty slots
+    const plan4 = generateWeeklyPlan({}, [
+      dummyRecipe('r1', 'dejeuner', 500),
+      dummyRecipe('r2', 'diner', 600),
+      dummyRecipe('r3', 'souper', 700),
+      dummyRecipe('r4', 'collation', 300),
+    ]);
+    assertEqual(plan4.avgDailyCalories, 0, 'With 4 recipes, avgDailyCalories must be 0');
+    assertEqual(plan4.days[0].breakfast.id, 'empty_dejeuner', 'With 4 recipes, breakfast is empty');
+    assertEqual(plan4.days[0].lunch.id, 'empty_diner', 'With 4 recipes, lunch is empty');
+    assertEqual(plan4.days[0].dinner.id, 'empty_souper', 'With 4 recipes, dinner is empty');
+    assertEqual(plan4.days[0].snack.id, 'empty_collation', 'With 4 recipes, snack is empty');
+
+    // With 5 recipes (>= 5), generator must populate all 4 slots (breakfast, lunch, dinner, snack)
+    const plan5 = generateWeeklyPlan({}, [
+      dummyRecipe('r1', 'dejeuner', 500),
+      dummyRecipe('r2', 'diner', 650),
+      dummyRecipe('r3', 'souper', 750),
+      dummyRecipe('r4', 'collation', 300),
+      dummyRecipe('r5', 'souper', 800),
+    ]);
+    assert(plan5.avgDailyCalories > 0, 'With 5 recipes, avgDailyCalories must be > 0');
+    assertEqual(plan5.days[0].breakfast.id, 'r1', 'Breakfast populated');
+    assertEqual(plan5.days[0].lunch.id, 'r2', 'Lunch populated (no longer hardcoded empty!)');
+    assert(plan5.days[0].dinner.id === 'r3' || plan5.days[0].dinner.id === 'r5', 'Dinner populated');
+    assertEqual(plan5.days[0].snack.id, 'r4', 'Snack populated');
+  });
+
+  await advTest('6.2 Strict ingredient matching & Metro.ca guide when ingredient is unknown', async () => {
+    // 1. Common Québécois/French terms must resolve in findBestIngredient
+    const commonQueries = ['ail', 'avocat', 'pomme', 'thon', 'pain', 'tortilla', 'poulet', 'gruau', 'oeufs'];
+    for (const q of commonQueries) {
+      const match = findBestIngredient(q);
+      assert(Boolean(match), `Common query "${q}" must resolve to an existing catalog ingredient`);
+    }
+
+    // 2. Unknown ingredient in create_recipe must return requires_new_product: true + Metro.ca search URL
+    const unknownRes: any = await ALL_TOOLS.create_recipe.execute({
+      title: 'Recette Test Ingrédient Inconnu',
+      ingredients: [
+        { name: 'riz_basmati', quantity: 100, unit: 'g' },
+        { name: 'fromage_halloumi_spatial_xyz', quantity: 150, unit: 'g' },
+      ],
+    });
+    assertEqual(unknownRes.created, false, 'Recipe must NOT be created when an ingredient is unknown');
+    assertEqual(unknownRes.requires_new_product, true, 'requires_new_product flag must be true');
+    assert(Array.isArray(unknownRes.missingIngredients) && unknownRes.missingIngredients.length === 1, 'missingIngredients array must contain the 1 unknown item');
+    assertIncludes(unknownRes.missingIngredients[0].metroSearchUrl, 'https://www.metro.ca/epicerie-en-ligne/recherche?filter=', 'Metro.ca search URL must be provided');
+  });
+
+  await advTest('6.3 Pantry deduction in calculateReceiptTaxes & Metro-only banner registry', async () => {
+    const groceryModule = await import('../src/lib/grocery.js');
+    const comparatorModule = await import('../src/lib/price-comparator.js');
+
+    const mockItems: any[] = [
+      {
+        id: 'item1',
+        name: 'Poulet',
+        aisle: 'BOUCHERIE_ET_POISSONNERIE',
+        neededQuantity: 500,
+        unit: 'g',
+        packageDescription: '1 pack',
+        packageCount: 1,
+        regularPriceMetro: 12.0,
+        exactPriceMetro: 10.0,
+        unitPriceLabel: '',
+        pricePer100g: 2.0,
+        isTaxable: false,
+        isMoiMemberPrice: false,
+        savingsAmount: 2.0,
+        estimatedPriceMaxi: 10,
+        estimatedPriceSuperC: 10,
+        estimatedPriceIGA: 10,
+        checked: false,
+        isInPantry: false,
+      },
+      {
+        id: 'item2',
+        name: 'Riz (En stock garde-manger)',
+        aisle: 'EPICERIE',
+        neededQuantity: 500,
+        unit: 'g',
+        packageDescription: '1 sac',
+        packageCount: 1,
+        regularPriceMetro: 8.0,
+        exactPriceMetro: 8.0,
+        unitPriceLabel: '',
+        pricePer100g: 0.8,
+        isTaxable: false,
+        isMoiMemberPrice: false,
+        savingsAmount: 0,
+        estimatedPriceMaxi: 8,
+        estimatedPriceSuperC: 8,
+        estimatedPriceIGA: 8,
+        checked: false,
+        isInPantry: true,
+      },
+    ];
+
+    const receipt = groceryModule.calculateReceiptTaxes(mockItems);
+    assertEqual(receipt.totalWithTax, 10.0, 'Pantry item ($8) must be excluded from receipt totalWithTax ($10)');
+
+    const banners = comparatorModule.calculateStorePriceComparison(mockItems);
+    assertEqual(banners.length, 1, 'Only Metro banner should be enabled by default');
+    assertIncludes(banners[0].storeName, 'Metro', 'Active banner must be Metro');
+  });
+
+  await advTest('6.4 SQLite persistence for Calorie Tracker & Joint Grocery Expenses (Phase 2)', async () => {
+    const dbMod = await import('../src/lib/db.js');
+
+    // 1. Calorie Tracker persistence
+    dbMod.saveDailyTrackerLog({
+      accountId: 'ethan',
+      dayIndex: 2,
+      eatenMeals: { breakfast: true, lunch: true, dinner: false, snack: false },
+      customEntries: [{ id: 'c1', name: 'Café Latte', calories: 120, protein: 6, carbs: 10, fat: 5 }],
+    });
+    const logs = dbMod.getDailyTrackerLogs('ethan');
+    assertEqual(logs.length, 1, 'Tracker log should be saved for ethan');
+    assertEqual(logs[0].dayIndex, 2, 'Tracker log dayIndex must be 2');
+    assertEqual(logs[0].eatenMeals.breakfast, true, 'Breakfast slot should be checked');
+    assertEqual(logs[0].customEntries[0].name, 'Café Latte', 'Custom entry should be persisted');
+
+    // 2. Shared Grocery Expenses ("Qui doit combien ?")
+    const exp = dbMod.recordSharedGroceryExpense({
+      groupId: 'joint_ethan_laurine',
+      paidByAccountId: 'ethan',
+      totalAmount: 160.0,
+      sharesByAccount: { ethan: 98.0, laurine: 62.0 },
+      note: 'Course Metro Samedi',
+    });
+    assert(Boolean(exp.id), 'Recorded expense must have an ID');
+    const expenses = dbMod.getSharedGroceryExpenses('joint_ethan_laurine');
+    assert(expenses.length >= 1, 'Shared grocery group must list recorded expense');
+    assertEqual(expenses[0].totalAmount, 160.0, 'Total amount must match 160.0');
+    assertEqual(expenses[0].sharesByAccount.laurine, 62.0, 'Laurine share must match 62.0');
+
+    // Settle balances
+    dbMod.settleSharedGroceryGroupBalances('joint_ethan_laurine');
+    const afterSettle = dbMod.getSharedGroceryExpenses('joint_ethan_laurine');
+    assertEqual(afterSettle.length, 0, 'Expenses should be cleared after settling balances');
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -712,6 +881,7 @@ async function main() {
     'Suite 3: Mobile Markdown Formatting',
     'Suite 4: REST API Bridge (/api/mcp)',
     'Suite 5: MCP Transports Wiring',
+    'Suite 6: Phase 1 Audit Fixes',
   ];
 
   for (const s of suiteGroups) {

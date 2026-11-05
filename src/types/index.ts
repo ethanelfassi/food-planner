@@ -280,6 +280,7 @@ export interface SharedGroceryGroup {
   memberIds: string[];
   members: UserAccount[];
   checkedItems: Record<string, boolean>;
+  expenses?: SharedGroceryTripExpense[];
   createdAt: string;
   updatedAt: string;
 }
@@ -312,5 +313,35 @@ export interface DatabaseBackup {
   pantryItems: string[];
   customGroceryItems?: GroceryItem[];
   scheduledMeals?: ScheduledMealRecord[];
+  dailyTrackerLogs?: DailyTrackerLog[];
+  sharedGroceryExpenses?: SharedGroceryTripExpense[];
+}
+
+export interface SharedGroceryTripExpense {
+  id: string;
+  groupId: string;
+  paidByAccountId: string;
+  paidByName: string;
+  totalAmount: number;
+  sharesByAccount: Record<string, number>;
+  note?: string;
+  createdAt: string;
+}
+
+export interface TrackerCustomEntry {
+  id: string;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs?: number;
+  fat?: number;
+}
+
+export interface DailyTrackerLog {
+  accountId: string;
+  dayIndex: number;
+  eatenMeals: Record<'breakfast' | 'lunch' | 'dinner' | 'snack', boolean>;
+  customEntries: TrackerCustomEntry[];
+  updatedAt?: string;
 }
 
