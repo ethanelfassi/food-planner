@@ -231,12 +231,6 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                   </span>
                 )}
               </div>
-              <p
-                className={`text-[11px] tracking-wide hidden 2xl:block truncate max-w-xs ${isDark ? 'text-stone-400' : 'text-stone-500'
-                  }`}
-              >
-                {userSettings?.goalName || 'Prise de masse athlétique'} • Profil : <strong className="font-semibold text-stone-900 dark:text-stone-200">{activeAccount.name}</strong>
-              </p>
             </div>
           </div>
 

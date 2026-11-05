@@ -140,25 +140,11 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
           isDark ? 'liquid-glass' : 'liquid-glass-light'
         }`}
       >
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div>
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <span className="font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-stone-700 dark:text-stone-300 font-semibold">
-                Menu Personnalisé • Québec
-              </span>
-              <span className="text-stone-400 text-xs">•</span>
-              <span className="text-xs text-stone-500 dark:text-stone-400 font-sans">
-                {userSettings?.goalName || 'Prise de masse'} • Cible {userSettings?.targetCalories ?? 3050} kcal
-              </span>
-            </div>
-
-            <h1 className="font-serif text-2xl sm:text-4xl font-normal tracking-tight text-stone-900 dark:text-white">
-              Semaine Nutritionnelle <span className="italic font-light">Sur-Mesure</span>
+            <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight text-stone-900 dark:text-white">
+              Planning de la semaine
             </h1>
-
-            <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 mt-2 max-w-2xl font-sans leading-relaxed">
-              Chaque repas est planifié de manière indépendante avec 100 % d'aliments complets adaptés à vos cibles nutritionnelles.
-            </p>
           </div>
 
           {/* Synthèse Métabolique Minimaliste 4 Piliers */}
@@ -175,7 +161,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                   <Flame className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Énergie
                 </div>
                 <div className="font-mono tabular-nums text-base sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyCalories} <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetCalories ?? 3050}</span>
+                  {plan.avgDailyCalories} <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">kcal/j</span>
                 </div>
               </div>
 
@@ -184,7 +170,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                   <Dumbbell className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Protéines
                 </div>
                 <div className="font-mono tabular-nums text-base sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyProtein}g <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetProtein ?? 165}g</span>
+                  {plan.avgDailyProtein}g <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">/j</span>
                 </div>
               </div>
 
@@ -193,7 +179,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                   <Wheat className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Glucides
                 </div>
                 <div className="font-mono tabular-nums text-base sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyCarbs}g <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetCarbs ?? 390}g</span>
+                  {plan.avgDailyCarbs}g <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">/j</span>
                 </div>
               </div>
 
@@ -202,7 +188,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                   <Droplet className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Lipides
                 </div>
                 <div className="font-mono tabular-nums text-base sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyFat}g <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">/ {userSettings?.targetFat ?? 90}g</span>
+                  {plan.avgDailyFat}g <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">/j</span>
                 </div>
               </div>
             </div>

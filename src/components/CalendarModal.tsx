@@ -219,13 +219,6 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
               )}
             </button>
           </div>
-
-          {/* Cibles rapides */}
-          <div className="hidden sm:flex items-center gap-3 text-xs font-mono text-stone-500 dark:text-stone-400">
-            <span>Cible : {targetCals} kcal</span>
-            <span>•</span>
-            <span>{targetProt}g P</span>
-          </div>
         </div>
 
         {/* Corps du Modal avec Scroll */}

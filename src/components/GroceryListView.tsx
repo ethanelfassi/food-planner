@@ -854,13 +854,12 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
                     }}
                   />
                 </div>
-                <div className="text-[10px] font-mono text-stone-500 dark:text-stone-400 mt-1 flex justify-between">
+                <div className="text-[10px] font-mono text-stone-500 dark:text-stone-400 mt-1">
                   <span>
                     {receipt.totalWithTax <= userSettings.targetWeeklyBudget
                       ? `Reste disponible : ${(userSettings.targetWeeklyBudget - receipt.totalWithTax).toFixed(2)} $`
                       : `Dépassement : +${(receipt.totalWithTax - userSettings.targetWeeklyBudget).toFixed(2)} $`}
                   </span>
-                  <span>{userSettings.goalName}</span>
                 </div>
               </div>
             )}

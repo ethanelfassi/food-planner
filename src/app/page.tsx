@@ -1669,13 +1669,13 @@ export default function Home() {
       />
 
       <footer
-        className={`border-t py-8 pb-24 md:pb-8 text-center text-xs transition-colors ${isDark
+        className={`border-t py-4 pb-24 md:pb-6 text-center text-xs transition-colors ${isDark
             ? 'border-white/[0.08] bg-[#0B0C0E] text-stone-500'
             : 'border-stone-200 bg-white/70 text-stone-500'
           }`}
       >
-        <p className="font-serif italic text-sm">
-          FoodPlanner • Profil : {activeAccount.name} ({activeSettings.targetCalories} kcal & {activeSettings.targetProtein}g P) • Base locale synchronisée
+        <p className="font-sans text-xs text-stone-400 dark:text-stone-600">
+          FoodPlanner
         </p>
       </footer>
     </div>
