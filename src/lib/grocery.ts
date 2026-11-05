@@ -29,18 +29,28 @@ export function generateGroceryList(
     : 1.0;
 
   // Parcourir chaque jour (chaque repas est indépendant)
+  // Les repas déjà mangés/cuisinés sont automatiquement exclus de la liste de courses
   for (const day of weeklyPlan.days) {
-    for (const item of day.breakfast.ingredients) {
-      aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity * coupleFactor;
+    const eaten = day.eatenMeals || { breakfast: false, lunch: false, dinner: false, snack: false };
+    if (!eaten.breakfast) {
+      for (const item of day.breakfast.ingredients) {
+        aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity * coupleFactor;
+      }
     }
-    for (const item of day.lunch.ingredients) {
-      aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity * coupleFactor;
+    if (!eaten.lunch) {
+      for (const item of day.lunch.ingredients) {
+        aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity * coupleFactor;
+      }
     }
-    for (const item of day.dinner.ingredients) {
-      aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity * coupleFactor;
+    if (!eaten.dinner) {
+      for (const item of day.dinner.ingredients) {
+        aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity * coupleFactor;
+      }
     }
-    for (const item of day.snack.ingredients) {
-      aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity * coupleFactor;
+    if (!eaten.snack) {
+      for (const item of day.snack.ingredients) {
+        aggregated[item.ingredientId] = (aggregated[item.ingredientId] || 0) + item.quantity * coupleFactor;
+      }
     }
   }
 
@@ -198,29 +208,38 @@ export function generateCommonGroceryList(
 
   for (const ap of accountPlans) {
     for (const day of ap.plan.days) {
-      for (const item of day.breakfast.ingredients) {
-        if (!demandMap[item.ingredientId]) demandMap[item.ingredientId] = { total: 0, byAccount: {} };
-        demandMap[item.ingredientId].total += item.quantity;
-        demandMap[item.ingredientId].byAccount[ap.accountId] =
-          (demandMap[item.ingredientId].byAccount[ap.accountId] || 0) + item.quantity;
+      const eaten = day.eatenMeals || { breakfast: false, lunch: false, dinner: false, snack: false };
+      if (!eaten.breakfast) {
+        for (const item of day.breakfast.ingredients) {
+          if (!demandMap[item.ingredientId]) demandMap[item.ingredientId] = { total: 0, byAccount: {} };
+          demandMap[item.ingredientId].total += item.quantity;
+          demandMap[item.ingredientId].byAccount[ap.accountId] =
+            (demandMap[item.ingredientId].byAccount[ap.accountId] || 0) + item.quantity;
+        }
       }
-      for (const item of day.lunch.ingredients) {
-        if (!demandMap[item.ingredientId]) demandMap[item.ingredientId] = { total: 0, byAccount: {} };
-        demandMap[item.ingredientId].total += item.quantity;
-        demandMap[item.ingredientId].byAccount[ap.accountId] =
-          (demandMap[item.ingredientId].byAccount[ap.accountId] || 0) + item.quantity;
+      if (!eaten.lunch) {
+        for (const item of day.lunch.ingredients) {
+          if (!demandMap[item.ingredientId]) demandMap[item.ingredientId] = { total: 0, byAccount: {} };
+          demandMap[item.ingredientId].total += item.quantity;
+          demandMap[item.ingredientId].byAccount[ap.accountId] =
+            (demandMap[item.ingredientId].byAccount[ap.accountId] || 0) + item.quantity;
+        }
       }
-      for (const item of day.dinner.ingredients) {
-        if (!demandMap[item.ingredientId]) demandMap[item.ingredientId] = { total: 0, byAccount: {} };
-        demandMap[item.ingredientId].total += item.quantity;
-        demandMap[item.ingredientId].byAccount[ap.accountId] =
-          (demandMap[item.ingredientId].byAccount[ap.accountId] || 0) + item.quantity;
+      if (!eaten.dinner) {
+        for (const item of day.dinner.ingredients) {
+          if (!demandMap[item.ingredientId]) demandMap[item.ingredientId] = { total: 0, byAccount: {} };
+          demandMap[item.ingredientId].total += item.quantity;
+          demandMap[item.ingredientId].byAccount[ap.accountId] =
+            (demandMap[item.ingredientId].byAccount[ap.accountId] || 0) + item.quantity;
+        }
       }
-      for (const item of day.snack.ingredients) {
-        if (!demandMap[item.ingredientId]) demandMap[item.ingredientId] = { total: 0, byAccount: {} };
-        demandMap[item.ingredientId].total += item.quantity;
-        demandMap[item.ingredientId].byAccount[ap.accountId] =
-          (demandMap[item.ingredientId].byAccount[ap.accountId] || 0) + item.quantity;
+      if (!eaten.snack) {
+        for (const item of day.snack.ingredients) {
+          if (!demandMap[item.ingredientId]) demandMap[item.ingredientId] = { total: 0, byAccount: {} };
+          demandMap[item.ingredientId].total += item.quantity;
+          demandMap[item.ingredientId].byAccount[ap.accountId] =
+            (demandMap[item.ingredientId].byAccount[ap.accountId] || 0) + item.quantity;
+        }
       }
     }
   }

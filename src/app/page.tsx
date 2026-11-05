@@ -20,7 +20,8 @@ import {
   GroceryViewScope,
   ScheduledMealRecord,
   Friendship,
-  SharedGroceryGroup
+  SharedGroceryGroup,
+  DailyTrackerLog
 } from '@/types';
 import {
   generateWeeklyPlan,
@@ -34,7 +35,7 @@ import {
   AccountSplitSummary
 } from '@/lib/grocery';
 import { DEFAULT_COUPLE_SETTINGS, calculateSplitCost } from '@/lib/couple-split';
-import { getMondayOfWeek, addWeeks, getDayIndex } from '@/lib/date-utils';
+import { getMondayOfWeek, addWeeks, getDayIndex, toDateKey } from '@/lib/date-utils';
 import { Header } from '@/components/Header';
 import { AuthScreen } from '@/components/AuthScreen';
 import { FriendsAndProfileModal } from '@/components/FriendsAndProfileModal';
@@ -110,6 +111,7 @@ export default function Home() {
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [baseMonday, setBaseMonday] = useState<Date | null>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState<boolean>(false);
+  const [trackerLogs, setTrackerLogs] = useState<DailyTrackerLog[]>([]);
 
   useEffect(() => {
     const now = new Date();
@@ -145,11 +147,23 @@ export default function Home() {
         const userSett = settingsByAccount[acc.id] || DEFAULT_USER_SETTINGS;
         const accRecipes = customRecipes.filter((r) => !r.createdBy || r.createdBy === acc.id);
         const basePlan = generateWeeklyPlan(userPrefs, accRecipes, userSett, referenceMonday);
-        updated[acc.id] = applyScheduledMealsToWeeklyPlan(basePlan, acc.id, scheduledMeals, allAvailableRecs);
+        const planWithScheduled = applyScheduledMealsToWeeklyPlan(basePlan, acc.id, scheduledMeals, allAvailableRecs);
+        updated[acc.id] = {
+          ...planWithScheduled,
+          days: planWithScheduled.days.map((d) => {
+            const found = trackerLogs.find(
+              (l) => l.accountId === acc.id && ((d.date && l.date === d.date) || l.dayIndex === d.dayIndex)
+            );
+            return {
+              ...d,
+              eatenMeals: found?.eatenMeals || { breakfast: false, lunch: false, dinner: false, snack: false },
+            };
+          }),
+        };
       }
       return updated;
     });
-  }, [weekOffset, referenceMonday]);
+  }, [weekOffset, referenceMonday, trackerLogs]);
 
   // Helper pour injecter les repas programmés (via MCP / ChatMCP ou UI) dans un plan hebdomadaire
   const applyScheduledMealsToPlan = useCallback(
@@ -175,14 +189,16 @@ export default function Home() {
       let loadedPantry: Record<string, boolean> = {};
       let loadedGroceryItems: GroceryItem[] = [];
       let loadedScheduledMeals: ScheduledMealRecord[] = [];
+      let loadedTrackerLogs: DailyTrackerLog[] = [];
 
       try {
-        const [authRes, res, prodRes, pantryRes, groceryRes] = await Promise.all([
+        const [authRes, res, prodRes, pantryRes, groceryRes, trackerRes] = await Promise.all([
           fetch('/api/auth'),
           fetch('/api/preferences'),
           fetch('/api/products'),
           fetch('/api/pantry'),
           fetch('/api/grocery'),
+          fetch(`/api/tracker?accountId=${encodeURIComponent(activeAcc)}`),
         ]);
 
         let authenticatedUser: UserAccount | null = null;
@@ -249,6 +265,14 @@ export default function Home() {
           }
         }
 
+        if (trackerRes && trackerRes.ok) {
+          const trackerData = await trackerRes.json();
+          if (trackerData.logs && Array.isArray(trackerData.logs)) {
+            loadedTrackerLogs = trackerData.logs;
+            setTrackerLogs(loadedTrackerLogs);
+          }
+        }
+
         // Sélectionner par défaut la course solo de l'utilisateur connecté (ou sa première course jointe)
         if (authenticatedUser) {
           setGroceryScope((prev) => {
@@ -290,7 +314,19 @@ export default function Home() {
         const userSett = loadedSettings[acc.id] || DEFAULT_USER_SETTINGS;
         const accRecipes = loadedCustomRecipes.filter((r) => !r.createdBy || r.createdBy === acc.id);
         const basePlan = generateWeeklyPlan(userPrefs, accRecipes, userSett, curMon);
-        initialPlans[acc.id] = applyScheduledMealsToPlan(basePlan, acc.id, loadedScheduledMeals, allAvailableRecs);
+        const planWithSched = applyScheduledMealsToPlan(basePlan, acc.id, loadedScheduledMeals, allAvailableRecs);
+        initialPlans[acc.id] = {
+          ...planWithSched,
+          days: planWithSched.days.map((d) => {
+            const found = loadedTrackerLogs.find(
+              (l: DailyTrackerLog) => l.accountId === acc.id && ((d.date && l.date === d.date) || l.dayIndex === d.dayIndex)
+            );
+            return {
+              ...d,
+              eatenMeals: found?.eatenMeals || { breakfast: false, lunch: false, dinner: false, snack: false },
+            };
+          }),
+        };
       }
       setPlansByAccount(initialPlans);
 
@@ -389,6 +425,39 @@ export default function Home() {
 
     return () => clearInterval(interval);
   }, [activeTab, groceryScope, activeAccountId]);
+
+  // Synchronisation automatique en arrière-plan avec SQLite (MCP, autre onglet, etc.)
+  const lastKnownDbVersionRef = React.useRef<number | null>(null);
+  useEffect(() => {
+    let isCancelled = false;
+
+    const checkSync = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      try {
+        const res = await fetch('/api/sync', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && typeof data.version === 'number') {
+          if (lastKnownDbVersionRef.current === null) {
+            lastKnownDbVersionRef.current = data.version;
+          } else if (data.version > lastKnownDbVersionRef.current) {
+            lastKnownDbVersionRef.current = data.version;
+            if (!isCancelled) {
+              await initAppData();
+            }
+          }
+        }
+      } catch {
+        // Ignorer les erreurs réseau temporaires
+      }
+    };
+
+    const interval = setInterval(checkSync, 2000);
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, [initAppData]);
 
   const toggleTheme = () => {
     setTheme((prev) => {
@@ -764,6 +833,76 @@ export default function Home() {
     recipeId: string
   ) => {
     handleReplaceRecipe(dayIndex, mealSlot, recipeId);
+  };
+
+  const handleToggleMealEaten = async (
+    dayIndex: number,
+    date: string | undefined,
+    mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack'
+  ) => {
+    if (!activePlan) return;
+
+    const targetDay = activePlan.days.find((d) => d.dayIndex === dayIndex);
+    const existingEaten = targetDay?.eatenMeals || {
+      breakfast: false,
+      lunch: false,
+      dinner: false,
+      snack: false,
+    };
+    const nextEaten = {
+      ...existingEaten,
+      [mealSlot]: !existingEaten[mealSlot],
+    };
+
+    setPlansByAccount((prev) => {
+      const curPlan = prev[activeAccountId];
+      if (!curPlan) return prev;
+      return {
+        ...prev,
+        [activeAccountId]: {
+          ...curPlan,
+          days: curPlan.days.map((d) =>
+            d.dayIndex === dayIndex
+              ? { ...d, eatenMeals: nextEaten }
+              : d
+          ),
+        },
+      };
+    });
+
+    const dateKey = date || targetDay?.date || toDateKey(new Date());
+    const existingLog = trackerLogs.find(
+      (l) => l.accountId === activeAccountId && ((dateKey && l.date === dateKey) || l.dayIndex === dayIndex)
+    );
+    const updatedLog: DailyTrackerLog = {
+      accountId: activeAccountId,
+      dayIndex,
+      date: dateKey,
+      eatenMeals: nextEaten,
+      customEntries: existingLog?.customEntries || [],
+    };
+
+    setTrackerLogs((prev) => {
+      const idx = prev.findIndex(
+        (l) => l.accountId === activeAccountId && ((dateKey && l.date === dateKey) || l.dayIndex === dayIndex)
+      );
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = updatedLog;
+        return copy;
+      }
+      return [...prev, updatedLog];
+    });
+
+    try {
+      await fetch('/api/tracker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedLog),
+      });
+    } catch (err) {
+      console.warn('Erreur sauvegarde repas coché tracker:', err);
+    }
   };
 
   const handleEditRecipe = (recipe: Recipe) => {
@@ -1343,6 +1482,8 @@ export default function Home() {
             weekOffset={weekOffset}
             selectedDayIndex={selectedPlannerDayIndex}
             onSelectDayIndex={setSelectedPlannerDayIndex}
+            customProducts={customProducts}
+            onToggleMealEaten={handleToggleMealEaten}
             onOpenCalendar={() => setIsCalendarOpen(true)}
             onNavigateWeek={(dir) => {
               if (dir === 0) setWeekOffset(0);

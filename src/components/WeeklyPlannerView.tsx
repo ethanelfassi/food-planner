@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { ProductPreferencesMap, Recipe, WeeklyPlan, UserCustomizationSettings } from '@/types';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ProductPreferencesMap, Recipe, WeeklyPlan, UserCustomizationSettings, Ingredient } from '@/types';
 import { RECIPES } from '@/data/recipes';
+import { INGREDIENTS } from '@/data/ingredients';
 import { calculateRecipeScore, MIN_RECIPES_FOR_AUTO_GENERATION } from '@/lib/planner';
 import { 
   RefreshCw, 
@@ -38,6 +39,8 @@ interface WeeklyPlannerViewProps {
   onOpenCalendar?: () => void;
   selectedDayIndex?: number;
   onSelectDayIndex?: (idx: number) => void;
+  customProducts?: Ingredient[];
+  onToggleMealEaten?: (dayIndex: number, date: string | undefined, mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack') => void;
 }
 
 const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
@@ -55,6 +58,8 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
   onOpenCalendar,
   selectedDayIndex: controlledDayIndex,
   onSelectDayIndex,
+  customProducts = [],
+  onToggleMealEaten,
 }) => {
   const [internalDayIndex, setInternalDayIndex] = useState<number>(0);
 
@@ -73,6 +78,30 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
   } | null>(null);
 
   const currentDay = plan.days[selectedDayIndex] || plan.days[0];
+
+  const customProductsMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    if (customProducts) {
+      for (const p of customProducts) {
+        map.set(p.id, p.name);
+      }
+    }
+    return map;
+  }, [customProducts]);
+
+  const getIngredientDisplayName = useCallback(
+    (ingredientId: string) => {
+      const customName = customProductsMap.get(ingredientId);
+      if (customName) return customName;
+      const std = (INGREDIENTS as Record<string, Ingredient>)[ingredientId];
+      if (std) return std.name;
+      if (ingredientId.startsWith('barcode_')) {
+        return 'Produit personnalisé';
+      }
+      return ingredientId.replace(/_/g, ' ');
+    },
+    [customProductsMap]
+  );
 
   const allRecipesPool = React.useMemo(() => {
     return [...RECIPES, ...(customRecipes || [])];
@@ -363,18 +392,45 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
-                  <Coffee className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Petit-déjeuner
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'breakfast' });
-                  }}
-                  className="text-xs text-stone-500 hover:text-stone-950 dark:hover:text-stone-200 transition-colors px-2 py-0.5 rounded-lg"
-                >
-                  Changer ▾
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
+                    <Coffee className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Petit-déjeuner
+                  </span>
+                  {currentDay.eatenMeals?.breakfast && (
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
+                      Mangé ✓
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleMealEaten?.(selectedDayIndex, currentDay.date, 'breakfast');
+                    }}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer ${
+                      currentDay.eatenMeals?.breakfast
+                        ? 'bg-emerald-500 text-white shadow-xs'
+                        : isDark
+                        ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
+                        : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
+                    }`}
+                    title={currentDay.eatenMeals?.breakfast ? 'Repas mangé ! Cliquez pour décocher' : 'Cocher ce repas comme mangé'}
+                    type="button"
+                  >
+                    <Check className={`w-3.5 h-3.5 ${currentDay.eatenMeals?.breakfast ? 'stroke-[3]' : 'opacity-40'}`} />
+                    <span>{currentDay.eatenMeals?.breakfast ? 'Mangé' : 'Manger'}</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'breakfast' });
+                    }}
+                    className="text-xs text-stone-500 hover:text-stone-950 dark:hover:text-stone-200 transition-colors px-2 py-0.5 rounded-lg"
+                  >
+                    Changer ▾
+                  </button>
+                </div>
               </div>
 
               <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
@@ -382,7 +438,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
               </h3>
               <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 line-clamp-2 font-sans">
                 {currentDay.breakfast.ingredients.length > 0
-                  ? `${currentDay.breakfast.ingredients.slice(0, 4).map((i) => i.ingredientId.replace(/_/g, ' ')).join(', ')}...`
+                  ? `${currentDay.breakfast.ingredients.slice(0, 4).map((i) => getIngredientDisplayName(i.ingredientId)).join(', ')}...`
                   : 'Aucun ingrédient défini'}
               </p>
             </div>
@@ -409,18 +465,45 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
-                  <Sun className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Déjeuner (Midi)
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'lunch' });
-                  }}
-                  className="text-xs text-stone-500 hover:text-stone-950 dark:hover:text-stone-200 transition-colors px-2 py-0.5 rounded-lg"
-                >
-                  Changer ▾
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
+                    <Sun className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Déjeuner (Midi)
+                  </span>
+                  {currentDay.eatenMeals?.lunch && (
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
+                      Mangé ✓
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleMealEaten?.(selectedDayIndex, currentDay.date, 'lunch');
+                    }}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer ${
+                      currentDay.eatenMeals?.lunch
+                        ? 'bg-emerald-500 text-white shadow-xs'
+                        : isDark
+                        ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
+                        : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
+                    }`}
+                    title={currentDay.eatenMeals?.lunch ? 'Repas mangé ! Cliquez pour décocher' : 'Cocher ce repas comme mangé'}
+                    type="button"
+                  >
+                    <Check className={`w-3.5 h-3.5 ${currentDay.eatenMeals?.lunch ? 'stroke-[3]' : 'opacity-40'}`} />
+                    <span>{currentDay.eatenMeals?.lunch ? 'Mangé' : 'Manger'}</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'lunch' });
+                    }}
+                    className="text-xs text-stone-500 hover:text-stone-950 dark:hover:text-stone-200 transition-colors px-2 py-0.5 rounded-lg"
+                  >
+                    Changer ▾
+                  </button>
+                </div>
               </div>
 
               <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
@@ -428,7 +511,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
               </h3>
               <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 line-clamp-2 font-sans">
                 {currentDay.lunch.ingredients.length > 0
-                  ? `${currentDay.lunch.ingredients.slice(0, 4).map((i) => i.ingredientId.replace(/_/g, ' ')).join(', ')}...`
+                  ? `${currentDay.lunch.ingredients.slice(0, 4).map((i) => getIngredientDisplayName(i.ingredientId)).join(', ')}...`
                   : 'Aucun ingrédient défini'}
               </p>
             </div>
@@ -459,18 +542,45 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
           >
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/10 font-semibold">
-                  <Moon className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Dîner (Soir)
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'dinner' });
-                  }}
-                  className="text-xs text-stone-600 dark:text-stone-400 hover:text-stone-950 dark:hover:text-white transition-colors px-2 py-0.5 rounded-lg font-medium"
-                >
-                  Changer ▾
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/10 font-semibold">
+                    <Moon className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Dîner (Soir)
+                  </span>
+                  {currentDay.eatenMeals?.dinner && (
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
+                      Mangé ✓
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleMealEaten?.(selectedDayIndex, currentDay.date, 'dinner');
+                    }}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer ${
+                      currentDay.eatenMeals?.dinner
+                        ? 'bg-emerald-500 text-white shadow-xs'
+                        : isDark
+                        ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
+                        : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
+                    }`}
+                    title={currentDay.eatenMeals?.dinner ? 'Repas mangé ! Cliquez pour décocher' : 'Cocher ce repas comme mangé'}
+                    type="button"
+                  >
+                    <Check className={`w-3.5 h-3.5 ${currentDay.eatenMeals?.dinner ? 'stroke-[3]' : 'opacity-40'}`} />
+                    <span>{currentDay.eatenMeals?.dinner ? 'Mangé' : 'Manger'}</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'dinner' });
+                    }}
+                    className="text-xs text-stone-600 dark:text-stone-400 hover:text-stone-950 dark:hover:text-white transition-colors px-2 py-0.5 rounded-lg font-medium"
+                  >
+                    Changer ▾
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 mb-1.5">
@@ -484,7 +594,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
               </h3>
               <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 line-clamp-2 font-sans">
                 {currentDay.dinner.ingredients.length > 0
-                  ? `${currentDay.dinner.ingredients.slice(0, 4).map((i) => i.ingredientId.replace(/_/g, ' ')).join(', ')}...`
+                  ? `${currentDay.dinner.ingredients.slice(0, 4).map((i) => getIngredientDisplayName(i.ingredientId)).join(', ')}...`
                   : 'Aucun ingrédient défini'}
               </p>
             </div>
@@ -511,18 +621,45 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
-                  <Zap className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Collation
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'snack' });
-                  }}
-                  className="text-xs text-stone-600 dark:text-stone-400 hover:text-stone-950 dark:hover:text-white transition-colors px-2 py-0.5 rounded-lg font-medium"
-                >
-                  Changer ▾
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
+                    <Zap className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Collation
+                  </span>
+                  {currentDay.eatenMeals?.snack && (
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
+                      Mangé ✓
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleMealEaten?.(selectedDayIndex, currentDay.date, 'snack');
+                    }}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer ${
+                      currentDay.eatenMeals?.snack
+                        ? 'bg-emerald-500 text-white shadow-xs'
+                        : isDark
+                        ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
+                        : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
+                    }`}
+                    title={currentDay.eatenMeals?.snack ? 'Collation mangée ! Cliquez pour décocher' : 'Cocher cette collation comme mangée'}
+                    type="button"
+                  >
+                    <Check className={`w-3.5 h-3.5 ${currentDay.eatenMeals?.snack ? 'stroke-[3]' : 'opacity-40'}`} />
+                    <span>{currentDay.eatenMeals?.snack ? 'Mangé' : 'Manger'}</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'snack' });
+                    }}
+                    className="text-xs text-stone-600 dark:text-stone-400 hover:text-stone-950 dark:hover:text-white transition-colors px-2 py-0.5 rounded-lg font-medium"
+                  >
+                    Changer ▾
+                  </button>
+                </div>
               </div>
 
               <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">

@@ -92,6 +92,7 @@ export interface DayPlan {
   dailyProtein: number;
   dailyCarbs: number;
   dailyFat: number;
+  eatenMeals?: Record<'breakfast' | 'lunch' | 'dinner' | 'snack', boolean>;
 }
 
 export interface WeeklyPlan {

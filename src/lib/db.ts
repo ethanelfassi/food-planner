@@ -309,6 +309,88 @@ export function getDatabase(): DatabaseSync {
       // Ignorer
     }
 
+    // Table de synchronisation en temps réel (versioning DB)
+    try {
+      dbInstance.exec(`
+        CREATE TABLE IF NOT EXISTS db_meta (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+        INSERT OR IGNORE INTO db_meta (key, value) VALUES ('version', '1');
+        INSERT OR IGNORE INTO db_meta (key, value) VALUES ('updated_at', strftime('%s','now'));
+
+        -- Triggers scheduled_meals
+        CREATE TRIGGER IF NOT EXISTS trg_sm_ins AFTER INSERT ON scheduled_meals
+        BEGIN
+          UPDATE db_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'version';
+          UPDATE db_meta SET value = strftime('%s','now') WHERE key = 'updated_at';
+        END;
+        CREATE TRIGGER IF NOT EXISTS trg_sm_upd AFTER UPDATE ON scheduled_meals
+        BEGIN
+          UPDATE db_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'version';
+          UPDATE db_meta SET value = strftime('%s','now') WHERE key = 'updated_at';
+        END;
+        CREATE TRIGGER IF NOT EXISTS trg_sm_del AFTER DELETE ON scheduled_meals
+        BEGIN
+          UPDATE db_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'version';
+          UPDATE db_meta SET value = strftime('%s','now') WHERE key = 'updated_at';
+        END;
+
+        -- Triggers custom_recipes
+        CREATE TRIGGER IF NOT EXISTS trg_cr_ins AFTER INSERT ON custom_recipes
+        BEGIN
+          UPDATE db_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'version';
+          UPDATE db_meta SET value = strftime('%s','now') WHERE key = 'updated_at';
+        END;
+        CREATE TRIGGER IF NOT EXISTS trg_cr_upd AFTER UPDATE ON custom_recipes
+        BEGIN
+          UPDATE db_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'version';
+          UPDATE db_meta SET value = strftime('%s','now') WHERE key = 'updated_at';
+        END;
+        CREATE TRIGGER IF NOT EXISTS trg_cr_del AFTER DELETE ON custom_recipes
+        BEGIN
+          UPDATE db_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'version';
+          UPDATE db_meta SET value = strftime('%s','now') WHERE key = 'updated_at';
+        END;
+
+        -- Triggers custom_products
+        CREATE TRIGGER IF NOT EXISTS trg_cp_ins AFTER INSERT ON custom_products
+        BEGIN
+          UPDATE db_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'version';
+          UPDATE db_meta SET value = strftime('%s','now') WHERE key = 'updated_at';
+        END;
+        CREATE TRIGGER IF NOT EXISTS trg_cp_upd AFTER UPDATE ON custom_products
+        BEGIN
+          UPDATE db_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'version';
+          UPDATE db_meta SET value = strftime('%s','now') WHERE key = 'updated_at';
+        END;
+        CREATE TRIGGER IF NOT EXISTS trg_cp_del AFTER DELETE ON custom_products
+        BEGIN
+          UPDATE db_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'version';
+          UPDATE db_meta SET value = strftime('%s','now') WHERE key = 'updated_at';
+        END;
+
+        -- Triggers daily_tracker_history
+        CREATE TRIGGER IF NOT EXISTS trg_dth_ins AFTER INSERT ON daily_tracker_history
+        BEGIN
+          UPDATE db_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'version';
+          UPDATE db_meta SET value = strftime('%s','now') WHERE key = 'updated_at';
+        END;
+        CREATE TRIGGER IF NOT EXISTS trg_dth_upd AFTER UPDATE ON daily_tracker_history
+        BEGIN
+          UPDATE db_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'version';
+          UPDATE db_meta SET value = strftime('%s','now') WHERE key = 'updated_at';
+        END;
+        CREATE TRIGGER IF NOT EXISTS trg_dth_del AFTER DELETE ON daily_tracker_history
+        BEGIN
+          UPDATE db_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'version';
+          UPDATE db_meta SET value = strftime('%s','now') WHERE key = 'updated_at';
+        END;
+      `);
+    } catch {
+      // Ignorer
+    }
+
     // Migration & Initialisation automatique des comptes Ethan et Laurine
     try {
       // 1. Migration automatique de copine -> laurine si des données existent déjà
@@ -2325,3 +2407,29 @@ export function importDatabaseBackup(backup: Partial<DatabaseBackup>): { success
 
 
 
+
+export function bumpDbVersion(): number {
+  const db = getDatabase();
+  const now = Math.floor(Date.now() / 1000).toString();
+  try {
+    db.prepare("UPDATE db_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'version'").run();
+    db.prepare("UPDATE db_meta SET value = ? WHERE key = 'updated_at'").run(now);
+    return getDbVersion().version;
+  } catch {
+    return Date.now();
+  }
+}
+
+export function getDbVersion(): { version: number; updatedAt: number } {
+  const db = getDatabase();
+  try {
+    const vRow = db.prepare("SELECT value FROM db_meta WHERE key = 'version'").get() as { value: string } | undefined;
+    const uRow = db.prepare("SELECT value FROM db_meta WHERE key = 'updated_at'").get() as { value: string } | undefined;
+    return {
+      version: vRow ? parseInt(vRow.value, 10) || 1 : 1,
+      updatedAt: uRow ? parseInt(uRow.value, 10) || 0 : 0,
+    };
+  } catch {
+    return { version: 1, updatedAt: 0 };
+  }
+}
