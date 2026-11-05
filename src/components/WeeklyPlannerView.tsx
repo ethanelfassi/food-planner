@@ -10,7 +10,9 @@ import {
   Moon, 
   Coffee, 
   Zap, 
-  ChevronRight, 
+  ChevronRight,
+  ChevronLeft,
+  Calendar, 
   Check, 
   Sparkles,
   Flame,
@@ -31,6 +33,8 @@ interface WeeklyPlannerViewProps {
   onReplaceRecipe: (dayIndex: number, mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack', newRecipeId: string) => void;
   onSelectRecipe: (recipe: Recipe) => void;
   onOpenRecipeCreator?: () => void;
+  weekOffset?: number;
+  onNavigateWeek?: (direction: -1 | 1 | 0) => void;
 }
 
 const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
@@ -43,6 +47,8 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
   onReplaceRecipe,
   onSelectRecipe,
   onOpenRecipeCreator,
+  weekOffset = 0,
+  onNavigateWeek,
 }) => {
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
 
@@ -161,7 +167,40 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+            <div className="flex items-center gap-2 self-end sm:self-center shrink-0 flex-wrap">
+              {onNavigateWeek && (
+                <div className="flex items-center gap-1 p-1 rounded-2xl border border-stone-200 dark:border-white/10 bg-white/70 dark:bg-white/[0.04] shadow-xs">
+                  <button
+                    onClick={() => onNavigateWeek(-1)}
+                    className="p-1.5 sm:p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 text-stone-700 dark:text-stone-300 transition-colors cursor-pointer"
+                    title="Semaine précédente"
+                    type="button"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="font-mono text-xs font-semibold px-2 text-stone-800 dark:text-stone-200 whitespace-nowrap">
+                    {plan.weekLabel || 'Semaine courante'}
+                  </span>
+                  {weekOffset !== 0 && (
+                    <button
+                      onClick={() => onNavigateWeek(0)}
+                      className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-lg bg-stone-900 text-white dark:bg-white dark:text-stone-950 font-bold transition-all shadow-xs cursor-pointer mr-0.5"
+                      title="Revenir à la semaine en cours"
+                      type="button"
+                    >
+                      Aujourd'hui
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onNavigateWeek(1)}
+                    className="p-1.5 sm:p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 text-stone-700 dark:text-stone-300 transition-colors cursor-pointer"
+                    title="Semaine suivante"
+                    type="button"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
               {onOpenRecipeCreator && (
                 <button
                   onClick={onOpenRecipeCreator}
@@ -204,11 +243,12 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
         <div className="grid grid-cols-7 gap-1 sm:gap-2 mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-stone-200/60 dark:border-white/10">
           {plan.days.map((day, idx) => {
             const isSelected = selectedDayIndex === idx;
+            const isToday = Boolean(day.isToday);
             return (
               <button
-                key={day.dayName}
+                key={day.date || day.dayName}
                 onClick={() => setSelectedDayIndex(idx)}
-                className={`py-2 sm:py-3 px-0.5 sm:px-2 rounded-xl sm:rounded-2xl text-center transition-colors flex flex-col items-center gap-0.5 sm:gap-1 active:scale-95 touch-manipulation ${
+                className={`relative py-2 sm:py-3 px-0.5 sm:px-2 rounded-xl sm:rounded-2xl text-center transition-colors flex flex-col items-center gap-0.5 sm:gap-1 active:scale-95 touch-manipulation ${
                   isSelected
                     ? isDark
                       ? 'bg-white text-stone-950 font-bold shadow-xl shadow-black/30 ring-1 ring-white'
@@ -218,9 +258,21 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                     : 'bg-stone-100 hover:bg-stone-200 border border-stone-200 text-stone-700'
                 }`}
               >
-                <span className="font-mono text-[9px] sm:text-xs uppercase tracking-wider font-semibold">
-                  {day.dayName.slice(0, 3)}
-                </span>
+                {isToday && (
+                  <span className="absolute -top-1.5 px-1.5 py-0.2 rounded-full text-[8px] font-mono uppercase font-bold tracking-wider bg-emerald-500 text-white shadow-xs">
+                    Auj
+                  </span>
+                )}
+                <div className="flex items-baseline gap-1">
+                  <span className="font-mono text-[9px] sm:text-xs uppercase tracking-wider font-semibold">
+                    {day.dayName.slice(0, 3)}
+                  </span>
+                  {day.formattedDate && (
+                    <span className={`font-mono text-[9px] ${isSelected ? (isDark ? 'text-stone-700' : 'text-stone-300') : 'text-stone-400'}`}>
+                      {day.formattedDate.split(' ')[0]}
+                    </span>
+                  )}
+                </div>
                 <span
                   className={`font-mono tabular-nums text-[11px] sm:text-sm font-semibold ${
                     isSelected
@@ -249,9 +301,16 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1.5 sm:gap-3">
           <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3">
-            <h2 className="font-serif text-xl sm:text-2xl font-normal text-stone-900 dark:text-white">
-              Repas du <span className="italic">{currentDay.dayName}</span>
-            </h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="font-serif text-xl sm:text-2xl font-normal text-stone-900 dark:text-white">
+                Repas du <span className="italic">{currentDay.formattedFullDate || currentDay.dayName}</span>
+              </h2>
+              {currentDay.isToday && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-bold">
+                  Aujourd'hui
+                </span>
+              )}
+            </div>
             <span className="font-mono text-xs text-stone-500 dark:text-stone-400 tabular-nums">
               {currentDay.dailyCalories} kcal • {currentDay.dailyProtein}g prot • {currentDay.dailyCarbs}g gluc • {currentDay.dailyFat}g lip
             </span>

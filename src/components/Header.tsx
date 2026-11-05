@@ -28,6 +28,7 @@ import {
   Database
 } from 'lucide-react';
 import { UserCustomizationSettings, UserAccount, DEFAULT_ACCOUNTS } from '@/types';
+import { formatHeaderDateFrench } from '@/lib/date-utils';
 
 interface HeaderProps {
   activeTab: 'planner' | 'recipes' | 'grocery' | 'prices' | 'tracker' | 'preferences';
@@ -71,6 +72,10 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   const isDark = theme === 'dark';
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [backupToast, setBackupToast] = useState<string | null>(null);
+  const [todayFormatted, setTodayFormatted] = useState<string>('');
+  useEffect(() => {
+    setTodayFormatted(formatHeaderDateFrench(new Date()));
+  }, []);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
@@ -199,6 +204,18 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                 >
                   Metro QC
                 </span>
+                {todayFormatted && (
+                  <span
+                    className={`hidden md:inline-flex items-center gap-1 text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded-full border whitespace-nowrap ${isDark
+                      ? 'bg-white/5 text-stone-300 border-white/10'
+                      : 'bg-stone-100 text-stone-800 border-stone-200 font-medium'
+                      }`}
+                    title="Date du jour"
+                  >
+                    <Calendar className="w-2.5 h-2.5 text-stone-500" />
+                    {todayFormatted}
+                  </span>
+                )}
                 {coupleModeEnabled && (
                   <span
                     className={`hidden md:inline-flex text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded-full border items-center gap-1 whitespace-nowrap ${isDark

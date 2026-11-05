@@ -80,6 +80,10 @@ export interface Recipe {
 export interface DayPlan {
   dayIndex: number;
   dayName: string;
+  date?: string; // Format ISO YYYY-MM-DD (ex: '2026-11-05')
+  formattedDate?: string; // Format court (ex: '5 nov.')
+  formattedFullDate?: string; // Format complet (ex: 'Jeudi 5 novembre 2026')
+  isToday?: boolean;
   breakfast: Recipe;
   lunch: Recipe;
   dinner: Recipe;
@@ -92,6 +96,8 @@ export interface DayPlan {
 
 export interface WeeklyPlan {
   days: DayPlan[];
+  weekStartDate?: string; // YYYY-MM-DD
+  weekLabel?: string; // Ex: 'Semaine du 2 au 8 novembre 2026'
   avgDailyCalories: number;
   avgDailyProtein: number;
   avgDailyCarbs: number;
@@ -295,6 +301,7 @@ export type GroceryViewScope = 'common' | string; // 'common' ou accountId
 export interface ScheduledMealRecord {
   accountId: string;
   dayIndex: number;
+  date?: string; // Format ISO YYYY-MM-DD
   mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   recipeId: string;
   updatedAt?: string;
@@ -340,6 +347,7 @@ export interface TrackerCustomEntry {
 export interface DailyTrackerLog {
   accountId: string;
   dayIndex: number;
+  date?: string; // Format ISO YYYY-MM-DD
   eatenMeals: Record<'breakfast' | 'lunch' | 'dinner' | 'snack', boolean>;
   customEntries: TrackerCustomEntry[];
   updatedAt?: string;

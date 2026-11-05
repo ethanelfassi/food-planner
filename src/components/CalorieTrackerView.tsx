@@ -13,7 +13,12 @@ import {
   Database,
   Trash2,
   Calendar,
+  X,
+  History,
+  ChevronRight,
+  TrendingUp,
 } from 'lucide-react';
+import { toDateKey } from '@/lib/date-utils';
 
 interface CalorieTrackerViewProps {
   currentDayPlan: DayPlan;
@@ -41,6 +46,8 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
   const [logsByDay, setLogsByDay] = useState<Record<number, DailyTrackerLog>>({});
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [allLogs, setAllLogs] = useState<DailyTrackerLog[]>([]);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
   const [extraName, setExtraName] = useState('');
   const [extraCals, setExtraCals] = useState('');
@@ -64,6 +71,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
         const data = await res.json();
         if (cancelled) return;
         if (data.ok && Array.isArray(data.logs)) {
+          setAllLogs(data.logs as DailyTrackerLog[]);
           const map: Record<number, DailyTrackerLog> = {};
           for (const log of data.logs as DailyTrackerLog[]) {
             map[log.dayIndex] = log;
@@ -104,6 +112,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
       const updatedLog: DailyTrackerLog = {
         accountId: activeAccountId,
         dayIndex: dayIdx,
+        date: activeDayPlan.date || toDateKey(new Date()),
         eatenMeals: nextEaten,
         customEntries: nextExtras,
       };
@@ -218,8 +227,13 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
           <div>
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="font-mono text-[10px] uppercase tracking-widest text-stone-700 dark:text-stone-300 font-semibold">
-                Suivi Nutritionnel • {activeDayPlan.dayName}
+                Suivi Nutritionnel • {activeDayPlan.formattedFullDate || activeDayPlan.dayName}
               </span>
+              {activeDayPlan.isToday && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-bold">
+                  Aujourd'hui
+                </span>
+              )}
               {isLoaded && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-medium">
                   <Database className="w-2.5 h-2.5" />
@@ -241,7 +255,21 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => setIsHistoryModalOpen(true)}
+              type="button"
+              className="flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl sm:rounded-2xl border text-xs font-mono font-semibold transition-all cursor-pointer border-stone-300 dark:border-white/15 bg-white/70 hover:bg-stone-100 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-stone-900 dark:text-stone-100 shadow-xs"
+              title="Ouvrir le calendrier et l'historique complet des repas enregistrés"
+            >
+              <Calendar className="w-3.5 h-3.5 text-stone-600 dark:text-stone-300" />
+              <span>Historique & Calendrier</span>
+              {allLogs.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold">
+                  {allLogs.length} j
+                </span>
+              )}
+            </button>
             {protPercent >= 100 ? (
               <div className="flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl sm:rounded-2xl bg-stone-900 text-stone-50 dark:bg-white dark:text-stone-950 border border-stone-800 dark:border-white text-xs font-mono font-semibold shadow-xs">
                 <Trophy className="w-4 h-4 text-stone-300 dark:text-stone-700 shrink-0" />
@@ -264,7 +292,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
             </span>
             {weeklyPlan.days.map((d) => {
               const isSelected = d.dayIndex === selectedDayIndex;
-              const isToday = d.dayIndex === currentDayPlan.dayIndex;
+              const isToday = Boolean(d.isToday);
               const dayLog = logsByDay[d.dayIndex];
               const hasActivity =
                 dayLog &&
@@ -272,7 +300,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
                   (dayLog.customEntries && dayLog.customEntries.length > 0));
               return (
                 <button
-                  key={d.dayIndex}
+                  key={d.date || d.dayIndex}
                   type="button"
                   onClick={() => setSelectedDayIndex(d.dayIndex)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all border shrink-0 flex items-center gap-1.5 cursor-pointer ${
@@ -285,7 +313,12 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
                       : 'bg-stone-100 border-stone-200 text-stone-700 hover:bg-stone-200'
                   }`}
                 >
-                  <span>{d.dayName.slice(0, 3)}</span>
+                  <span className="font-semibold">{d.dayName.slice(0, 3)}</span>
+                  {d.formattedDate && (
+                    <span className={`text-[10px] ${isSelected ? (isDark ? 'text-stone-800' : 'text-stone-300') : 'text-stone-400'}`}>
+                      {d.formattedDate.split(' ')[0]}
+                    </span>
+                  )}
                   {isToday && (
                     <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-amber-500/20 text-amber-500 font-bold">
                       Auj

@@ -21,6 +21,7 @@ import {
   SharedGroceryTripExpense
 } from '@/types';
 import { calculateRecipeNutrients } from './nutrition';
+import { toDateKey } from './date-utils';
 export { calculateRecipeNutrients };
 
 export function hashPassword(password: string): string {
@@ -276,6 +277,36 @@ export function getDatabase(): DatabaseSync {
       } catch {
         // Ignorer si la colonne existe déjà
       }
+    }
+
+    // Migration pour dates réelles et calendrier
+    const dateCols = [
+      "ALTER TABLE scheduled_meals ADD COLUMN date TEXT",
+      "ALTER TABLE daily_tracker_logs ADD COLUMN date TEXT",
+    ];
+    for (const colSql of dateCols) {
+      try {
+        dbInstance.exec(colSql);
+      } catch {
+        // Ignorer si la colonne existe déjà
+      }
+    }
+
+    // Table d'historique perpétuel du journal nutritionnel (indexé par date YYYY-MM-DD)
+    try {
+      dbInstance.exec(`
+        CREATE TABLE IF NOT EXISTS daily_tracker_history (
+          account_id TEXT NOT NULL,
+          date TEXT NOT NULL,
+          day_index INTEGER NOT NULL,
+          eaten_meals_json TEXT NOT NULL DEFAULT '{}',
+          custom_entries_json TEXT NOT NULL DEFAULT '[]',
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (account_id, date)
+        );
+      `);
+    } catch {
+      // Ignorer
     }
 
     // Migration & Initialisation automatique des comptes Ethan et Laurine
@@ -1813,24 +1844,28 @@ export interface ScheduledMealRecord {
 export function getScheduledMeals(accountId?: string): ScheduledMealRecord[] {
   const db = getDatabase();
   if (accountId) {
-    return db.prepare('SELECT account_id as accountId, day_index as dayIndex, meal_slot as mealSlot, recipe_id as recipeId, updated_at as updatedAt FROM scheduled_meals WHERE account_id = ? ORDER BY day_index ASC').all(accountId) as unknown as ScheduledMealRecord[];
+    return db.prepare('SELECT account_id as accountId, day_index as dayIndex, date, meal_slot as mealSlot, recipe_id as recipeId, updated_at as updatedAt FROM scheduled_meals WHERE account_id = ? ORDER BY day_index ASC').all(accountId) as unknown as ScheduledMealRecord[];
   }
-  return db.prepare('SELECT account_id as accountId, day_index as dayIndex, meal_slot as mealSlot, recipe_id as recipeId, updated_at as updatedAt FROM scheduled_meals ORDER BY account_id, day_index ASC').all() as unknown as ScheduledMealRecord[];
+  return db.prepare('SELECT account_id as accountId, day_index as dayIndex, date, meal_slot as mealSlot, recipe_id as recipeId, updated_at as updatedAt FROM scheduled_meals ORDER BY account_id, day_index ASC').all() as unknown as ScheduledMealRecord[];
 }
 
 export function setScheduledMeal(
   accountId: string,
   dayIndex: number,
   mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack',
-  recipeId: string
+  recipeId: string,
+  date?: string
 ): boolean {
   const db = getDatabase();
   const now = new Date().toISOString();
   db.prepare(`
-    INSERT INTO scheduled_meals (account_id, day_index, meal_slot, recipe_id, updated_at)
-    VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(account_id, day_index, meal_slot) DO UPDATE SET recipe_id = excluded.recipe_id, updated_at = excluded.updated_at
-  `).run(accountId, dayIndex, mealSlot, recipeId, now);
+    INSERT INTO scheduled_meals (account_id, day_index, date, meal_slot, recipe_id, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(account_id, day_index, meal_slot) DO UPDATE SET
+      date = excluded.date,
+      recipe_id = excluded.recipe_id,
+      updated_at = excluded.updated_at
+  `).run(accountId, dayIndex, date || null, mealSlot, recipeId, now);
   return true;
 }
 
@@ -1953,17 +1988,36 @@ export function settleSharedGroceryGroupBalances(groupId: string): boolean {
 
 export function getDailyTrackerLogs(accountId?: string): DailyTrackerLog[] {
   const db = getDatabase();
-  const rows = (
-    accountId
-      ? db.prepare('SELECT * FROM daily_tracker_logs WHERE account_id = ? ORDER BY day_index ASC').all(accountId)
-      : db.prepare('SELECT * FROM daily_tracker_logs ORDER BY account_id, day_index ASC').all()
-  ) as {
+  let rows: {
     account_id: string;
     day_index: number;
+    date?: string;
     eaten_meals_json: string;
     custom_entries_json: string;
     updated_at: string;
-  }[];
+  }[] = [];
+
+  try {
+    rows = (
+      accountId
+        ? db.prepare('SELECT account_id, day_index, date, eaten_meals_json, custom_entries_json, updated_at FROM daily_tracker_history WHERE account_id = ? ORDER BY date DESC').all(accountId)
+        : db.prepare('SELECT account_id, day_index, date, eaten_meals_json, custom_entries_json, updated_at FROM daily_tracker_history ORDER BY date DESC').all()
+    ) as any[];
+  } catch {
+    rows = [];
+  }
+
+  if (rows.length === 0) {
+    try {
+      rows = (
+        accountId
+          ? db.prepare('SELECT account_id, day_index, date, eaten_meals_json, custom_entries_json, updated_at FROM daily_tracker_logs WHERE account_id = ? ORDER BY day_index ASC').all(accountId)
+          : db.prepare('SELECT account_id, day_index, date, eaten_meals_json, custom_entries_json, updated_at FROM daily_tracker_logs ORDER BY account_id, day_index ASC').all()
+      ) as any[];
+    } catch {
+      rows = [];
+    }
+  }
 
   return rows.map((r) => {
     let eatenMeals = { breakfast: false, lunch: false, dinner: false, snack: false };
@@ -1987,6 +2041,7 @@ export function getDailyTrackerLogs(accountId?: string): DailyTrackerLog[] {
     return {
       accountId: r.account_id,
       dayIndex: Number(r.day_index),
+      date: r.date || undefined,
       eatenMeals,
       customEntries,
       updatedAt: r.updated_at,
@@ -1998,6 +2053,7 @@ export function saveDailyTrackerLog(log: DailyTrackerLog): DailyTrackerLog {
   const db = getDatabase();
   const now = new Date().toISOString();
   const dayIndex = Math.max(0, Math.min(6, Math.floor(Number(log.dayIndex) || 0)));
+  const dateStr = log.date || toDateKey(new Date());
   const eatenMeals = {
     breakfast: Boolean(log.eatenMeals?.breakfast),
     lunch: Boolean(log.eatenMeals?.lunch),
@@ -2006,24 +2062,68 @@ export function saveDailyTrackerLog(log: DailyTrackerLog): DailyTrackerLog {
   };
   const customEntries = Array.isArray(log.customEntries) ? log.customEntries : [];
 
-  db.prepare(`
-    INSERT INTO daily_tracker_logs (account_id, day_index, eaten_meals_json, custom_entries_json, updated_at)
-    VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(account_id, day_index) DO UPDATE SET
-      eaten_meals_json = excluded.eaten_meals_json,
-      custom_entries_json = excluded.custom_entries_json,
-      updated_at = excluded.updated_at
-  `).run(
-    log.accountId,
-    dayIndex,
-    JSON.stringify(eatenMeals),
-    JSON.stringify(customEntries),
-    now
-  );
+  // 1. Sauvegarde dans l'historique perpétuel
+  try {
+    db.prepare(`
+      INSERT INTO daily_tracker_history (account_id, date, day_index, eaten_meals_json, custom_entries_json, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(account_id, date) DO UPDATE SET
+        day_index = excluded.day_index,
+        eaten_meals_json = excluded.eaten_meals_json,
+        custom_entries_json = excluded.custom_entries_json,
+        updated_at = excluded.updated_at
+    `).run(
+      log.accountId,
+      dateStr,
+      dayIndex,
+      JSON.stringify(eatenMeals),
+      JSON.stringify(customEntries),
+      now
+    );
+  } catch (e) {
+    // Ignorer si la table history n'est pas encore prête
+  }
+
+  // 2. Sauvegarde dans la table standard pour rétrocompatibilité
+  try {
+    db.prepare(`
+      INSERT INTO daily_tracker_logs (account_id, day_index, date, eaten_meals_json, custom_entries_json, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(account_id, day_index) DO UPDATE SET
+        date = excluded.date,
+        eaten_meals_json = excluded.eaten_meals_json,
+        custom_entries_json = excluded.custom_entries_json,
+        updated_at = excluded.updated_at
+    `).run(
+      log.accountId,
+      dayIndex,
+      dateStr,
+      JSON.stringify(eatenMeals),
+      JSON.stringify(customEntries),
+      now
+    );
+  } catch {
+    // Fallback si la colonne date n'existe pas encore
+    db.prepare(`
+      INSERT INTO daily_tracker_logs (account_id, day_index, eaten_meals_json, custom_entries_json, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(account_id, day_index) DO UPDATE SET
+        eaten_meals_json = excluded.eaten_meals_json,
+        custom_entries_json = excluded.custom_entries_json,
+        updated_at = excluded.updated_at
+    `).run(
+      log.accountId,
+      dayIndex,
+      JSON.stringify(eatenMeals),
+      JSON.stringify(customEntries),
+      now
+    );
+  }
 
   return {
     accountId: log.accountId,
     dayIndex,
+    date: dateStr,
     eatenMeals,
     customEntries,
     updatedAt: now,

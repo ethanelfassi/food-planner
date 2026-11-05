@@ -34,6 +34,7 @@ import {
   AccountSplitSummary
 } from '@/lib/grocery';
 import { DEFAULT_COUPLE_SETTINGS, calculateSplitCost } from '@/lib/couple-split';
+import { getMondayOfWeek, addWeeks } from '@/lib/date-utils';
 import { Header } from '@/components/Header';
 import { AuthScreen } from '@/components/AuthScreen';
 import { FriendsAndProfileModal } from '@/components/FriendsAndProfileModal';
@@ -104,11 +105,30 @@ export default function Home() {
   const isDark = theme === 'dark';
 
   const [todayDayIndex, setTodayDayIndex] = useState<number>(0);
+  const [weekOffset, setWeekOffset] = useState<number>(0);
+  const referenceMonday = React.useMemo(() => addWeeks(getMondayOfWeek(), weekOffset), [weekOffset]);
 
   useEffect(() => {
     const d = new Date().getDay();
     setTodayDayIndex(d === 0 ? 6 : d - 1);
   }, []);
+
+  // Mettre à jour les plans hebdomadaires lors du changement de semaine
+  useEffect(() => {
+    if (!accounts.length) return;
+    const allAvailableRecs = [...RECIPES, ...customRecipes];
+    setPlansByAccount((prev) => {
+      const updated: Record<string, WeeklyPlan> = {};
+      for (const acc of accounts) {
+        const userPrefs = preferencesByAccount[acc.id] || {};
+        const userSett = settingsByAccount[acc.id] || DEFAULT_USER_SETTINGS;
+        const accRecipes = customRecipes.filter((r) => !r.createdBy || r.createdBy === acc.id);
+        const basePlan = generateWeeklyPlan(userPrefs, accRecipes, userSett, referenceMonday);
+        updated[acc.id] = applyScheduledMealsToWeeklyPlan(basePlan, acc.id, scheduledMeals, allAvailableRecs);
+      }
+      return updated;
+    });
+  }, [weekOffset, referenceMonday]);
 
   // Helper pour injecter les repas programmés (via MCP / ChatMCP ou UI) dans un plan hebdomadaire
   const applyScheduledMealsToPlan = useCallback(
@@ -1297,6 +1317,11 @@ export default function Home() {
             userSettings={activeSettings}
             customRecipes={userCustomRecipes}
             isDark={isDark}
+            weekOffset={weekOffset}
+            onNavigateWeek={(dir) => {
+              if (dir === 0) setWeekOffset(0);
+              else setWeekOffset((prev) => prev + dir);
+            }}
             onRegenerateAll={handleRegenerateAll}
             onReplaceRecipe={handleReplaceRecipe}
             onSelectRecipe={(recipe) => setSelectedRecipe(recipe)}

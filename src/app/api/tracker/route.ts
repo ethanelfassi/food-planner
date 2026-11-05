@@ -39,12 +39,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const accountId = resolveCurrentAccountId(request, body.accountId);
     const dayIndex = typeof body.dayIndex === 'number' ? body.dayIndex : Number(body.dayIndex) || 0;
+    const date = typeof body.date === 'string' ? body.date : undefined;
     const eatenMeals = body.eatenMeals || { breakfast: false, lunch: false, dinner: false, snack: false };
     const customEntries = Array.isArray(body.customEntries) ? body.customEntries : [];
 
     const saved = saveDailyTrackerLog({
       accountId,
       dayIndex,
+      date,
       eatenMeals,
       customEntries,
     });

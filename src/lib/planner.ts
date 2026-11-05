@@ -7,6 +7,7 @@ import {
   WeeklyPlan,
 } from '@/types';
 import { RECIPES } from '@/data/recipes';
+import { getWeekDays, formatWeekRangeFrench, getMondayOfWeek, toDateKey } from './date-utils';
 import { INGREDIENTS } from '@/data/ingredients';
 
 export const MIN_RECIPES_FOR_AUTO_GENERATION = 5;
@@ -132,6 +133,7 @@ export function recalculateWeeklyPlanAverages(plan: WeeklyPlan): WeeklyPlan {
   );
 
   return {
+    ...plan,
     days: updatedDays,
     avgDailyCalories,
     avgDailyProtein,
@@ -148,9 +150,13 @@ export function applyScheduledMealsToWeeklyPlan(
 ): WeeklyPlan {
   const recMap = new Map(allRecipes.map((r) => [r.id, r]));
   const updatedDays = plan.days.map((day, idx) => {
-    const matches = scheduledMeals.filter(
-      (m) => m.accountId === accountId && m.dayIndex === idx
-    );
+    const matches = scheduledMeals.filter((m) => {
+      if (m.accountId !== accountId) return false;
+      if (m.date && day.date) {
+        return m.date === day.date;
+      }
+      return m.dayIndex === idx;
+    });
     if (matches.length === 0) return recalculateDayMacros(day);
     const newDay: DayPlan = { ...day };
     for (const m of matches) {
@@ -171,8 +177,12 @@ export function applyScheduledMealsToWeeklyPlan(
 export function generateWeeklyPlan(
   preferences: ProductPreferencesMap = {},
   customRecipes: Recipe[] = [],
-  userSettings?: UserCustomizationSettings
+  userSettings?: UserCustomizationSettings,
+  referenceMonday: Date = getMondayOfWeek()
 ): WeeklyPlan {
+  const weekDays = getWeekDays(referenceMonday);
+  const weekStartDate = toDateKey(getMondayOfWeek(referenceMonday));
+  const weekLabel = formatWeekRangeFrench(referenceMonday);
   const days: DayPlan[] = [];
   const allRecipes = [...RECIPES, ...customRecipes];
 
@@ -184,9 +194,14 @@ export function generateWeeklyPlan(
   // Règle métier : si l'utilisateur a moins de 5 recettes enregistrées, le générateur ne génère rien automatiquement.
   if (allRecipes.length < MIN_RECIPES_FOR_AUTO_GENERATION) {
     for (let i = 0; i < 7; i++) {
+      const wDay = weekDays[i];
       days.push({
         dayIndex: i,
-        dayName: DAY_NAMES[i],
+        dayName: wDay.dayName,
+        date: wDay.dateStr,
+        formattedDate: wDay.formattedShort,
+        formattedFullDate: wDay.formattedFull,
+        isToday: wDay.isToday,
         breakfast: defaultEmptyBreakfast,
         lunch: defaultEmptyLunch,
         dinner: defaultEmptyDinner,
@@ -199,6 +214,8 @@ export function generateWeeklyPlan(
     }
     return {
       days,
+      weekStartDate,
+      weekLabel,
       avgDailyCalories: 0,
       avgDailyProtein: 0,
       avgDailyCarbs: 0,
@@ -310,10 +327,15 @@ export function generateWeeklyPlan(
       snack = bestCombo.snack;
     }
 
+    const wDay = weekDays[i];
     days.push(
       recalculateDayMacros({
         dayIndex: i,
-        dayName,
+        dayName: wDay.dayName,
+        date: wDay.dateStr,
+        formattedDate: wDay.formattedShort,
+        formattedFullDate: wDay.formattedFull,
+        isToday: wDay.isToday,
         breakfast,
         lunch,
         dinner,
@@ -328,6 +350,8 @@ export function generateWeeklyPlan(
 
   return recalculateWeeklyPlanAverages({
     days,
+    weekStartDate,
+    weekLabel,
     avgDailyCalories: 0,
     avgDailyProtein: 0,
     avgDailyCarbs: 0,
