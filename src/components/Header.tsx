@@ -234,49 +234,110 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             </div>
           </div>
 
-          {/* Anneau / Pill Macros Style Apple Fitness Monochrome - STRICTEMENT 1 SEULE LIGNE */}
-          <button
-            onClick={() => setActiveTab('preferences')}
-            className={`hidden xl:inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border transition-all hover:scale-[1.02] cursor-pointer whitespace-nowrap shrink-0 flex-nowrap ${isDark
-              ? 'bg-white/[0.03] hover:bg-white/[0.06] border-white/10 text-stone-200'
-              : 'bg-stone-100/80 hover:bg-stone-200/80 border-stone-200/90 text-stone-800 shadow-xs'
+          {/* Centre : Navigation Principale Desktop Épurée */}
+          <nav
+            aria-label="Navigation principale"
+            className={`hidden md:flex items-center p-1 rounded-2xl border transition-all shrink-0 ${isDark
+              ? 'bg-white/[0.04] border-white/10'
+              : 'bg-stone-200/60 border-stone-300/60'
               }`}
-            title="Cliquez pour ajuster vos cibles caloriques et macro-nutritionnelles"
           >
-            <div className="flex items-center gap-1 text-xs font-mono tabular-nums whitespace-nowrap">
-              <Flame className="w-3.5 h-3.5 text-stone-600 dark:text-stone-300 shrink-0" />
-              <span className="font-bold text-stone-900 dark:text-stone-100">
-                {userSettings?.targetCalories ?? 2200}
-              </span>
-              <span className={isDark ? 'text-stone-400 text-[11px]' : 'text-stone-500 text-[11px]'}>kcal</span>
-            </div>
-            <div className={`h-3 w-[1px] shrink-0 ${isDark ? 'bg-white/10' : 'bg-stone-300'}`} />
-            <div className="flex items-center gap-1 text-xs font-mono tabular-nums whitespace-nowrap">
-              <Dumbbell className="w-3.5 h-3.5 text-stone-600 dark:text-stone-400 shrink-0" />
-              <span className="font-bold text-stone-900 dark:text-stone-100">
-                {userSettings?.targetProtein ?? 120}g
-              </span>
-              <span className={isDark ? 'text-stone-400 text-[11px]' : 'text-stone-500 text-[11px]'}>P</span>
-            </div>
-            <div className={`h-3 w-[1px] shrink-0 ${isDark ? 'bg-white/10' : 'bg-stone-300'}`} />
-            <div className="flex items-center gap-1 text-xs font-mono tabular-nums whitespace-nowrap">
-              <Wheat className="w-3.5 h-3.5 text-stone-500 dark:text-stone-400 shrink-0" />
-              <span className="font-bold text-stone-900 dark:text-stone-100">
-                {userSettings?.targetCarbs ?? 250}g
-              </span>
-              <span className={isDark ? 'text-stone-400 text-[11px]' : 'text-stone-500 text-[11px]'}>G</span>
-            </div>
-            <div className={`h-3 w-[1px] shrink-0 ${isDark ? 'bg-white/10' : 'bg-stone-300'}`} />
-            <div className="flex items-center gap-1 text-xs font-mono tabular-nums whitespace-nowrap">
-              <Droplet className="w-3.5 h-3.5 text-stone-400 dark:text-stone-500 shrink-0" />
-              <span className="font-bold text-stone-900 dark:text-stone-100">
-                {userSettings?.targetFat ?? 70}g
-              </span>
-              <span className={isDark ? 'text-stone-400 text-[11px]' : 'text-stone-500 text-[11px]'}>L</span>
-            </div>
-          </button>
+            <button
+              onClick={() => setActiveTab('planner')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'planner'
+                ? isDark
+                  ? 'bg-white text-stone-950 font-semibold shadow-md'
+                  : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
+                : isDark
+                  ? 'text-stone-400 hover:text-white'
+                  : 'text-stone-700 hover:text-stone-950 font-medium'
+                }`}
+              title="Planning de la semaine"
+            >
+              <Calendar className="w-3.5 h-3.5 shrink-0" />
+              <span>Semaine</span>
+            </button>
 
-          {/* Sélecteur de Compte + Navigation + Theme Toggle */}
+            <button
+              onClick={() => setActiveTab('recipes')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'recipes'
+                ? isDark
+                  ? 'bg-white text-stone-950 font-semibold shadow-md'
+                  : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
+                : isDark
+                  ? 'text-stone-400 hover:text-white'
+                  : 'text-stone-700 hover:text-stone-950 font-medium'
+                }`}
+              title="Livre de recettes"
+            >
+              <ChefHat className="w-3.5 h-3.5 shrink-0" />
+              <span>Recettes</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('grocery')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'grocery'
+                ? isDark
+                  ? 'bg-white text-stone-950 font-semibold shadow-md'
+                  : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
+                : isDark
+                  ? 'text-stone-400 hover:text-white'
+                  : 'text-stone-700 hover:text-stone-950 font-medium'
+                }`}
+              title="Liste d'épicerie"
+            >
+              <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+              <span>Épicerie</span>
+              {groceryCount > 0 && (
+                <span
+                  className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold shrink-0 ${activeTab === 'grocery'
+                    ? isDark
+                      ? 'bg-stone-950 text-white'
+                      : 'bg-stone-50 text-stone-900'
+                    : isDark
+                      ? 'bg-white/10 text-stone-300'
+                      : 'bg-stone-300/80 text-stone-700'
+                    }`}
+                >
+                  {groceryCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('tracker')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'tracker'
+                ? isDark
+                  ? 'bg-white text-stone-950 font-semibold shadow-md'
+                  : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
+                : isDark
+                  ? 'text-stone-400 hover:text-white'
+                  : 'text-stone-700 hover:text-stone-950 font-medium'
+                }`}
+              title="Suivi des calories et macros"
+            >
+              <Activity className="w-3.5 h-3.5 shrink-0" />
+              <span>Tracker</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('preferences')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'preferences'
+                ? isDark
+                  ? 'bg-white text-stone-950 font-semibold shadow-md'
+                  : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
+                : isDark
+                  ? 'text-stone-400 hover:text-white'
+                  : 'text-stone-700 hover:text-stone-950 font-medium'
+                }`}
+              title="Catalogue des aliments, cibles nutritionnelles et préférences"
+            >
+              <BookOpen className="w-3.5 h-3.5 shrink-0" />
+              <span>Catalogue</span>
+            </button>
+          </nav>
+
+          {/* Droite : Profil & Amis + Toggle Thème */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* Bouton Profil & Amis */}
             <div className="relative shrink-0" ref={menuRef}>
@@ -385,127 +446,6 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                 </div>
               )}
             </div>
-
-            {/* Desktop Navigation Pill */}
-            <nav
-              aria-label="Navigation principale"
-              className={`hidden md:flex items-center p-1 rounded-2xl border transition-all shrink-0 ${isDark
-                ? 'bg-white/[0.04] border-white/10'
-                : 'bg-stone-200/60 border-stone-300/60'
-                }`}
-            >
-              <button
-                onClick={() => setActiveTab('planner')}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'planner'
-                  ? isDark
-                    ? 'bg-white text-stone-950 font-semibold shadow-md'
-                    : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
-                  : isDark
-                    ? 'text-stone-400 hover:text-white'
-                    : 'text-stone-700 hover:text-stone-950 font-medium'
-                  }`}
-                title="Planning de la semaine"
-              >
-                <Calendar className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden md:inline">Semaine</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('recipes')}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'recipes'
-                  ? isDark
-                    ? 'bg-white text-stone-950 font-semibold shadow-md'
-                    : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
-                  : isDark
-                    ? 'text-stone-400 hover:text-white'
-                    : 'text-stone-700 hover:text-stone-950 font-medium'
-                  }`}
-                title="Livre de recettes"
-              >
-                <ChefHat className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden sm:inline">Recettes</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('grocery')}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'grocery'
-                  ? isDark
-                    ? 'bg-white text-stone-950 font-semibold shadow-md'
-                    : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
-                  : isDark
-                    ? 'text-stone-400 hover:text-white'
-                    : 'text-stone-700 hover:text-stone-950 font-medium'
-                  }`}
-                title="Liste d'épicerie"
-              >
-                <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
-                <span>Épicerie</span>
-                {groceryCount > 0 && (
-                  <span
-                    className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold shrink-0 ${activeTab === 'grocery'
-                      ? isDark
-                        ? 'bg-stone-950 text-white'
-                        : 'bg-stone-50 text-stone-900'
-                      : isDark
-                        ? 'bg-white/10 text-stone-300'
-                        : 'bg-stone-300/80 text-stone-700'
-                      }`}
-                  >
-                    {groceryCount}
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => setActiveTab('tracker')}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'tracker'
-                  ? isDark
-                    ? 'bg-white text-stone-950 font-semibold shadow-md'
-                    : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
-                  : isDark
-                    ? 'text-stone-400 hover:text-white'
-                    : 'text-stone-700 hover:text-stone-950 font-medium'
-                  }`}
-                title="Suivi des calories et macros"
-              >
-                <Activity className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden lg:inline">Tracker</span>
-              </button>
-
-              {/* Onglet "Prix & prot" conservé dans le code mais masqué de l'affichage
-              <button
-                onClick={() => setActiveTab('prices')}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'prices'
-                  ? isDark
-                    ? 'bg-white text-stone-950 font-semibold shadow-md'
-                    : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
-                  : isDark
-                    ? 'text-stone-400 hover:text-white'
-                    : 'text-stone-700 hover:text-stone-950 font-medium'
-                  }`}
-                title="Circulaires, rabais épicerie et calculateur de rentabilité protéique"
-              >
-                <Store className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden xl:inline">Prix & Protéines</span>
-              </button>
-              */}
-
-              <button
-                onClick={() => setActiveTab('preferences')}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'preferences'
-                  ? isDark
-                    ? 'bg-white text-stone-950 font-semibold shadow-md'
-                    : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
-                  : isDark
-                    ? 'text-stone-400 hover:text-white'
-                    : 'text-stone-700 hover:text-stone-950 font-medium'
-                  }`}
-                title="Catalogue des aliments, cibles nutritionnelles et préférences"
-              >
-                <BookOpen className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden lg:inline">Catalogue</span>
-              </button>
-            </nav>
 
             {/* Toggle Mode Jour / Nuit */}
             <button

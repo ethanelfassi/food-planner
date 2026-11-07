@@ -370,7 +370,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
         </div>
 
         {/* Grille des 4 Repas Indépendants */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* 1. PETIT-DÉJEUNER */}
           <div
             onClick={() => onSelectRecipe(currentDay.breakfast)}
@@ -384,7 +384,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                   </span>
                   {currentDay.eatenMeals?.breakfast && (
                     <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
-                      Mangé ✓
+                      Mangé
                     </span>
                   )}
                 </div>
@@ -457,7 +457,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                   </span>
                   {currentDay.eatenMeals?.lunch && (
                     <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
-                      Mangé ✓
+                      Mangé
                     </span>
                   )}
                 </div>
@@ -534,7 +534,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                   </span>
                   {currentDay.eatenMeals?.dinner && (
                     <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
-                      Mangé ✓
+                      Mangé
                     </span>
                   )}
                 </div>
@@ -613,7 +613,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                   </span>
                   {currentDay.eatenMeals?.snack && (
                     <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
-                      Mangé ✓
+                      Mangé
                     </span>
                   )}
                 </div>

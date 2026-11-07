@@ -926,9 +926,9 @@ function buildMissingIngredientsGuide(
     .join('\n');
 
   const message =
-    `⚠️ **Ingrédient(s) non répertorié(s) dans le catalogue : ${missingNames.join(', ')}**\n\n` +
+    `**Ingrédient(s) non répertorié(s) dans le catalogue : ${missingNames.join(', ')}**\n\n` +
     `${instructionsLines}\n\n` +
-    `💡 **Action requise pour l'agent** :\n` +
+    `**Action requise pour l'agent** :\n` +
     `1. Si l'un des candidats proches du catalogue correspond au besoin de l'utilisateur, utilisez directement son identifiant.\n` +
     `2. Sinon, **proposez à l'utilisateur d'ajouter ce nouvel aliment** : consultez le site **Metro.ca** via le lien ci-dessus pour trouver le meilleur produit associé, relevez son **code-barres**, son **prix exact chez Metro**, son **format (g/ml)** et ses **macros pour 100g**, puis appelez \`add_custom_product\` avant de relancer la création de la recette.`;
 
@@ -1183,7 +1183,7 @@ export const toolSchemas = {
         ? ` | Coût estimé : ${nutrients.estimatedTotalCost.toFixed(2)} $`
         : '';
       const message =
-        `🍳 **Recette « ${created.title} » créée avec succès !**\n` +
+        `**Recette « ${created.title} » créée avec succès !**\n` +
         `• Portion(s) : **${created.servings}** | Repas : **${created.mealType}**\n` +
         `• Macros par portion : **${created.caloriesPerServing} kcal** | **${created.proteinPerServing}g P** | **${created.carbsPerServing}g G** | **${created.fatPerServing}g L**${costText}\n` +
         `• Ingrédients (${created.ingredients.length}) : ` +
@@ -1275,13 +1275,13 @@ export const toolSchemas = {
           .map((r) => `• ${r.title} (ID: ${r.id})`)
           .join('\n');
         throw new Error(
-          `Aucune recette trouvée avec l'identifiant ou le titre « ${args.recipeId} ».\n💡 Recettes disponibles :\n${suggestions || 'Aucune recette disponible.'}`
+          `Aucune recette trouvée avec l'identifiant ou le titre « ${args.recipeId} ».\nRecettes disponibles :\n${suggestions || 'Aucune recette disponible.'}`
         );
       }
 
       setScheduledMeal(accId, dayIndex, slot, recipe.id);
       return {
-        message: `📅 **Plat « ${recipe.title} » programmé !**\n• Compte : **${accId}**\n• Créneau : **${DAY_NAMES[dayIndex]}** (${slot})\n• Macros : ${recipe.caloriesPerServing} kcal | ${recipe.proteinPerServing}g P`,
+        message: `**Plat « ${recipe.title} » programmé !**\n• Compte : **${accId}**\n• Créneau : **${DAY_NAMES[dayIndex]}** (${slot})\n• Macros : ${recipe.caloriesPerServing} kcal | ${recipe.proteinPerServing}g P`,
         schedule: {
           accountId: accId,
           day: DAY_NAMES[dayIndex],
@@ -1338,7 +1338,7 @@ export const toolSchemas = {
           .map((i) => `• ${i.name} (ID: ${i.id}, ${i.price})`)
           .join('\n');
         throw new Error(
-          `Aliment introuvable avec l'identifiant « ${args.ingredientId} ».\n💡 Suggestions d'aliments proches du catalogue :\n${suggestions}`
+          `Aliment introuvable avec l'identifiant « ${args.ingredientId} ».\nSuggestions d'aliments proches du catalogue :\n${suggestions}`
         );
       }
 
@@ -1346,8 +1346,8 @@ export const toolSchemas = {
       return {
         message:
           args.customPrice !== null
-            ? `✅ **Prix personnalisé mis à jour** : « ${item.name} » fixé à **${args.customPrice.toFixed(2)} $ CAD**.`
-            : `✅ **Prix réinitialisé** : « ${item.name} » rétabli au tarif officiel Metro (**${item.packaging.exactPriceMetro.toFixed(2)} $**).`,
+            ? `**Prix personnalisé mis à jour** : « ${item.name} » fixé à **${args.customPrice.toFixed(2)} $ CAD**.`
+            : `**Prix réinitialisé** : « ${item.name} » rétabli au tarif officiel Metro (**${item.packaging.exactPriceMetro.toFixed(2)} $**).`,
         ingredientId: id,
         name: item.name,
         newPrice: args.customPrice ?? item.packaging.exactPriceMetro,
@@ -1491,7 +1491,7 @@ export const toolSchemas = {
 
       const barcodeText = saved.barcode ? ` | Code-barres : \`${saved.barcode}\`` : '';
       const message =
-        `✨ **Aliment personnalisé « ${saved.name} » ajouté au catalogue Metro !**\n` +
+        `**Aliment personnalisé « ${saved.name} » ajouté au catalogue Metro !**\n` +
         `• Rayon : **${saved.aisle}** | Format : **${saved.packaging.amount} ${saved.packaging.unit}** (**${saved.packaging.exactPriceMetro.toFixed(2)} $ CAD**)${barcodeText}\n` +
         `• Macros (100g) : **${saved.macrosPer100g.calories} kcal** | **${saved.macrosPer100g.protein}g P** | **${saved.macrosPer100g.carbs}g G** | **${saved.macrosPer100g.fat}g L**`;
 
@@ -1550,12 +1550,12 @@ export const toolSchemas = {
           protein: `${d.dailyProtein}g`,
         };
         const message =
-          `📅 **Menu du ${d.dayName} (${accId})**\n` +
-          `• 🥐 **Petit-déjeuner** : ${d.breakfast.title} (${d.breakfast.caloriesPerServing} kcal, ${d.breakfast.proteinPerServing}g P)\n` +
-          `• 🥗 **Déjeuner** : ${d.lunch.title} (${d.lunch.caloriesPerServing} kcal, ${d.lunch.proteinPerServing}g P)\n` +
-          `• 🍲 **Dîner** : ${d.dinner.title} (${d.dinner.caloriesPerServing} kcal, ${d.dinner.proteinPerServing}g P)\n` +
-          `• 🍎 **Collation** : ${d.snack.title} (${d.snack.caloriesPerServing} kcal, ${d.snack.proteinPerServing}g P)\n` +
-          `📊 **Total** : ${totals.calories} kcal | ${totals.protein} P`;
+          `**Menu du ${d.dayName} (${accId})**\n` +
+          `• **Petit-déjeuner** : ${d.breakfast.title} (${d.breakfast.caloriesPerServing} kcal, ${d.breakfast.proteinPerServing}g P)\n` +
+          `• **Déjeuner** : ${d.lunch.title} (${d.lunch.caloriesPerServing} kcal, ${d.lunch.proteinPerServing}g P)\n` +
+          `• **Dîner** : ${d.dinner.title} (${d.dinner.caloriesPerServing} kcal, ${d.dinner.proteinPerServing}g P)\n` +
+          `• **Collation** : ${d.snack.title} (${d.snack.caloriesPerServing} kcal, ${d.snack.proteinPerServing}g P)\n` +
+          `**Total** : ${totals.calories} kcal | ${totals.protein} P`;
 
         return {
           message,
@@ -1596,15 +1596,15 @@ export const toolSchemas = {
       }));
 
       const message =
-        `📅 **Planning de la semaine (${accId})**\n\n` +
+        `**Planning de la semaine (${accId})**\n\n` +
         weeklyPlan
           .map(
             (d) =>
               `**${d.day}** (${d.calories} kcal, ${d.protein} P)\n` +
-              `  • 🥐 ${d.breakfast}\n` +
-              `  • 🥗 ${d.lunch}\n` +
-              `  • 🍲 ${d.dinner}\n` +
-              `  • 🍎 ${d.snack}`
+              `  • ${d.breakfast}\n` +
+              `  • ${d.lunch}\n` +
+              `  • ${d.dinner}\n` +
+              `  • ${d.snack}`
           )
           .join('\n\n');
 
@@ -1632,7 +1632,7 @@ export const toolSchemas = {
       const accId = parseAccountId(args.accountId);
       const settings = getSettingsForAccount(accId);
       const message =
-        `🎯 **Objectifs métaboliques de ${accId}**\n` +
+        `**Objectifs métaboliques de ${accId}**\n` +
         `• Objectif : **${settings.goalName}**\n` +
         `• Calories cibles : **${settings.targetCalories} kcal** / jour\n` +
         `• Protéines : **${settings.targetProtein}g** | Glucides : **${settings.targetCarbs}g** | Lipides : **${settings.targetFat}g**\n` +
@@ -1713,14 +1713,14 @@ export const toolSchemas = {
       const receipt = calculateReceiptTaxes(allItems);
       const scopeLabel = scope === 'common' ? 'Commune' : `Pour ${scope}`;
       const message =
-        `🛒 **Liste d'épicerie (${scopeLabel})**\n` +
+        `**Liste d'épicerie (${scopeLabel})**\n` +
         `• Articles : **${allItems.length}** | Total estimé : **${receipt.totalWithTax.toFixed(2)} $ CAD**\n` +
         `• Économies estimées : **${receipt.totalSavingsMoi.toFixed(2)} $**\n\n` +
         allItems
           .slice(0, 10)
           .map(
             (i) =>
-              `• ${i.isInPantry ? '📦 ' : '▫️ '}**${i.name}** — ${i.packageDescription} (${i.exactPriceMetro.toFixed(2)} $)`
+              `• ${i.isInPantry ? '' : ''}**${i.name}** — ${i.packageDescription} (${i.exactPriceMetro.toFixed(2)} $)`
           )
           .join('\n') +
         (allItems.length > 10
@@ -1787,7 +1787,7 @@ export const toolSchemas = {
       });
 
       return {
-        message: `✅ **« ${item.name} »** ajouté à la liste d'épicerie (${forAccount === 'common' ? 'Commune' : `Pour ${forAccount}`}) ! Prix : ${item.exactPriceMetro.toFixed(2)} $.`,
+        message: `**« ${item.name} »** ajouté à la liste d'épicerie (${forAccount === 'common' ? 'Commune' : `Pour ${forAccount}`}) ! Prix : ${item.exactPriceMetro.toFixed(2)} $.`,
         item: {
           id: item.id,
           name: item.name,
@@ -1814,8 +1814,8 @@ export const toolSchemas = {
 
       const message =
         inStock.length === 0
-          ? `📦 Le garde-manger est actuellement vide.`
-          : `📦 **Garde-manger : ${inStock.length} aliment${inStock.length > 1 ? 's en stock' : ' en stock'}**\n` +
+          ? `Le garde-manger est actuellement vide.`
+          : `**Garde-manger : ${inStock.length} aliment${inStock.length > 1 ? 's en stock' : ' en stock'}**\n` +
             inStock
               .slice(0, 15)
               .map((item) => `• ${item}`)
@@ -1856,8 +1856,8 @@ export const toolSchemas = {
 
       setPantryItem(id, args.inStock);
       const message = args.inStock
-        ? `✅ **« ${name} »** marqué comme **en stock** dans le garde-manger.`
-        : `✅ **« ${name} »** marqué comme **épuisé** (retiré du garde-manger).`;
+        ? `**« ${name} »** marqué comme **en stock** dans le garde-manger.`
+        : `**« ${name} »** marqué comme **épuisé** (retiré du garde-manger).`;
 
       return {
         message,
@@ -1899,11 +1899,11 @@ export const toolSchemas = {
       setAccountPreference(accId, id, args.status);
       const statusEmoji =
         args.status === 'liked'
-          ? '❤️ Aimé'
+          ? 'Aimé'
           : args.status === 'disliked'
-          ? '🚫 Exclu / Détesté'
-          : '⚪ Neutre';
-      const message = `✅ **Préférence mise à jour** pour **${name}** : ${statusEmoji} (compte : **${accId}**).`;
+          ? 'Exclu / Détesté'
+          : 'Neutre';
+      const message = `**Préférence mise à jour** pour **${name}** : ${statusEmoji} (compte : **${accId}**).`;
 
       return {
         message,
@@ -1962,10 +1962,10 @@ export const toolSchemas = {
           .slice(0, 3)
           .map((r) => `• ${r.title} (${r.mealType})`)
           .join('\n');
-        message = `🔍 Aucune recette trouvée pour « ${args.query || ''} ».\n\n💡 Suggestions de recettes disponibles :\n${suggestions || 'Aucune recette disponible.'}`;
+        message = `Aucune recette trouvée pour « ${args.query || ''} ».\n\nSuggestions de recettes disponibles :\n${suggestions || 'Aucune recette disponible.'}`;
       } else {
         message =
-          `🍳 **${results.length} recette${results.length > 1 ? 's trouvées' : ' trouvée'}** :\n` +
+          `**${results.length} recette${results.length > 1 ? 's trouvées' : ' trouvée'}** :\n` +
           results
             .slice(0, 10)
             .map(
@@ -2054,12 +2054,12 @@ export const toolSchemas = {
           .map((c) => `• ${c.name} (\`${c.id}\`, ${c.price})`)
           .join('\n');
         message =
-          `🔍 Aucun aliment trouvé dans le catalogue pour « ${args.query} ».\n\n` +
-          `💡 Suggestions d'aliments proches du catalogue :\n${suggestions}\n\n` +
-          `🛒 **Pour ajouter cet aliment** : proposez à l'utilisateur de chercher « ${args.query} » sur Metro.ca (${metroSearchUrl}), récupérez le code-barres, le format, les macros et le prix Metro exact, puis appelez \`add_custom_product\`.`;
+          `Aucun aliment trouvé dans le catalogue pour « ${args.query} ».\n\n` +
+          `Suggestions d'aliments proches du catalogue :\n${suggestions}\n\n` +
+          `**Pour ajouter cet aliment** : proposez à l'utilisateur de chercher « ${args.query} » sur Metro.ca (${metroSearchUrl}), récupérez le code-barres, le format, les macros et le prix Metro exact, puis appelez \`add_custom_product\`.`;
       } else {
         message =
-          `🛒 **${matches.length} aliment${matches.length > 1 ? 's trouvés' : ' trouvé'}** :\n` +
+          `**${matches.length} aliment${matches.length > 1 ? 's trouvés' : ' trouvé'}** :\n` +
           matches
             .slice(0, 10)
             .map(
@@ -2119,7 +2119,7 @@ export const toolSchemasWithConfirmation = {
           .map((r) => `• ${r.title} (ID: ${r.id})`)
           .join('\n');
         throw new Error(
-          `Recette personnalisée introuvable pour « ${args.recipeId} » (les recettes natives Metro ne peuvent pas être supprimées).\n💡 Recettes personnalisées disponibles :\n${available || 'Aucune recette personnalisée.'}`
+          `Recette personnalisée introuvable pour « ${args.recipeId} » (les recettes natives Metro ne peuvent pas être supprimées).\nRecettes personnalisées disponibles :\n${available || 'Aucune recette personnalisée.'}`
         );
       }
 
@@ -2128,14 +2128,14 @@ export const toolSchemasWithConfirmation = {
         return {
           requires_confirmation: true,
           action: 'delete_recipe',
-          warning: `⚠️ CONFIRMATION REQUISE : Vous êtes sur le point de SUPPRIMER DÉFINITIVEMENT la recette « ${existing.title} » (ID: ${existing.id}).`,
+          warning: `CONFIRMATION REQUISE : Vous êtes sur le point de SUPPRIMER DÉFINITIVEMENT la recette « ${existing.title} » (ID: ${existing.id}).`,
           instruction: `Pour confirmer la suppression, relancez l'outil avec confirm: true.`,
         };
       }
 
       deleteCustomRecipe(existing.id);
       return {
-        message: `🗑️ Recette « ${existing.title} » (ID: ${existing.id}) supprimée définitivement de la base de données.`,
+        message: `Recette « ${existing.title} » (ID: ${existing.id}) supprimée définitivement de la base de données.`,
         deletedRecipeId: existing.id,
       };
     },
@@ -2206,7 +2206,7 @@ export const toolSchemasWithConfirmation = {
           .map((r) => `• ${r.title} (ID: ${r.id})`)
           .join('\n');
         throw new Error(
-          `Recette personnalisée introuvable pour « ${args.recipeId} ».\n💡 Recettes personnalisées disponibles :\n${available || 'Aucune recette personnalisée.'}`
+          `Recette personnalisée introuvable pour « ${args.recipeId} ».\nRecettes personnalisées disponibles :\n${available || 'Aucune recette personnalisée.'}`
         );
       }
 
@@ -2216,7 +2216,7 @@ export const toolSchemasWithConfirmation = {
         return {
           requires_confirmation: true,
           action: 'modify_recipe',
-          warning: `⚠️ CONFIRMATION REQUISE : Vous allez modifier la recette existante « ${existing.title} » (ID: ${existing.id}).`,
+          warning: `CONFIRMATION REQUISE : Vous allez modifier la recette existante « ${existing.title} » (ID: ${existing.id}).`,
           proposedChanges: {
             title: args.title ?? existing.title,
             servings: newServings,
@@ -2309,7 +2309,7 @@ export const toolSchemasWithConfirmation = {
       );
 
       return {
-        message: `✏️ Recette « ${updated.title} » modifiée avec succès (${updated.servings} portion${updated.servings > 1 ? 's' : ''}, ${updated.caloriesPerServing} kcal, ${updated.proteinPerServing}g P).`,
+        message: `Recette « ${updated.title} » modifiée avec succès (${updated.servings} portion${updated.servings > 1 ? 's' : ''}, ${updated.caloriesPerServing} kcal, ${updated.proteinPerServing}g P).`,
         recipe: updated,
       };
     },
@@ -2354,14 +2354,14 @@ export const toolSchemasWithConfirmation = {
         return {
           requires_confirmation: true,
           action: 'remove_scheduled_meal',
-          warning: `⚠️ CONFIRMATION REQUISE : Vous allez retirer le plat programmé le ${dayName} (${slot}) pour ${accId}.`,
+          warning: `CONFIRMATION REQUISE : Vous allez retirer le plat programmé le ${dayName} (${slot}) pour ${accId}.`,
           instruction: `Demandez confirmation à l'utilisateur avant d'effacer ce créneau. Si accord, rappelez avec confirm=true.`,
         };
       }
 
       deleteScheduledMeal(accId, dayIndex, slot);
       return {
-        message: `🗑️ Plat déprogrammé pour ${accId} le ${dayName} (${slot}).`,
+        message: `Plat déprogrammé pour ${accId} le ${dayName} (${slot}).`,
       };
     },
   },
@@ -2399,14 +2399,14 @@ export const toolSchemasWithConfirmation = {
         return {
           requires_confirmation: true,
           action: 'clear_day_schedule',
-          warning: `⚠️ CONFIRMATION REQUISE : Vous allez vider TOUS les repas prévus le ${dayName} pour ${accId}.`,
+          warning: `CONFIRMATION REQUISE : Vous allez vider TOUS les repas prévus le ${dayName} pour ${accId}.`,
           instruction: `Demandez à l'utilisateur : « Confirmez-vous la réinitialisation complète des repas du ${dayName} pour ${accId} ? ». Si oui, confirmez avec confirm=true.`,
         };
       }
 
       clearDaySchedule(accId, dayIndex);
       return {
-        message: `🗑️ Tous les repas du ${dayName} ont été vidés pour ${accId}.`,
+        message: `Tous les repas du ${dayName} ont été vidés pour ${accId}.`,
       };
     },
   },
@@ -2438,7 +2438,7 @@ export const toolSchemasWithConfirmation = {
           .map((p) => `• ${p.name} (ID: ${p.id})`)
           .join('\n');
         throw new Error(
-          `Aliment personnalisé introuvable avec l'identifiant ou le nom « ${args.productId} » (les aliments de base Metro ne peuvent pas être supprimés).\n💡 Produits personnalisés existants :\n${available || 'Aucun produit personnalisé.'}`
+          `Aliment personnalisé introuvable avec l'identifiant ou le nom « ${args.productId} » (les aliments de base Metro ne peuvent pas être supprimés).\nProduits personnalisés existants :\n${available || 'Aucun produit personnalisé.'}`
         );
       }
 
@@ -2447,14 +2447,14 @@ export const toolSchemasWithConfirmation = {
         return {
           requires_confirmation: true,
           action: 'delete_custom_product',
-          warning: `⚠️ CONFIRMATION REQUISE : Vous allez supprimer définitivement l'aliment « ${target.name} » (ID: ${target.id}) du catalogue.`,
+          warning: `CONFIRMATION REQUISE : Vous allez supprimer définitivement l'aliment « ${target.name} » (ID: ${target.id}) du catalogue.`,
           instruction: `Demandez confirmation à l'utilisateur avant de supprimer cet aliment. Si accord, rappelez avec confirm=true.`,
         };
       }
 
       deleteCustomProduct(target.id);
       return {
-        message: `🗑️ Aliment « ${target.name} » supprimé définitivement du catalogue.`,
+        message: `Aliment « ${target.name} » supprimé définitivement du catalogue.`,
         deletedProductId: target.id,
       };
     },

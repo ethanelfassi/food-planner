@@ -13,21 +13,26 @@ export function handleOptions() {
   });
 }
 
+// Modèles officiels Gemini stables et disponibles
 export function handleGetModels() {
   return NextResponse.json(
     {
       object: 'list',
       data: [
-        { id: 'gemini-2.5-flash', object: 'model', created: 1700000000, owned_by: 'google' },
         { id: 'gemini-2.0-flash', object: 'model', created: 1700000000, owned_by: 'google' },
         { id: 'gemini-1.5-flash', object: 'model', created: 1700000000, owned_by: 'google' },
         { id: 'gemini-1.5-pro', object: 'model', created: 1700000000, owned_by: 'google' },
+        { id: 'gemini-2.0-flash-exp', object: 'model', created: 1700000000, owned_by: 'google' },
       ],
     },
     { headers: CORS_HEADERS }
   );
 }
 
+/**
+ * Nettoie et normalise les messages pour l'endpoint compatible OpenAI de Gemini.
+ * Élimine le rôle legacy 'function' envoyé par ChatMCP iOS et garantit les identifiants tool_call_id.
+ */
 export function sanitizeMessagesForGemini(messages: any[]): any[] {
   if (!Array.isArray(messages)) return [];
 
@@ -63,11 +68,15 @@ export function sanitizeMessagesForGemini(messages: any[]): any[] {
       }
     }
 
-    // 2. Corriger le rôle 'function' envoyé par ChatMCP (cause du bug)
-    if (msg.role === 'function') {
+    // 2. Corriger le rôle 'function' ou 'tool' sans id envoyé par ChatMCP
+    if (msg.role === 'function' || msg.role === 'tool') {
       msg.role = 'tool';
       if (!msg.tool_call_id) {
         msg.tool_call_id = pendingToolCallId;
+      }
+      // Gemini exige que 'content' soit une chaîne de texte
+      if (typeof msg.content !== 'string') {
+        msg.content = JSON.stringify(msg.content ?? '');
       }
     }
 
@@ -82,11 +91,91 @@ export function sanitizeMessagesForGemini(messages: any[]): any[] {
   return sanitized;
 }
 
+/**
+ * Analyse robuste du corps JSON pour éviter les erreurs SyntaxError causées par
+ * des backslashes ou caractères mal échappés envoyés par certains clients.
+ */
+async function parseSafeJson(request: NextRequest): Promise<any> {
+  const rawText = await request.text();
+  try {
+    return JSON.parse(rawText);
+  } catch (err: any) {
+    console.warn('[GeminiProxy] JSON malformé détecté, nettoyage des échappements...');
+    // Nettoyer les échappements non conformes en JSON (\ suivi de tout sauf " \ / b f n r t uXXXX)
+    const cleaned = rawText.replace(/\\(?:([^"\\/bfnrtu])|u(?![\da-fA-F]{4}))/g, (match, ch) => {
+      if (ch === "'") return "'";
+      return ch || '';
+    });
+    return JSON.parse(cleaned);
+  }
+}
+
+/**
+ * Envoi avec retry automatique et fallback de modèle en cas de 503 / 500 / 429
+ */
+async function sendToGeminiWithRetry(
+  payload: Record<string, any>,
+  apiKey: string,
+  maxAttempts = 3
+): Promise<Response> {
+  const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+  const modelsToTry = [payload.model];
+
+  // Si le modèle demandé n'est pas gemini-1.5-flash, ajouter un fallback en cas de surcharge 503
+  if (payload.model !== 'gemini-1.5-flash') {
+    modelsToTry.push('gemini-1.5-flash');
+  }
+
+  let lastRes: Response | null = null;
+
+  for (const currentModel of modelsToTry) {
+    const currentPayload = { ...payload, model: currentModel };
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const res = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(currentPayload),
+        });
+
+        // Succès (200-299) ou erreur client définitive (400, 401, 403, 404)
+        if (res.ok || (res.status < 500 && res.status !== 429)) {
+          return res;
+        }
+
+        lastRes = res;
+        console.warn(
+          `[GeminiProxy] Modèle ${currentModel} - tentative ${attempt}/${maxAttempts} a renvoyé HTTP ${res.status}`
+        );
+
+        if (attempt < maxAttempts) {
+          const delay = Math.min(800 * Math.pow(2, attempt - 1) + Math.random() * 200, 3000);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      } catch (networkErr: any) {
+        console.warn(
+          `[GeminiProxy] Erreur réseau tentative ${attempt}/${maxAttempts}:`,
+          networkErr.message
+        );
+        if (attempt < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+    }
+  }
+
+  return lastRes || new Response(JSON.stringify({ error: { message: 'Gemini injoignable' } }), { status: 503 });
+}
+
 export async function handleChatCompletions(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await parseSafeJson(request);
 
-    // Récupérer la clé API Gemini
+    // Récupérer la clé API Gemini transmise par ChatMCP
     const authHeader = request.headers.get('authorization') || '';
     const customKey =
       request.headers.get('x-goog-api-key') ||
@@ -118,8 +207,19 @@ export async function handleChatCompletions(request: NextRequest) {
       }));
     }
 
+    // Résolution du modèle : mapper les modèles non standards ou dépréciés vers gemini-2.0-flash
+    let targetModel = body.model || 'gemini-2.0-flash';
+    if (
+      targetModel.includes('2.5-flash') ||
+      targetModel.includes('3.5-flash') ||
+      targetModel.includes('gpt-') ||
+      targetModel === 'default'
+    ) {
+      targetModel = 'gemini-2.0-flash';
+    }
+
     const payload: Record<string, any> = {
-      model: body.model || 'gemini-2.5-flash',
+      model: targetModel,
       messages: sanitizedMessages,
       stream: Boolean(body.stream),
     };
@@ -131,18 +231,10 @@ export async function handleChatCompletions(request: NextRequest) {
     if (body.top_p !== undefined) payload.top_p = body.top_p;
     if (body.max_tokens !== undefined) payload.max_tokens = body.max_tokens;
 
-    // Transmettre à l'endpoint compatible OpenAI de Google Gemini
-    const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-    const upstreamRes = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${customKey}`,
-      },
-      body: JSON.stringify(payload),
-    });
+    // Envoi avec retries automatiques et bascule transparente si 503
+    const upstreamRes = await sendToGeminiWithRetry(payload, customKey);
 
-    const isStream = Boolean(body.stream);
+    const isStream = Boolean(body.stream) && upstreamRes.ok;
     const contentType = isStream ? 'text/event-stream' : 'application/json';
 
     return new Response(upstreamRes.body, {
@@ -154,7 +246,7 @@ export async function handleChatCompletions(request: NextRequest) {
       },
     });
   } catch (err: any) {
-    console.error('Erreur proxy Gemini ChatMCP:', err);
+    console.error('[GeminiProxy] Erreur proxy Gemini ChatMCP:', err);
     return NextResponse.json(
       {
         error: {

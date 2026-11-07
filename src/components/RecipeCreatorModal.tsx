@@ -482,7 +482,7 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = React.memo(
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 sm:space-y-6">
           {errorMessage && (
             <div className="p-3.5 rounded-2xl bg-stone-200/80 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-400/50 dark:border-white/20 text-xs font-mono">
-              ⚠️ {errorMessage}
+              {errorMessage}
             </div>
           )}
 

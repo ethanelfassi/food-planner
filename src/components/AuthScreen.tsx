@@ -583,7 +583,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                               : 'border-stone-200 dark:border-white/10 opacity-75'
                           }`}
                         >
-                          <div>💪 Masse</div>
+                          <div>Masse</div>
                           <div className="text-[10px] font-mono text-stone-500">3050 kcal</div>
                         </button>
                         <button
@@ -595,7 +595,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                               : 'border-stone-200 dark:border-white/10 opacity-75'
                           }`}
                         >
-                          <div>⚖️ Équilibré</div>
+                          <div>Équilibré</div>
                           <div className="text-[10px] font-mono text-stone-500">2000 kcal</div>
                         </button>
                         <button
@@ -607,7 +607,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                               : 'border-stone-200 dark:border-white/10 opacity-75'
                           }`}
                         >
-                          <div>🔥 Sèche</div>
+                          <div>Sèche</div>
                           <div className="text-[10px] font-mono text-stone-500">1850 kcal</div>
                         </button>
                       </div>

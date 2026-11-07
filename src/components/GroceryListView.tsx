@@ -204,7 +204,7 @@ const GroceryItemRow = React.memo<{
         )}
         {item.isInPantry && (
           <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-semibold" title="Produit déjà présent dans votre garde-manger">
-            📦 En stock
+            En stock
           </span>
         )}
         {item.isCustomPrice && (
@@ -248,16 +248,16 @@ const GroceryItemRow = React.memo<{
         {macros ? (
           <div className="flex items-center gap-1 text-[10px] font-mono flex-wrap">
             <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-white/10 font-medium">
-              🔥 {macros.calories} kcal
+              {macros.calories} kcal
             </span>
             <span className="px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-white/10 font-medium">
-              🥩 {macros.protein}g P
+              {macros.protein}g P
             </span>
             <span className="hidden sm:inline px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-white/10">
-              🌾 {macros.carbs}g G
+              {macros.carbs}g G
             </span>
             <span className="hidden sm:inline px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-white/10">
-              🥑 {macros.fat}g L
+              {macros.fat}g L
             </span>
             <span className="text-[9px] text-stone-400">/ 100g</span>
           </div>
@@ -784,7 +784,7 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
               : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-200 shadow-xs'
           }`}
         >
-          {isVerifying ? 'Vérification...' : verificationFeedback ? '✓ Vérifié' : 'Revérifier en direct'}
+          {isVerifying ? 'Vérification...' : verificationFeedback ? 'Vérifié' : 'Revérifier en direct'}
         </button>
       </div>
 
@@ -1409,7 +1409,7 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
               }`}
               title="Masquer ou afficher les produits déjà présents dans le garde-manger"
             >
-              <span>📦</span>
+              <span className="text-xs uppercase tracking-wide font-medium">Stock</span>
               <span>{hidePantry ? 'En stock masqué' : `En stock (${pantryItemsCount})`}</span>
             </button>
           )}
@@ -1713,7 +1713,7 @@ const GroceryListViewComponent: React.FC<GroceryListViewProps> = ({
               <div className="min-w-0">
                 <div className="text-xs font-mono font-semibold truncate">
                   {checkedItems === totalItems
-                    ? 'Panier complet ! 🎉'
+                    ? 'Panier complet'
                     : `${totalItems - checkedItems} restant${totalItems - checkedItems > 1 ? 's' : ''}`}
                 </div>
                 <div className="text-[10px] text-stone-500 dark:text-stone-400 font-mono">

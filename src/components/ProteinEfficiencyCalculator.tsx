@@ -195,7 +195,7 @@ const ProteinEfficiencyCalculatorComponent: React.FC<ProteinEfficiencyCalculator
               <span className="font-mono text-xs font-bold text-emerald-800 dark:text-emerald-300">
                 &lt; 4.00 $ / 100g P
               </span>
-              <span className="text-xs">💎</span>
+              <span className="text-xs font-bold text-amber-500">Tier A</span>
             </div>
             <div className="font-serif text-sm font-medium text-emerald-900 dark:text-emerald-200 mt-1">
               Aubaine Ultime
@@ -210,7 +210,7 @@ const ProteinEfficiencyCalculatorComponent: React.FC<ProteinEfficiencyCalculator
               <span className="font-mono text-xs font-bold text-sky-800 dark:text-sky-300">
                 4.00 $ - 6.50 $ / 100g P
               </span>
-              <span className="text-xs">🟢</span>
+              <span className="text-xs font-bold text-emerald-500">Tier B</span>
             </div>
             <div className="font-serif text-sm font-medium text-sky-900 dark:text-sky-200 mt-1">
               Très Bon Rapport
@@ -225,7 +225,7 @@ const ProteinEfficiencyCalculatorComponent: React.FC<ProteinEfficiencyCalculator
               <span className="font-mono text-xs font-bold text-amber-800 dark:text-amber-300">
                 6.50 $ - 9.50 $ / 100g P
               </span>
-              <span className="text-xs">🟡</span>
+              <span className="text-xs font-bold text-yellow-500">Tier C</span>
             </div>
             <div className="font-serif text-sm font-medium text-amber-900 dark:text-amber-200 mt-1">
               Rapport Modéré
@@ -240,7 +240,7 @@ const ProteinEfficiencyCalculatorComponent: React.FC<ProteinEfficiencyCalculator
               <span className="font-mono text-xs font-bold text-rose-800 dark:text-rose-300">
                 &gt; 9.50 $ / 100g P
               </span>
-              <span className="text-xs">🔴</span>
+              <span className="text-xs font-bold text-rose-500">Tier D</span>
             </div>
             <div className="font-serif text-sm font-medium text-rose-900 dark:text-rose-200 mt-1">
               Protéine Coûteuse

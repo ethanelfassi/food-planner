@@ -211,13 +211,13 @@ const RecipeModalComponent: React.FC<RecipeModalProps> = ({
                       )}
                       {ingMeta?.macrosPer100g && (
                         <div className="flex items-center gap-1.5 mt-1.5 text-[10px] font-mono text-stone-500 dark:text-stone-400">
-                          <span className="font-semibold text-stone-800 dark:text-stone-200">🔥 {ingMeta.macrosPer100g.calories} kcal</span>
+                          <span className="font-semibold text-stone-800 dark:text-stone-200">{ingMeta.macrosPer100g.calories} kcal</span>
                           <span>•</span>
-                          <span className="font-semibold text-stone-800 dark:text-stone-200">🥩 {ingMeta.macrosPer100g.protein}g P</span>
+                          <span className="font-semibold text-stone-800 dark:text-stone-200">{ingMeta.macrosPer100g.protein}g P</span>
                           <span>•</span>
-                          <span>🌾 {ingMeta.macrosPer100g.carbs}g G</span>
+                          <span>{ingMeta.macrosPer100g.carbs}g G</span>
                           <span>•</span>
-                          <span>🥑 {ingMeta.macrosPer100g.fat}g L</span>
+                          <span>{ingMeta.macrosPer100g.fat}g L</span>
                           <span className="text-[9px] text-stone-400">/ 100g</span>
                         </div>
                       )}

@@ -243,7 +243,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
                   {saveStatus === 'saving'
                     ? 'Sauvegarde...'
                     : saveStatus === 'saved'
-                    ? 'Enregistré ✓'
+                    ? 'Enregistré'
                     : 'Persistance SQLite'}
                 </span>
               )}
@@ -364,7 +364,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
               <div className="text-[10px] font-mono text-stone-400 dark:text-stone-500 truncate mt-0.5">
                 {targetCalories - consumedCalories > 0
                   ? `${Math.round(targetCalories - consumedCalories)} kcal restantes`
-                  : 'Cible atteinte 🎉'}
+                  : 'Objectif atteint'}
               </div>
             </div>
             <div className="h-1.5 sm:h-2 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden mt-1">
@@ -401,7 +401,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
               <div className="text-[10px] font-mono text-stone-400 dark:text-stone-500 truncate mt-0.5">
                 {targetProtein - consumedProtein > 0
                   ? `${Math.round((targetProtein - consumedProtein) * 10) / 10}g restants`
-                  : 'Cible atteinte 🎉'}
+                  : 'Objectif atteint'}
               </div>
             </div>
             <div className="h-1.5 sm:h-2 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden mt-1">
@@ -438,7 +438,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
               <div className="text-[10px] font-mono text-stone-400 dark:text-stone-500 truncate mt-0.5">
                 {targetCarbs - consumedCarbs > 0
                   ? `${Math.round((targetCarbs - consumedCarbs) * 10) / 10}g restants`
-                  : 'Cible atteinte 🎉'}
+                  : 'Objectif atteint'}
               </div>
             </div>
             <div className="h-1.5 sm:h-2 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden mt-1">
@@ -475,7 +475,7 @@ const CalorieTrackerViewComponent: React.FC<CalorieTrackerViewProps> = ({
               <div className="text-[10px] font-mono text-stone-400 dark:text-stone-500 truncate mt-0.5">
                 {targetFat - consumedFat > 0
                   ? `${Math.round((targetFat - consumedFat) * 10) / 10}g restants`
-                  : 'Cible atteinte 🎉'}
+                  : 'Objectif atteint'}
               </div>
             </div>
             <div className="h-1.5 sm:h-2 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden mt-1">
