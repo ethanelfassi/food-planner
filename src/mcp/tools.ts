@@ -31,6 +31,13 @@ import {
 } from '@/lib/planner';
 import { calculateRecipeNutrients } from '@/lib/nutrition';
 import { generateCommonGroceryList, calculateReceiptTaxes } from '@/lib/grocery';
+import {
+  addDays,
+  getDayIndex,
+  getMondayOfWeek,
+  parseDateKey,
+  toDateKey,
+} from '@/lib/date-utils';
 import { Ingredient, Recipe, MetroAisle } from '@/types';
 
 export function normalizeText(text: string): string {
@@ -107,7 +114,17 @@ export function parseDayIndex(input: number | string): number {
       `Index de jour invalide : ${input}. Les valeurs acceptées vont de 0 (Lundi) à 6 (Dimanche).`
     );
   }
-  const clean = normalizeText(String(input));
+  const trimmed = String(input).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return getDayIndex(parseDateKey(trimmed));
+  }
+  const clean = normalizeText(trimmed);
+  if (['aujourdhui', 'aujourd hui', 'today'].includes(clean)) {
+    return getDayIndex(new Date());
+  }
+  if (['demain', 'tomorrow'].includes(clean)) {
+    return getDayIndex(addDays(new Date(), 1));
+  }
   if (clean in DAY_MAP) {
     return DAY_MAP[clean];
   }
@@ -116,8 +133,42 @@ export function parseDayIndex(input: number | string): number {
     return num;
   }
   throw new Error(
-    `Jour non reconnu : « ${input} ». Jours acceptés : Lundi à Dimanche, Monday to Sunday, ou index 0 à 6.`
+    `Jour non reconnu : « ${input} ». Jours acceptés : Lundi à Dimanche, Monday to Sunday, "aujourd'hui", "demain", date YYYY-MM-DD, ou index 0 à 6.`
   );
+}
+
+export function resolveDayAndDate(
+  dayInput: number | string,
+  explicitDate?: string
+): { dayIndex: number; date: string } {
+  if (explicitDate && /^\d{4}-\d{2}-\d{2}$/.test(explicitDate.trim())) {
+    const cleanDate = explicitDate.trim();
+    return {
+      dayIndex: getDayIndex(parseDateKey(cleanDate)),
+      date: cleanDate,
+    };
+  }
+  if (typeof dayInput === 'string') {
+    const trimmed = dayInput.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return {
+        dayIndex: getDayIndex(parseDateKey(trimmed)),
+        date: trimmed,
+      };
+    }
+    const clean = normalizeText(trimmed);
+    if (['aujourdhui', 'aujourd hui', 'today'].includes(clean)) {
+      const today = new Date();
+      return { dayIndex: getDayIndex(today), date: toDateKey(today) };
+    }
+    if (['demain', 'tomorrow'].includes(clean)) {
+      const tomorrow = addDays(new Date(), 1);
+      return { dayIndex: getDayIndex(tomorrow), date: toDateKey(tomorrow) };
+    }
+  }
+  const dayIndex = parseDayIndex(dayInput);
+  const date = toDateKey(addDays(getMondayOfWeek(new Date()), dayIndex));
+  return { dayIndex, date };
 }
 
 export function parseRecipeMealType(
@@ -1232,7 +1283,7 @@ export const toolSchemas = {
   schedule_meal: {
     name: 'schedule_meal',
     description:
-      'Programmer un plat à un créneau précis de la semaine pour un profil utilisateur.',
+      'Programmer un plat à un créneau précis (par date exacte ou jour de la semaine courante) pour un profil utilisateur.',
     requiresConfirmation: false,
     schema: z.object({
       accountId: z
@@ -1241,7 +1292,11 @@ export const toolSchemas = {
         .describe('Identifiant ou pseudo du compte cible'),
       day: z
         .union([z.number().min(0).max(6), z.string()])
-        .describe('Jour (0-6 ou "Lundi", "Mardi", "Monday", etc.)'),
+        .describe('Jour (0-6, "Lundi", "Vendredi", "aujourd\'hui", "demain", ou date YYYY-MM-DD)'),
+      date: z
+        .string()
+        .optional()
+        .describe('Date exacte YYYY-MM-DD (optionnel, par défaut la date du jour dans la semaine courante)'),
       mealSlot: z
         .string()
         .describe(
@@ -1251,7 +1306,7 @@ export const toolSchemas = {
     }),
     execute: async (args: any) => {
       const accId = parseAccountId(args.accountId);
-      const dayIndex = parseDayIndex(args.day);
+      const { dayIndex, date } = resolveDayAndDate(args.day, args.date);
       const slot = parseMealSlot(args.mealSlot);
       const allRecipes = getAllAvailableRecipes();
       const normInput = normalizeText(args.recipeId);
@@ -1279,12 +1334,13 @@ export const toolSchemas = {
         );
       }
 
-      setScheduledMeal(accId, dayIndex, slot, recipe.id);
+      setScheduledMeal(accId, dayIndex, slot, recipe.id, date);
       return {
-        message: `**Plat « ${recipe.title} » programmé !**\n• Compte : **${accId}**\n• Créneau : **${DAY_NAMES[dayIndex]}** (${slot})\n• Macros : ${recipe.caloriesPerServing} kcal | ${recipe.proteinPerServing}g P`,
+        message: `**Plat « ${recipe.title} » programmé !**\n• Compte : **${accId}**\n• Créneau : **${DAY_NAMES[dayIndex]} (${date})** (${slot})\n• Macros : ${recipe.caloriesPerServing} kcal | ${recipe.proteinPerServing}g P`,
         schedule: {
           accountId: accId,
           day: DAY_NAMES[dayIndex],
+          date,
           mealSlot: slot,
           recipe: {
             id: recipe.id,
@@ -2328,7 +2384,11 @@ export const toolSchemasWithConfirmation = {
         .describe('Identifiant du compte cible'),
       day: z
         .union([z.number().min(0).max(6), z.string()])
-        .describe('Jour (ex: "Lundi", "Monday" ou 0-6)'),
+        .describe('Jour (ex: "Lundi", "Vendredi", "aujourd\'hui", YYYY-MM-DD ou 0-6)'),
+      date: z
+        .string()
+        .optional()
+        .describe('Date exacte YYYY-MM-DD (optionnel, par défaut la date du jour dans la semaine courante)'),
       mealSlot: z
         .string()
         .describe(
@@ -2345,7 +2405,7 @@ export const toolSchemasWithConfirmation = {
     }),
     execute: async (args: any) => {
       const accId = parseAccountId(args.accountId);
-      const dayIndex = parseDayIndex(args.day);
+      const { dayIndex, date } = resolveDayAndDate(args.day, args.date);
       const slot = parseMealSlot(args.mealSlot);
       const dayName = DAY_NAMES[dayIndex];
       const isConfirmed = Boolean(args.confirm || args.confirmed);
@@ -2354,14 +2414,14 @@ export const toolSchemasWithConfirmation = {
         return {
           requires_confirmation: true,
           action: 'remove_scheduled_meal',
-          warning: `CONFIRMATION REQUISE : Vous allez retirer le plat programmé le ${dayName} (${slot}) pour ${accId}.`,
+          warning: `CONFIRMATION REQUISE : Vous allez retirer le plat programmé le ${dayName} (${date}) (${slot}) pour ${accId}.`,
           instruction: `Demandez confirmation à l'utilisateur avant d'effacer ce créneau. Si accord, rappelez avec confirm=true.`,
         };
       }
 
-      deleteScheduledMeal(accId, dayIndex, slot);
+      deleteScheduledMeal(accId, dayIndex, slot, date);
       return {
-        message: `Plat déprogrammé pour ${accId} le ${dayName} (${slot}).`,
+        message: `Plat déprogrammé pour ${accId} le ${dayName} (${date}) (${slot}).`,
       };
     },
   },
@@ -2379,7 +2439,11 @@ export const toolSchemasWithConfirmation = {
         .describe('Identifiant du compte cible'),
       day: z
         .union([z.number().min(0).max(6), z.string()])
-        .describe('Jour (ex: "Lundi", "Monday" ou 0-6)'),
+        .describe('Jour (ex: "Lundi", "Vendredi", "aujourd\'hui", YYYY-MM-DD ou 0-6)'),
+      date: z
+        .string()
+        .optional()
+        .describe('Date exacte YYYY-MM-DD (optionnel, par défaut la date du jour dans la semaine courante)'),
       confirm: z
         .boolean()
         .optional()
@@ -2391,7 +2455,7 @@ export const toolSchemasWithConfirmation = {
     }),
     execute: async (args: any) => {
       const accId = parseAccountId(args.accountId);
-      const dayIndex = parseDayIndex(args.day);
+      const { dayIndex, date } = resolveDayAndDate(args.day, args.date);
       const dayName = DAY_NAMES[dayIndex];
       const isConfirmed = Boolean(args.confirm || args.confirmed);
 
@@ -2399,14 +2463,14 @@ export const toolSchemasWithConfirmation = {
         return {
           requires_confirmation: true,
           action: 'clear_day_schedule',
-          warning: `CONFIRMATION REQUISE : Vous allez vider TOUS les repas prévus le ${dayName} pour ${accId}.`,
-          instruction: `Demandez à l'utilisateur : « Confirmez-vous la réinitialisation complète des repas du ${dayName} pour ${accId} ? ». Si oui, confirmez avec confirm=true.`,
+          warning: `CONFIRMATION REQUISE : Vous allez vider TOUS les repas prévus le ${dayName} (${date}) pour ${accId}.`,
+          instruction: `Demandez à l'utilisateur : « Confirmez-vous la réinitialisation complète des repas du ${dayName} (${date}) pour ${accId} ? ». Si oui, confirmez avec confirm=true.`,
         };
       }
 
-      clearDaySchedule(accId, dayIndex);
+      clearDaySchedule(accId, dayIndex, date);
       return {
-        message: `Tous les repas du ${dayName} ont été vidés pour ${accId}.`,
+        message: `Tous les repas du ${dayName} (${date}) ont été vidés pour ${accId}.`,
       };
     },
   },
