@@ -22,6 +22,7 @@
 
 # misc
 .DS_Store
+.certs/
 *.pem
 *.sqlite
 *.sqlite-journal
