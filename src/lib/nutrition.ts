@@ -18,7 +18,8 @@ export interface RecipeNutrientCalculation {
 export function estimateTotalWeightGrams(
   amount: number,
   unit: string,
-  ingredientId = ''
+  ingredientId = '',
+  ingredient?: Ingredient
 ): number {
   const cleanUnit = (unit || 'g').toLowerCase().trim();
   const safeAmount = Math.max(0, Number(amount) || 0);
@@ -32,6 +33,21 @@ export function estimateTotalWeightGrams(
   }
 
   if (cleanUnit === 'unite' || cleanUnit === 'unité') {
+    if (ingredient?.packaging) {
+      const label = ingredient.packaging.label || '';
+      const subMatch = label.match(/\d+\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(g|ml)/i);
+      if (subMatch) {
+        const unitGrams = parseFloat(subMatch[1].replace(',', '.'));
+        if (unitGrams > 0) return safeAmount * unitGrams;
+      }
+      if (
+        (ingredient.isCustom || id.startsWith('barcode_') || id.startsWith('custom_')) &&
+        ingredient.packaging.amount > 0 &&
+        ['g', 'ml'].includes((ingredient.packaging.unit || 'g').toLowerCase())
+      ) {
+        return safeAmount * ingredient.packaging.amount;
+      }
+    }
     if (id.includes('oeuf')) return safeAmount * 50;
     if (id.includes('banane')) return safeAmount * 120;
     if (id.includes('pomme')) return safeAmount * 170;
@@ -48,6 +64,9 @@ export function estimateTotalWeightGrams(
     if (id.includes('citron')) return safeAmount * 100;
     if (id.includes('ail')) return safeAmount * 10;
     if (id.includes('echalote') || id.includes('oignon_vert')) return safeAmount * 15;
+    if (id.includes('barre') || ingredient?.name?.toLowerCase().includes('barre')) {
+      return safeAmount * 35;
+    }
     return safeAmount * 100;
   }
 
@@ -96,7 +115,7 @@ export function calculateRecipeNutrients(
 
     const unit = (item.unit || ing.baseUnit || 'g').toLowerCase();
     const qty = Number(item.quantity) || 0;
-    const grams = estimateTotalWeightGrams(qty, unit, item.ingredientId);
+    const grams = estimateTotalWeightGrams(qty, unit, item.ingredientId, ing);
 
     const factor = grams / 100;
     totalCals += (ing.macrosPer100g?.calories ?? 0) * factor;
