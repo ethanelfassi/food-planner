@@ -770,7 +770,7 @@ export default function Home() {
 
   const handleRegenerateAll = () => {
     const prefs = preferencesByAccount[activeAccountId] || {};
-    const basePlan = generateWeeklyPlan(prefs, userCustomRecipes, activeSettings);
+    const basePlan = generateWeeklyPlan(prefs, userCustomRecipes, activeSettings, referenceMonday, true);
     const updatedPlan = applyScheduledMealsToPlan(
       basePlan,
       activeAccountId,
@@ -789,6 +789,7 @@ export default function Home() {
     newRecipeId: string
   ) => {
     if (!activePlan) return;
+    const isClearing = !newRecipeId || newRecipeId === 'empty' || newRecipeId.startsWith('empty_');
     const updatedPlan = replaceRecipeInPlan(activePlan, dayIndex, mealType, newRecipeId, userCustomRecipes);
     setPlansByAccount((prev) => ({
       ...prev,
@@ -799,18 +800,28 @@ export default function Home() {
       await fetch('/api/preferences', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'set_scheduled_meal',
-          accountId: activeAccountId,
-          dayIndex,
-          mealSlot: mealType,
-          recipeId: newRecipeId,
-        }),
+        body: JSON.stringify(
+          isClearing
+            ? {
+                action: 'delete_scheduled_meal',
+                accountId: activeAccountId,
+                dayIndex,
+                mealSlot: mealType,
+              }
+            : {
+                action: 'set_scheduled_meal',
+                accountId: activeAccountId,
+                dayIndex,
+                mealSlot: mealType,
+                recipeId: newRecipeId,
+              }
+        ),
       });
       setScheduledMeals((prev) => {
         const filtered = prev.filter(
           (m) => !(m.accountId === activeAccountId && m.dayIndex === dayIndex && m.mealSlot === mealType)
         );
+        if (isClearing) return filtered;
         return [
           ...filtered,
           {

@@ -689,6 +689,21 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
             </p>
 
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {!plan.days[swapMealState.dayIndex][swapMealState.mealType].id.startsWith('empty_') && (
+                <button
+                  onClick={() => {
+                    onReplaceRecipe(swapMealState.dayIndex, swapMealState.mealType, 'empty');
+                    setSwapMealState(null);
+                  }}
+                  className={`w-full text-left p-3 rounded-2xl border transition-colors flex items-center justify-between text-xs font-mono uppercase tracking-wider font-semibold cursor-pointer ${
+                    isDark
+                      ? 'bg-red-500/10 hover:bg-red-500/20 border-red-500/20 text-red-300'
+                      : 'bg-red-50 hover:bg-red-100 border-red-200 text-red-700'
+                  }`}
+                >
+                  <span>Retirer le plat de ce créneau</span>
+                </button>
+              )}
               {availableReplacements.length === 0 ? (
                 <div className="py-8 text-center text-xs text-stone-500 dark:text-stone-400 font-mono">
                   Aucune alternative disponible. Créez des repas dans l&apos;onglet Recettes !

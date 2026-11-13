@@ -178,7 +178,8 @@ export function generateWeeklyPlan(
   preferences: ProductPreferencesMap = {},
   customRecipes: Recipe[] = [],
   userSettings?: UserCustomizationSettings,
-  referenceMonday?: Date | null
+  referenceMonday?: Date | null,
+  autoFill: boolean = false
 ): WeeklyPlan {
   const weekDays = referenceMonday ? getWeekDays(referenceMonday) : null;
   const weekStartDate = referenceMonday ? toDateKey(getMondayOfWeek(referenceMonday)) : undefined;
@@ -191,8 +192,8 @@ export function generateWeeklyPlan(
   const defaultEmptyDinner = createEmptyMeal('souper', 'Aucun dîner planifié');
   const defaultEmptySnack = createEmptyMeal('collation', 'Aucune collation planifiée');
 
-  // Règle métier : si l'utilisateur a moins de 5 recettes enregistrées, le générateur ne génère rien automatiquement.
-  if (allRecipes.length < MIN_RECIPES_FOR_AUTO_GENERATION) {
+  // Règle métier : le planning démarre vide par défaut sauf si autoFill est explicitement activé (et >= 5 recettes).
+  if (!autoFill || allRecipes.length < MIN_RECIPES_FOR_AUTO_GENERATION) {
     for (let i = 0; i < 7; i++) {
       const dayName = DAY_NAMES[i];
       const wDay = weekDays ? weekDays[i] : null;
@@ -369,8 +370,18 @@ export function replaceRecipeInPlan(
 ): WeeklyPlan {
   const newDays = [...plan.days];
   const targetDay = { ...newDays[dayIndex] };
-  const allRecipes = [...RECIPES, ...customRecipes];
-  const candidate = allRecipes.find((r) => r.id === newRecipeId);
+  const isClearing = !newRecipeId || newRecipeId === 'empty' || newRecipeId.startsWith('empty_');
+
+  let candidate: Recipe | undefined;
+  if (isClearing) {
+    if (mealType === 'breakfast') candidate = createEmptyMeal('dejeuner', 'Aucun petit-déjeuner planifié');
+    else if (mealType === 'lunch') candidate = createEmptyMeal('diner', 'Aucun déjeuner planifié');
+    else if (mealType === 'dinner') candidate = createEmptyMeal('souper', 'Aucun dîner planifié');
+    else if (mealType === 'snack') candidate = createEmptyMeal('collation', 'Aucune collation planifiée');
+  } else {
+    const allRecipes = [...RECIPES, ...customRecipes];
+    candidate = allRecipes.find((r) => r.id === newRecipeId);
+  }
 
   if (!candidate) return plan;
 
