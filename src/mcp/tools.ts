@@ -22,6 +22,9 @@ import {
   getAllAccounts,
   getActiveAccountId,
   getSettingsForAccount,
+  getDailyTrackerLogs,
+  saveDailyTrackerLog,
+  bumpDbVersion,
 } from '@/lib/db';
 import { RECIPES } from '@/data/recipes';
 import { INGREDIENTS } from '@/data/ingredients';
@@ -29,7 +32,11 @@ import {
   generateWeeklyPlan,
   applyScheduledMealsToWeeklyPlan,
 } from '@/lib/planner';
-import { calculateRecipeNutrients } from '@/lib/nutrition';
+import {
+  calculateRecipeNutrients,
+  estimateTotalWeightGrams,
+  resolveUnitWeightGrams,
+} from '@/lib/nutrition';
 import { generateCommonGroceryList, calculateReceiptTaxes } from '@/lib/grocery';
 import {
   addDays,
@@ -2140,6 +2147,166 @@ export const toolSchemas = {
           package: m.packaging.label,
           proteinPer100g: m.macrosPer100g?.protein ?? 0,
         })),
+      };
+    },
+  },
+
+  // 13. Logger directement un aliment simple mangé dans les macros du jour
+  log_food_item: {
+    name: 'log_food_item',
+    description:
+      "Ajouter directement un aliment simple mangé (ex: banane, barre granola, yaourt, shaker whey, aliment scanné...) aux macros consommées d'un jour sans avoir besoin de créer une recette.",
+    requiresConfirmation: false,
+    schema: z.object({
+      accountId: z
+        .string()
+        .default('ethan')
+        .describe('Identifiant du compte cible (ethan, joey, ou alias)'),
+      day: z
+        .union([z.number().min(0).max(6), z.string()])
+        .optional()
+        .describe('Jour cible (défaut: "aujourd\'hui", ou Lundi..Dimanche, YYYY-MM-DD, 0-6)'),
+      date: z
+        .string()
+        .optional()
+        .describe('Date exacte YYYY-MM-DD (optionnel)'),
+      ingredientId: z
+        .string()
+        .optional()
+        .describe("ID ou nom d'un aliment du catalogue / scanné (ex: barcode_065633506893, banane)"),
+      name: z
+        .string()
+        .optional()
+        .describe("Nom de l'aliment (recherche catalogue automatique ou nom libre si calories fournies)"),
+      quantity: z
+        .union([z.number(), z.string()])
+        .optional()
+        .describe('Quantité (défaut: 1)'),
+      unit: z
+        .string()
+        .optional()
+        .describe('Unité (unite, g, ml, c_a_soupe, tranche, canne)'),
+      calories: z
+        .number()
+        .optional()
+        .describe('Calories totales manuelles (si aliment hors catalogue)'),
+      protein: z.number().optional().describe('Protéines totales en g'),
+      carbs: z.number().optional().describe('Glucides totaux en g'),
+      fat: z.number().optional().describe('Lipides totaux en g'),
+    }),
+    execute: async (args: any) => {
+      const accId = parseAccountId(args.accountId);
+      const { dayIndex, date } = resolveDayAndDate(args.day ?? "aujourd'hui", args.date);
+      const dayName = DAY_NAMES[dayIndex];
+
+      const rawQuery = (args.ingredientId || args.name || '').trim();
+      const catalog = getMergedCatalog();
+      const matchedId = rawQuery ? findBestIngredient(rawQuery, catalog) : null;
+      const matchedIng = matchedId ? catalog[matchedId] : undefined;
+
+      const qty =
+        args.quantity !== undefined
+          ? typeof args.quantity === 'number'
+            ? args.quantity
+            : parseFloat(String(args.quantity)) || 1
+          : 1;
+
+      let entryName = (args.name || matchedIng?.name || rawQuery).trim();
+      let calories = args.calories;
+      let protein = args.protein;
+      let carbs = args.carbs;
+      let fat = args.fat;
+      let computedGrams: number | undefined;
+
+      if (matchedIng && calories === undefined) {
+        let resolvedUnit = args.unit ? String(args.unit).trim() : '';
+        if (!resolvedUnit) {
+          if (qty >= 20 && (matchedIng.baseUnit === 'g' || matchedIng.baseUnit === 'ml')) {
+            resolvedUnit = matchedIng.baseUnit;
+          } else if (
+            matchedIng.id.startsWith('barcode_') ||
+            matchedIng.id.startsWith('custom_prod_') ||
+            resolveUnitWeightGrams(matchedIng.id, matchedIng) !== 100
+          ) {
+            resolvedUnit = 'unite';
+          } else {
+            resolvedUnit = matchedIng.baseUnit || 'g';
+          }
+        }
+
+        computedGrams = estimateTotalWeightGrams(qty, resolvedUnit, matchedIng.id, matchedIng);
+        const factor = computedGrams / 100;
+        calories = Math.round(matchedIng.macrosPer100g.calories * factor);
+        protein = protein ?? Math.round(matchedIng.macrosPer100g.protein * factor);
+        carbs = carbs ?? Math.round(matchedIng.macrosPer100g.carbs * factor);
+        fat = fat ?? Math.round(matchedIng.macrosPer100g.fat * factor);
+
+        const unitDisplay =
+          resolvedUnit === 'unite'
+            ? qty > 1
+              ? 'unités'
+              : 'unité'
+            : resolvedUnit === 'c_a_soupe'
+            ? 'c.à.s.'
+            : resolvedUnit;
+        const qtyLabel =
+          resolvedUnit === 'g' || resolvedUnit === 'ml'
+            ? `${qty}${unitDisplay}`
+            : `${qty} ${unitDisplay} (${Math.round(computedGrams)}g)`;
+        entryName = `${matchedIng.name} · ${qtyLabel}`;
+      } else if (calories === undefined) {
+        if (rawQuery) {
+          const closest = findClosestIngredients(rawQuery, catalog, 4);
+          const suggestions = closest.map((c) => `• ${c.name} (${c.id})`).join('\n');
+          throw new Error(
+            `Aliment « ${rawQuery} » introuvable dans le catalogue. Précisez un ID/nom existant ou fournissez \`calories\` (+ protein, carbs, fat).\nSuggestions proches :\n${suggestions || 'Aucune suggestion.'}`
+          );
+        }
+        throw new Error(
+          'Fournissez au moins `ingredientId` / `name` (aliment du catalogue) ou `name` + `calories`.'
+        );
+      }
+
+      if (!entryName) {
+        entryName = 'Aliment hors-plan';
+      }
+
+      const finalEntry = {
+        id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        name: entryName,
+        calories: Math.max(0, Math.round(Number(calories) || 0)),
+        protein: Math.max(0, Math.round(Number(protein) || 0)),
+        carbs: Math.max(0, Math.round(Number(carbs) || 0)),
+        fat: Math.max(0, Math.round(Number(fat) || 0)),
+      };
+
+      const logs = getDailyTrackerLogs(accId);
+      const existingLog = logs.find(
+        (l) => (l.date && l.date === date) || (!l.date && l.dayIndex === dayIndex)
+      );
+
+      saveDailyTrackerLog({
+        accountId: accId,
+        dayIndex,
+        date,
+        eatenMeals: existingLog?.eatenMeals ?? {
+          breakfast: false,
+          lunch: false,
+          dinner: false,
+          snack: false,
+        },
+        customEntries: [...(existingLog?.customEntries ?? []), finalEntry],
+      });
+      bumpDbVersion();
+
+      return {
+        message: `**Aliment enregistré dans les macros de ${accId} !**\n• Jour : **${dayName} (${date})**\n• Aliment : **${finalEntry.name}**\n• Macros : **${finalEntry.calories} kcal** | ${finalEntry.protein}g P | ${finalEntry.carbs}g G | ${finalEntry.fat}g L`,
+        entry: finalEntry,
+        matchedIngredientId: matchedId || undefined,
+        computedGrams,
+        day: dayName,
+        date,
+        accountId: accId,
       };
     },
   },

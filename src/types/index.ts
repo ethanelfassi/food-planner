@@ -33,6 +33,7 @@ export interface Ingredient {
   metroProductUrl?: string;
   barcode?: string;
   isCustom?: boolean;
+  unitWeightGrams?: number;
   macrosPer100g: {
     calories: number;
     protein: number;

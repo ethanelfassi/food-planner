@@ -14,6 +14,114 @@ export interface RecipeNutrientCalculation {
   estimatedCostPerServing: number;
 }
 
+// Détermine le poids en grammes d'une unité / portion pour n'importe quel aliment
+export function resolveUnitWeightGrams(
+  ingredientId = '',
+  ingredient?: Ingredient
+): number {
+  const id = (ingredientId || ingredient?.id || '').toLowerCase();
+
+  // Priorité 1 : poids unitaire explicitement renseigné
+  if (ingredient?.unitWeightGrams && ingredient.unitWeightGrams > 0) {
+    return ingredient.unitWeightGrams;
+  }
+
+  // Priorité 2 : extraction depuis le libellé d'emballage ou le nom du produit
+  const label = ingredient?.packaging?.label || '';
+  const name = ingredient?.name || '';
+  const multiMatch = `${label} ${name}`.match(
+    /\b(\d+)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(g|ml)\b/i
+  );
+  if (multiMatch) {
+    const unitVal = parseFloat(multiMatch[2].replace(',', '.'));
+    if (unitVal > 0 && unitVal <= 500) {
+      return Math.round(unitVal * 10) / 10;
+    }
+  }
+
+  if (
+    ingredient?.packaging?.amount &&
+    ingredient.packaging.amount > 0 &&
+    ['g', 'ml'].includes((ingredient.packaging.unit || 'g').toLowerCase())
+  ) {
+    const countMatch = label.match(
+      /(\d+)\s*(?:pi[eè]ces?|unit[eé]s?|muffins?|tortillas?|pitas?|bagels?|merguez|galettes?|courgettes?|poivrons?|avocats?|pommes?|bananes?|citrons?)/i
+    );
+    if (countMatch) {
+      const count = parseInt(countMatch[1], 10);
+      if (count > 0) {
+        const perUnit = Math.round(ingredient.packaging.amount / count);
+        if (perUnit > 0 && perUnit <= 600) {
+          return perUnit;
+        }
+      }
+    }
+  }
+
+  const nameWeightMatch = name.match(/\b(\d+(?:[.,]\d+)?)\s*(?:g|ml)\b/i);
+  if (nameWeightMatch) {
+    const nameGrams = parseFloat(nameWeightMatch[1].replace(',', '.'));
+    if (nameGrams > 0 && nameGrams <= 350) {
+      return Math.round(nameGrams * 10) / 10;
+    }
+  }
+
+  // Priorité 3 : produits scannés ou personnalisés sans poids unitaire explicite
+  const isCustomOrBarcode =
+    Boolean(ingredient?.isCustom) ||
+    id.startsWith('barcode_') ||
+    id.startsWith('custom_');
+  const normText = `${id} ${name.toLowerCase()} ${label.toLowerCase()}`;
+
+  if (isCustomOrBarcode && ingredient?.packaging) {
+    const pkgAmount = Number(ingredient.packaging.amount) || 0;
+    const pkgUnit = (ingredient.packaging.unit || 'g').toLowerCase();
+    if (pkgAmount > 0 && pkgAmount <= 200 && (pkgUnit === 'g' || pkgUnit === 'ml')) {
+      return pkgAmount;
+    }
+    if (/flocon|cereal|corn.?flake|avoine|gruau|granola|muesli/.test(normText)) return 38;
+    if (/whey|proteine|protéine|poudre/.test(normText)) return 30;
+    if (/sauce|coulis|salsa|houmous/.test(normText)) return 60;
+    if (/pain|tranche|bagel/.test(normText)) return 40;
+    if (/galette|steak|poulet|saumon|tilapia|viande|porc|boeuf|bœuf|merguez/.test(normText)) return 125;
+    if (/barre/.test(normText)) return 35;
+  }
+
+  // Priorité 4 : règles catalogue standard
+  if (id.includes('oeuf')) return 50;
+  if (id.includes('banane')) return 120;
+  if (id.includes('pomme_terre') || id.includes('patate_rouge') || id.includes('grelot')) return 150;
+  if (id.includes('patate_douce')) return 200;
+  if (id.includes('pomme')) return 170;
+  if (id.includes('avocat')) return 150;
+  if (id.includes('bagel')) return 95;
+  if (id.includes('pita')) return 60;
+  if (id.includes('tortilla')) return 61;
+  if (id.includes('muffin')) return 57;
+  if (id.includes('concombre')) return 300;
+  if (id.includes('poivron')) return 150;
+  if (id.includes('brocoli')) return 300;
+  if (id.includes('chou_fleur')) return 600;
+  if (id.includes('courgette')) return 165;
+  if (id.includes('carotte')) return 75;
+  if (id.includes('oignon_jaune')) return 110;
+  if (id.includes('citron')) return 100;
+  if (id.includes('ail')) return 10;
+  if (id.includes('echalote') || id.includes('oignon_vert')) return 15;
+  if (id.includes('barre') || normText.includes('barre')) return 35;
+  if (id.includes('poitrine_dinde') || id.includes('jambon')) return 30;
+  if (id.includes('poulet_poitrine')) return 175;
+  if (id.includes('haut_cuisse')) return 110;
+  if (id.includes('saumon') || id.includes('tilapia') || id.includes('filet_porc')) return 150;
+  if (id.includes('steak')) return 175;
+  if (id.includes('tofu')) return 150;
+  if (id.includes('yogourt') || id.includes('fromage_cottage') || id.includes('ricotta')) return 175;
+  if (id.includes('fromage')) return 30;
+  if (id.includes('whey')) return 30;
+
+  return 100;
+}
+
 // Convertit une quantité en grammes équivalents selon l'unité et le type d'aliment (source unique de vérité)
 export function estimateTotalWeightGrams(
   amount: number,
@@ -33,41 +141,7 @@ export function estimateTotalWeightGrams(
   }
 
   if (cleanUnit === 'unite' || cleanUnit === 'unité') {
-    if (ingredient?.packaging) {
-      const label = ingredient.packaging.label || '';
-      const subMatch = label.match(/\d+\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(g|ml)/i);
-      if (subMatch) {
-        const unitGrams = parseFloat(subMatch[1].replace(',', '.'));
-        if (unitGrams > 0) return safeAmount * unitGrams;
-      }
-      if (
-        (ingredient.isCustom || id.startsWith('barcode_') || id.startsWith('custom_')) &&
-        ingredient.packaging.amount > 0 &&
-        ['g', 'ml'].includes((ingredient.packaging.unit || 'g').toLowerCase())
-      ) {
-        return safeAmount * ingredient.packaging.amount;
-      }
-    }
-    if (id.includes('oeuf')) return safeAmount * 50;
-    if (id.includes('banane')) return safeAmount * 120;
-    if (id.includes('pomme')) return safeAmount * 170;
-    if (id.includes('avocat')) return safeAmount * 150;
-    if (id.includes('bagel')) return safeAmount * 95;
-    if (id.includes('pita')) return safeAmount * 60;
-    if (id.includes('tortilla')) return safeAmount * 61;
-    if (id.includes('muffin')) return safeAmount * 57;
-    if (id.includes('patate_douce')) return safeAmount * 200;
-    if (id.includes('concombre')) return safeAmount * 300;
-    if (id.includes('poivron')) return safeAmount * 150;
-    if (id.includes('brocoli')) return safeAmount * 300;
-    if (id.includes('chou_fleur')) return safeAmount * 600;
-    if (id.includes('citron')) return safeAmount * 100;
-    if (id.includes('ail')) return safeAmount * 10;
-    if (id.includes('echalote') || id.includes('oignon_vert')) return safeAmount * 15;
-    if (id.includes('barre') || ingredient?.name?.toLowerCase().includes('barre')) {
-      return safeAmount * 35;
-    }
-    return safeAmount * 100;
+    return safeAmount * resolveUnitWeightGrams(ingredientId, ingredient);
   }
 
   if (

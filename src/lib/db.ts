@@ -271,6 +271,7 @@ export function getDatabase(): DatabaseSync {
       "ALTER TABLE custom_products ADD COLUMN unit TEXT DEFAULT 'g'",
       "ALTER TABLE custom_products ADD COLUMN metro_url TEXT",
       "ALTER TABLE custom_products ADD COLUMN created_by TEXT DEFAULT 'ethan'",
+      "ALTER TABLE custom_products ADD COLUMN unit_weight_grams REAL",
     ];
     for (const colSql of customProductCols) {
       try {
@@ -1732,6 +1733,10 @@ export function getCustomProducts(): Ingredient[] {
     metroProductUrl: r.metro_url || `https://www.metro.ca/recherche?free-text=${encodeURIComponent(r.name)}`,
     barcode: r.barcode || undefined,
     isCustom: true,
+    unitWeightGrams:
+      r.unit_weight_grams !== null && r.unit_weight_grams !== undefined && Number(r.unit_weight_grams) > 0
+        ? Number(r.unit_weight_grams)
+        : undefined,
     macrosPer100g: {
       calories: Math.round(Number(r.calories_per_100g) || 0),
       protein: Math.round((Number(r.protein_per_100g) || 0) * 10) / 10,
@@ -1770,13 +1775,17 @@ export function saveCustomProduct(product: Partial<Ingredient>): Ingredient {
   const carbs = product.macrosPer100g?.carbs ?? 0;
   const fat = product.macrosPer100g?.fat ?? 0;
   const isTaxable = pkg.isTaxable ? 1 : 0;
+  const unitWeightGrams =
+    typeof product.unitWeightGrams === 'number' && product.unitWeightGrams > 0
+      ? product.unitWeightGrams
+      : null;
 
   const stmt = db.prepare(`
     INSERT INTO custom_products (
       id, name, aisle, package_description, price, is_taxable, created_at,
       barcode, image_url, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g,
-      amount, unit, metro_url
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      amount, unit, metro_url, unit_weight_grams
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       name = excluded.name,
       aisle = excluded.aisle,
@@ -1791,7 +1800,8 @@ export function saveCustomProduct(product: Partial<Ingredient>): Ingredient {
       fat_per_100g = excluded.fat_per_100g,
       amount = excluded.amount,
       unit = excluded.unit,
-      metro_url = excluded.metro_url
+      metro_url = excluded.metro_url,
+      unit_weight_grams = excluded.unit_weight_grams
   `);
 
   stmt.run(
@@ -1810,7 +1820,8 @@ export function saveCustomProduct(product: Partial<Ingredient>): Ingredient {
     fat,
     pkg.amount ?? 100,
     pkg.unit ?? 'g',
-    metroUrl
+    metroUrl,
+    unitWeightGrams
   );
 
   return {
@@ -1823,6 +1834,7 @@ export function saveCustomProduct(product: Partial<Ingredient>): Ingredient {
     metroProductUrl: metroUrl || undefined,
     barcode: barcode || undefined,
     isCustom: true,
+    unitWeightGrams: unitWeightGrams ?? undefined,
     macrosPer100g: {
       calories,
       protein,

@@ -3,7 +3,11 @@
 import React, { useState, useMemo, useEffect, useCallback, useDeferredValue } from 'react';
 import { Recipe, RecipeIngredientItem, MealType, Ingredient } from '@/types';
 import { INGREDIENTS } from '@/data/ingredients';
-import { calculateRecipeNutrients } from '@/lib/nutrition';
+import {
+  calculateRecipeNutrients,
+  estimateTotalWeightGrams,
+  resolveUnitWeightGrams,
+} from '@/lib/nutrition';
 import { 
   X, 
   Plus, 
@@ -107,13 +111,19 @@ const IngredientSelector: React.FC<IngredientSelectorProps> = React.memo(({
     setSelectedIngredientId(ingId);
     const ing = catalog[ingId];
     if (ing) {
-      setIngredientUnit(ing.baseUnit || 'g');
-      if (ing.baseUnit === 'unite') {
+      if (
+        ing.baseUnit === 'unite' ||
+        (ing.unitWeightGrams && ing.unitWeightGrams > 0) ||
+        (ing.isCustom && ing.packaging.amount > 0 && ing.packaging.amount <= 200 && ing.packaging.unit !== 'ml')
+      ) {
+        setIngredientUnit('unite');
         setIngredientQty(1);
       } else if (ing.baseUnit === 'ml') {
+        setIngredientUnit('ml');
         setIngredientQty(150);
       } else {
-        setIngredientQty(150);
+        setIngredientUnit(ing.baseUnit || 'g');
+        setIngredientQty(ing.baseUnit === 'tranche' || ing.baseUnit === 'canne' ? 1 : 150);
       }
     }
   };
@@ -141,9 +151,31 @@ const IngredientSelector: React.FC<IngredientSelectorProps> = React.memo(({
     setIngredientNotes('');
   };
 
+  const selectedIngObj = selectedIngredientId ? catalog[selectedIngredientId] : undefined;
+  const selectedUnitWeight = selectedIngObj
+    ? resolveUnitWeightGrams(selectedIngObj.id, selectedIngObj)
+    : 100;
+  const previewQty = Math.max(0, Number(ingredientQty) || 0);
+  const previewGrams = selectedIngObj
+    ? Math.round(estimateTotalWeightGrams(previewQty, ingredientUnit, selectedIngObj.id, selectedIngObj) * 10) / 10
+    : 0;
+  const previewFactor = previewGrams / 100;
+  const previewCalories = selectedIngObj
+    ? Math.round((selectedIngObj.macrosPer100g?.calories ?? 0) * previewFactor)
+    : 0;
+  const previewProtein = selectedIngObj
+    ? Math.round((selectedIngObj.macrosPer100g?.protein ?? 0) * previewFactor * 10) / 10
+    : 0;
+  const previewCarbs = selectedIngObj
+    ? Math.round((selectedIngObj.macrosPer100g?.carbs ?? 0) * previewFactor * 10) / 10
+    : 0;
+  const previewFat = selectedIngObj
+    ? Math.round((selectedIngObj.macrosPer100g?.fat ?? 0) * previewFactor * 10) / 10
+    : 0;
+
   return (
     <div
-      className={`p-4 rounded-2xl border space-y-3 ${
+      className={`p-3 sm:p-4 rounded-2xl border space-y-3 ${
         isDark ? 'bg-white/[0.02] border-white/10' : 'bg-white border-stone-200'
       }`}
     >
@@ -151,7 +183,7 @@ const IngredientSelector: React.FC<IngredientSelectorProps> = React.memo(({
         <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
         <input
           type="text"
-          placeholder="Rechercher un produit... (ex: pâtes, champignons, crème, poulet)"
+          placeholder="Rechercher un produit... (ex: pâtes, barre, banane, poulet)"
           value={ingredientSearch}
           onChange={(e) => setIngredientSearch(e.target.value)}
           className={`w-full pl-9 pr-3 py-2 rounded-xl text-xs border focus:outline-none transition-colors ${
@@ -160,8 +192,8 @@ const IngredientSelector: React.FC<IngredientSelectorProps> = React.memo(({
         />
       </div>
 
-      {/* Résultats / Sélection (Plafonné à 20 éléments max pour une fluidité absolue) */}
-      <div className="max-h-36 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
+      {/* Résultats / Sélection responsive mobile + desktop */}
+      <div className="max-h-52 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
         {filteredResults.length === 0 ? (
           <div className="text-center py-3 text-stone-400 text-xs font-mono">
             Aucun aliment trouvé pour « {deferredSearch} »
@@ -169,34 +201,55 @@ const IngredientSelector: React.FC<IngredientSelectorProps> = React.memo(({
         ) : (
           filteredResults.map((ing) => {
             const isSelected = selectedIngredientId === ing.id;
+            const unitG = resolveUnitWeightGrams(ing.id, ing);
             return (
               <button
                 key={ing.id}
                 type="button"
                 onClick={() => handleSelectCatalogItem(ing.id)}
-                className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition-colors border ${
+                className={`w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 p-2.5 rounded-xl text-left transition-colors border ${
                   isSelected
                     ? isDark
-                      ? 'bg-white/15 border-white text-white font-bold'
-                      : 'bg-stone-900 text-white border-stone-900 font-bold'
+                      ? 'bg-white/15 border-white text-white font-semibold'
+                      : 'bg-stone-900 text-white border-stone-900 font-semibold'
                     : isDark
-                    ? 'bg-white/[0.02] border-transparent text-stone-300 hover:bg-white/[0.06]'
-                    : 'bg-stone-50 border-transparent text-stone-800 hover:bg-stone-100'
+                    ? 'bg-white/[0.02] border-white/5 text-stone-200 hover:bg-white/[0.06]'
+                    : 'bg-stone-50 border-stone-200/70 text-stone-800 hover:bg-stone-100'
                 }`}
               >
-                <div className="flex items-center gap-2 truncate">
-                  <span className="truncate">{ing.name}</span>
-                  {ing.barcode && (
-                    <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0 font-semibold">
-                      Code-barres
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-medium leading-snug break-words">{ing.name}</span>
+                    {ing.barcode && (
+                      <span
+                        className={`text-[9px] font-mono px-1.5 py-0.5 rounded-md border shrink-0 font-semibold ${
+                          isSelected && !isDark
+                            ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30'
+                            : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                        }`}
+                      >
+                        Code-barres
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    className={`text-[10px] font-mono mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 ${
+                      isSelected ? 'opacity-80' : 'text-stone-500 dark:text-stone-400'
+                    }`}
+                  >
+                    <span>
+                      {ing.packaging.exactPriceMetro.toFixed(2)}$ / {ing.packaging.label}
                     </span>
-                  )}
-                  <span className="text-[10px] font-mono text-stone-400 shrink-0">
-                    ({ing.packaging.exactPriceMetro.toFixed(2)}$ / {ing.packaging.label})
-                  </span>
+                    <span>•</span>
+                    <span>1 unité ≈ {unitG}g</span>
+                  </div>
                 </div>
-                <div className="text-[10px] font-mono text-stone-400 shrink-0 ml-2">
-                  {ing.macrosPer100g.calories} kcal • {ing.macrosPer100g.protein}g P
+                <div
+                  className={`text-[10px] font-mono shrink-0 ${
+                    isSelected ? 'opacity-90' : 'text-stone-500 dark:text-stone-400'
+                  }`}
+                >
+                  {ing.macrosPer100g.calories} kcal · {ing.macrosPer100g.protein}g P / 100g
                 </div>
               </button>
             );
@@ -211,62 +264,75 @@ const IngredientSelector: React.FC<IngredientSelectorProps> = React.memo(({
       </div>
 
       {/* Configuration de la quantité et validation */}
-      {selectedIngredientId && (
-        <div className="pt-2 border-t border-stone-200 dark:border-white/10 flex flex-wrap items-center gap-2.5">
-          <div className="flex-1 min-w-[120px]">
-            <span className="text-[10px] font-mono text-stone-400 block mb-0.5">Quantité</span>
-            <input
-              type="number"
-              step="any"
-              min="0.1"
-              value={ingredientQty}
-              onChange={(e) => setIngredientQty(e.target.value)}
-              className={`w-full px-3 py-1.5 rounded-xl text-xs font-mono border focus:outline-none ${
-                isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
-              }`}
-            />
-          </div>
-
-          <div className="flex-1 min-w-[140px]">
-            <span className="text-[10px] font-mono text-stone-400 block mb-0.5">Unité</span>
-            <select
-              value={ingredientUnit}
-              onChange={(e) => setIngredientUnit(e.target.value)}
-              className={`w-full px-3 py-1.5 rounded-xl text-xs border focus:outline-none ${
-                isDark ? 'bg-stone-900 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
-              }`}
-            >
-              {COMMON_UNITS.map((u) => (
-                <option key={u.value} value={u.value}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex-[2] min-w-[160px]">
-            <span className="text-[10px] font-mono text-stone-400 block mb-0.5">Note (facultatif)</span>
-            <input
-              type="text"
-              placeholder="Ex: Émincés et dorés à la poêle"
-              value={ingredientNotes}
-              onChange={(e) => setIngredientNotes(e.target.value)}
-              className={`w-full px-3 py-1.5 rounded-xl text-xs border focus:outline-none ${
-                isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
-              }`}
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={handleConfirmAdd}
-            className={`px-4 py-2 mt-3 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold transition-colors flex items-center gap-1.5 active:scale-95 ${
-              isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
+      {selectedIngObj && (
+        <div className="pt-2.5 border-t border-stone-200 dark:border-white/10 space-y-2.5">
+          <div
+            className={`px-3 py-2 rounded-xl text-[11px] font-mono flex flex-wrap items-center justify-between gap-2 ${
+              isDark ? 'bg-white/[0.04] text-stone-200' : 'bg-stone-100 text-stone-800'
             }`}
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Ajouter</span>
-          </button>
+            <span className="font-semibold truncate max-w-full">{selectedIngObj.name}</span>
+            <span className="text-[10px] opacity-85">
+              = {previewGrams}g → <strong>{previewCalories} kcal</strong> | {previewProtein}g P · {previewCarbs}g G · {previewFat}g L
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-end gap-2">
+            <div>
+              <span className="text-[10px] font-mono text-stone-400 block mb-0.5">Quantité</span>
+              <input
+                type="number"
+                step="any"
+                min="0.1"
+                value={ingredientQty}
+                onChange={(e) => setIngredientQty(e.target.value)}
+                className={`w-full px-3 py-1.5 rounded-xl text-xs font-mono border focus:outline-none ${
+                  isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
+                }`}
+              />
+            </div>
+
+            <div>
+              <span className="text-[10px] font-mono text-stone-400 block mb-0.5">Unité</span>
+              <select
+                value={ingredientUnit}
+                onChange={(e) => setIngredientUnit(e.target.value)}
+                className={`w-full px-3 py-1.5 rounded-xl text-xs border focus:outline-none ${
+                  isDark ? 'bg-stone-900 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
+                }`}
+              >
+                {COMMON_UNITS.map((u) => (
+                  <option key={u.value} value={u.value}>
+                    {u.value === 'unite' ? `Unité (~${selectedUnitWeight}g)` : u.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-span-2 sm:flex-[2] sm:min-w-[160px]">
+              <span className="text-[10px] font-mono text-stone-400 block mb-0.5">Note (facultatif)</span>
+              <input
+                type="text"
+                placeholder="Ex: Émincés et dorés à la poêle"
+                value={ingredientNotes}
+                onChange={(e) => setIngredientNotes(e.target.value)}
+                className={`w-full px-3 py-1.5 rounded-xl text-xs border focus:outline-none ${
+                  isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
+                }`}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleConfirmAdd}
+              className={`col-span-2 sm:col-span-1 justify-center px-4 py-2 rounded-xl text-xs font-mono uppercase tracking-wider font-semibold transition-colors flex items-center gap-1.5 active:scale-95 ${
+                isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
+              }`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Ajouter</span>
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -353,6 +419,12 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = React.memo(
     if (newQty <= 0) return;
     setIngredients((prev) =>
       prev.map((item, i) => (i === index ? { ...item, quantity: newQty } : item))
+    );
+  }, []);
+
+  const handleUpdateIngredientUnit = useCallback((index: number, newUnit: string) => {
+    setIngredients((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, unit: newUnit } : item))
     );
   }, []);
 
@@ -652,47 +724,68 @@ export const RecipeCreatorModal: React.FC<RecipeCreatorModalProps> = React.memo(
 
             {/* Liste des Ingrédients Sélectionnés */}
             {ingredients.length > 0 ? (
-              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                 {ingredients.map((item, index) => {
                   const ing = catalog[item.ingredientId];
+                  const grams = estimateTotalWeightGrams(item.quantity, item.unit, item.ingredientId, ing);
+                  const unitG = resolveUnitWeightGrams(item.ingredientId, ing);
+                  const cals = ing ? Math.round((ing.macrosPer100g.calories * grams) / 100) : 0;
+                  const prot = ing ? Math.round(((ing.macrosPer100g.protein * grams) / 100) * 10) / 10 : 0;
+                  const carbs = ing ? Math.round(((ing.macrosPer100g.carbs * grams) / 100) * 10) / 10 : 0;
+                  const fat = ing ? Math.round(((ing.macrosPer100g.fat * grams) / 100) * 10) / 10 : 0;
                   return (
                     <div
                       key={`${item.ingredientId}-${index}`}
-                      className={`flex items-center justify-between p-3 rounded-2xl border text-xs ${
+                      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-2xl border text-xs ${
                         isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-stone-200 shadow-xs'
                       }`}
                     >
-                      <div className="min-w-0 pr-2">
-                        <div className="font-medium text-stone-900 dark:text-stone-100 truncate">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-stone-900 dark:text-stone-100 leading-snug break-words">
                           {ing ? ing.name : item.ingredientId}
                         </div>
+                        {ing && (
+                          <div className="text-[11px] font-mono text-stone-500 dark:text-stone-400 mt-0.5">
+                            {Math.round(grams)}g • {cals} kcal • {prot}g P • {carbs}g G • {fat}g L
+                          </div>
+                        )}
                         {item.notes && (
-                          <div className="text-[11px] text-stone-500 italic">{item.notes}</div>
+                          <div className="text-[11px] text-stone-500 italic mt-0.5">{item.notes}</div>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2.5 shrink-0">
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            min="0.1"
-                            step="any"
-                            value={item.quantity}
-                            onChange={(e) => handleUpdateIngredientQty(index, Number(e.target.value))}
-                            className={`w-16 px-2 py-1 rounded-lg text-xs font-mono text-right border ${
-                              isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300'
-                            }`}
-                          />
-                          <span className="font-mono text-stone-500 text-[11px]">{item.unit}</span>
-                        </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <input
+                          type="number"
+                          min="0.1"
+                          step="any"
+                          value={item.quantity}
+                          onChange={(e) => handleUpdateIngredientQty(index, Number(e.target.value))}
+                          className={`w-20 sm:w-16 px-2.5 py-1.5 rounded-xl text-xs font-mono text-right border ${
+                            isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300'
+                          }`}
+                        />
+                        <select
+                          value={item.unit}
+                          onChange={(e) => handleUpdateIngredientUnit(index, e.target.value)}
+                          className={`flex-1 sm:flex-initial min-w-0 px-2.5 py-1.5 rounded-xl text-xs font-mono border ${
+                            isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
+                          }`}
+                        >
+                          {COMMON_UNITS.map((u) => (
+                            <option key={u.value} value={u.value}>
+                              {u.value === 'unite' ? `Unité (~${unitG}g)` : u.label}
+                            </option>
+                          ))}
+                        </select>
 
                         <button
                           type="button"
                           onClick={() => handleRemoveIngredient(index)}
-                          className="p-1.5 rounded-lg text-stone-400 hover:text-stone-950 dark:hover:text-white transition-colors"
+                          className="p-2 rounded-xl text-stone-400 hover:text-stone-950 dark:hover:text-white transition-colors shrink-0"
                           title="Retirer cet ingrédient"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>

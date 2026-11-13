@@ -114,6 +114,7 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
   const [protein, setProtein] = useState('0');
   const [carbs, setCarbs] = useState('0');
   const [fat, setFat] = useState('0');
+  const [unitWeightGrams, setUnitWeightGrams] = useState('');
   const [saving, setSaving] = useState(false);
   const [successNotice, setSuccessNotice] = useState(false);
 
@@ -199,6 +200,13 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
       setProtein(String(p.macrosPer100g?.protein ?? 0));
       setCarbs(String(p.macrosPer100g?.carbs ?? 0));
       setFat(String(p.macrosPer100g?.fat ?? 0));
+      setUnitWeightGrams(
+        p.unitWeightGrams
+          ? String(p.unitWeightGrams)
+          : p.packaging?.amount && p.packaging.amount <= 180
+          ? String(p.packaging.amount)
+          : ''
+      );
     } catch (err: any) {
       setError('Impossible de joindre la base de données code-barres: ' + err.message);
     } finally {
@@ -482,11 +490,13 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
     const numPrice = Math.max(0, parseFloat(price) || 0);
     const unitPricePer100 = Math.round((numPrice / (numAmount / 100)) * 100) / 100;
 
+    const parsedUnitWeight = parseFloat(unitWeightGrams.replace(',', '.'));
     const productPayload: Partial<Ingredient> = {
       id: foundProduct?.barcode ? `barcode_${foundProduct.barcode}` : `custom_prod_${Date.now()}`,
       name: name.trim(),
       aisle,
       baseUnit: unit === 'ml' ? 'ml' : 'g',
+      unitWeightGrams: parsedUnitWeight > 0 ? parsedUnitWeight : undefined,
       packaging: {
         amount: numAmount,
         unit,
@@ -1159,6 +1169,23 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
                     <DollarSign className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-stone-400" />
                   </div>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-stone-500 dark:text-stone-400 mb-1">
+                  Poids d&apos;1 unité / portion (g, optionnel — ex: 35 pour une barre)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  value={unitWeightGrams}
+                  onChange={(e) => setUnitWeightGrams(e.target.value)}
+                  placeholder="Ex: 35"
+                  className={`w-full px-3 py-2 rounded-xl text-xs border font-mono focus:outline-none focus:ring-1 focus:ring-stone-500 ${
+                    isDark ? 'bg-black/50 border-white/10 text-white' : 'bg-white border-stone-300 text-stone-900'
+                  }`}
+                />
               </div>
             </div>
           )}

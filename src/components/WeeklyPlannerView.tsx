@@ -14,6 +14,7 @@ import {
 import { RECIPES } from '@/data/recipes';
 import { INGREDIENTS } from '@/data/ingredients';
 import { calculateRecipeScore, MIN_RECIPES_FOR_AUTO_GENERATION } from '@/lib/planner';
+import { estimateTotalWeightGrams, resolveUnitWeightGrams } from '@/lib/nutrition';
 import { 
   RefreshCw, 
   Sun, 
@@ -31,6 +32,7 @@ import {
   Droplet,
   Heart,
   Plus,
+  Search,
   Trash2,
   X,
   Target
@@ -90,6 +92,9 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
   const [customEntryProtein, setCustomEntryProtein] = useState('');
   const [customEntryCarbs, setCustomEntryCarbs] = useState('');
   const [customEntryFat, setCustomEntryFat] = useState('');
+  const [quickFoodQuery, setQuickFoodQuery] = useState('');
+  const [quickFoodQty, setQuickFoodQty] = useState('1');
+  const [quickFoodUnit, setQuickFoodUnit] = useState('unite');
 
   const [showTargetsEditor, setShowTargetsEditor] = useState(false);
   const [draftTargets, setDraftTargets] = useState({
@@ -210,6 +215,86 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
     setCustomEntryProtein('');
     setCustomEntryCarbs('');
     setCustomEntryFat('');
+    setShowCustomEntryForm(false);
+  };
+
+  const allQuickFoods = React.useMemo(() => {
+    const merged: Ingredient[] = [];
+    const seen = new Set<string>();
+    for (const p of customProducts || []) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        merged.push(p);
+      }
+    }
+    for (const ing of Object.values(INGREDIENTS as Record<string, Ingredient>)) {
+      if (!seen.has(ing.id)) {
+        seen.add(ing.id);
+        merged.push(ing);
+      }
+    }
+    return merged;
+  }, [customProducts]);
+
+  const quickFoodMatches = React.useMemo(() => {
+    const q = quickFoodQuery
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (!q) {
+      const customFirst = (customProducts || []).slice(0, 4);
+      const customIds = new Set(customFirst.map((p) => p.id));
+      const quickSnacks = Object.values(INGREDIENTS as Record<string, Ingredient>)
+        .filter(
+          (ing) =>
+            !customIds.has(ing.id) &&
+            /banane|pomme|yogourt|barre|oeuf|amande|whey|fromage|lait|avoine/i.test(ing.name)
+        )
+        .slice(0, 6);
+      return [...customFirst, ...quickSnacks].slice(0, 8);
+    }
+
+    const terms = q.split(/\s+/).filter(Boolean);
+    return allQuickFoods
+      .filter((ing) => {
+        const hay = `${ing.name} ${ing.aisle} ${ing.id}`
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+        return terms.every((t) => hay.includes(t));
+      })
+      .slice(0, 10);
+  }, [allQuickFoods, customProducts, quickFoodQuery]);
+
+  const handleAddQuickCatalogFood = (food: Ingredient) => {
+    if (!onAddCustomTrackerEntry || !activeMacroDay) return;
+    const qty = Math.max(0.1, Number(quickFoodQty) || 1);
+    const grams = estimateTotalWeightGrams(qty, quickFoodUnit, food.id, food);
+    const factor = grams / 100;
+    const unitLabel =
+      quickFoodUnit === 'unite'
+        ? qty > 1
+          ? 'unités'
+          : 'unité'
+        : quickFoodUnit === 'c_a_soupe'
+        ? 'c.à.s.'
+        : quickFoodUnit;
+    const qtyDisplay =
+      quickFoodUnit === 'g' || quickFoodUnit === 'ml'
+        ? `${qty}${unitLabel}`
+        : `${qty} ${unitLabel} (${Math.round(grams)}g)`;
+
+    onAddCustomTrackerEntry(activeMacroDay.dayIndex, activeMacroDay.date, {
+      name: `${food.name} · ${qtyDisplay}`,
+      calories: Math.max(0, Math.round(food.macrosPer100g.calories * factor)),
+      protein: Math.max(0, Math.round(food.macrosPer100g.protein * factor)),
+      carbs: Math.max(0, Math.round(food.macrosPer100g.carbs * factor)),
+      fat: Math.max(0, Math.round(food.macrosPer100g.fat * factor)),
+    });
+    setQuickFoodQuery('');
+    setQuickFoodQty('1');
     setShowCustomEntryForm(false);
   };
 
@@ -492,101 +577,212 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
             </div>
           )}
 
-          {/* Formulaire rapide d'ajout hors-plan */}
+          {/* Panneau d'ajout rapide hors-plan (Catalogue / Scanné + Saisie libre) */}
           {showCustomEntryForm && (
-            <form
-              onSubmit={handleCreateCustomEntry}
-              className={`p-3.5 sm:p-4 rounded-2xl border grid grid-cols-2 sm:grid-cols-6 gap-2.5 items-end ${
+            <div
+              className={`p-3.5 sm:p-4 rounded-2xl border space-y-3.5 ${
                 isDark ? 'bg-black/40 border-white/10' : 'bg-white border-stone-200 shadow-xs'
               }`}
             >
-              <div className="col-span-2">
-                <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">
-                  Aliment / Repas hors-plan
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={customEntryName}
-                  onChange={(e) => setCustomEntryName(e.target.value)}
-                  placeholder="Ex: Shaker whey, Banane..."
-                  className={`w-full px-3 py-1.5 rounded-xl text-xs border outline-none ${
-                    isDark
-                      ? 'bg-white/[0.04] border-white/10 text-white placeholder:text-stone-500'
-                      : 'bg-stone-50 border-stone-200 text-stone-900'
-                  }`}
-                />
+              {/* 1. Ajout rapide depuis le catalogue ou produits scannés */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 font-semibold">
+                    Ajout rapide (catalogue / produit scanné)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomEntryForm(false)}
+                    className="p-1 rounded-xl text-stone-400 hover:text-stone-600 dark:hover:text-white cursor-pointer"
+                    title="Fermer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={quickFoodQuery}
+                      onChange={(e) => setQuickFoodQuery(e.target.value)}
+                      placeholder="Rechercher (banane, barre granola, oeuf, whey...)"
+                      className={`w-full pl-8 pr-3 py-1.5 rounded-xl text-xs border outline-none ${
+                        isDark
+                          ? 'bg-white/[0.04] border-white/10 text-white placeholder:text-stone-500'
+                          : 'bg-stone-50 border-stone-200 text-stone-900'
+                      }`}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min="0.1"
+                      step="any"
+                      value={quickFoodQty}
+                      onChange={(e) => setQuickFoodQty(e.target.value)}
+                      className={`w-20 px-2.5 py-1.5 rounded-xl text-xs font-mono text-right border outline-none ${
+                        isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                      }`}
+                    />
+                    <select
+                      value={quickFoodUnit}
+                      onChange={(e) => setQuickFoodUnit(e.target.value)}
+                      className={`flex-1 sm:flex-initial px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
+                        isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                      }`}
+                    >
+                      <option value="unite">Unité</option>
+                      <option value="g">g</option>
+                      <option value="ml">ml</option>
+                      <option value="c_a_soupe">c. à soupe</option>
+                      <option value="tranche">Tranche</option>
+                      <option value="canne">Canne</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="max-h-52 overflow-y-auto space-y-1.5 pr-0.5">
+                  {quickFoodMatches.length === 0 ? (
+                    <div className="text-[11px] font-mono text-stone-400 py-2 text-center">
+                      Aucun aliment trouvé — utilisez la saisie manuelle ci-dessous.
+                    </div>
+                  ) : (
+                    quickFoodMatches.map((food) => {
+                      const qty = Math.max(0.1, Number(quickFoodQty) || 1);
+                      const grams = estimateTotalWeightGrams(qty, quickFoodUnit, food.id, food);
+                      const unitG = resolveUnitWeightGrams(food.id, food);
+                      const factor = grams / 100;
+                      const cals = Math.round(food.macrosPer100g.calories * factor);
+                      const prot = Math.round(food.macrosPer100g.protein * factor);
+                      const carbs = Math.round(food.macrosPer100g.carbs * factor);
+                      const fat = Math.round(food.macrosPer100g.fat * factor);
+                      const isCustomFood = food.id.startsWith('barcode_') || food.id.startsWith('custom_prod_');
+                      return (
+                        <div
+                          key={food.id}
+                          className={`flex items-center justify-between gap-2.5 p-2.5 rounded-xl border text-xs ${
+                            isDark ? 'bg-white/[0.03] border-white/10' : 'bg-stone-50 border-stone-200'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-medium text-stone-900 dark:text-stone-100 leading-snug break-words">
+                                {food.name}
+                              </span>
+                              {isCustomFood && (
+                                <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500 font-semibold">
+                                  Scanné
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] font-mono text-stone-500 dark:text-stone-400 mt-0.5">
+                              {Math.round(grams)}g{quickFoodUnit === 'unite' ? ` (~${unitG}g/u)` : ''} · {cals} kcal · {prot}g P · {carbs}g G · {fat}g L
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAddQuickCatalogFood(food)}
+                            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-mono font-semibold shrink-0 transition-all cursor-pointer ${
+                              isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
+                            }`}
+                          >
+                            + Ajouter
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
-              <div>
-                <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">kcal</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={customEntryCalories}
-                  onChange={(e) => setCustomEntryCalories(e.target.value)}
-                  placeholder="250"
-                  className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
-                    isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
-                  }`}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Prot (g)</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={customEntryProtein}
-                  onChange={(e) => setCustomEntryProtein(e.target.value)}
-                  placeholder="25"
-                  className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
-                    isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
-                  }`}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Gluc (g)</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={customEntryCarbs}
-                  onChange={(e) => setCustomEntryCarbs(e.target.value)}
-                  placeholder="15"
-                  className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
-                    isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
-                  }`}
-                />
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="flex-1">
-                  <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Lip (g)</label>
+
+              {/* 2. Saisie manuelle libre */}
+              <form
+                onSubmit={handleCreateCustomEntry}
+                className="pt-3 border-t border-stone-200 dark:border-white/10 grid grid-cols-2 sm:grid-cols-6 gap-2.5 items-end"
+              >
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">
+                    Ou saisie manuelle libre
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={customEntryName}
+                    onChange={(e) => setCustomEntryName(e.target.value)}
+                    placeholder="Ex: Shaker whey, Banane..."
+                    className={`w-full px-3 py-1.5 rounded-xl text-xs border outline-none ${
+                      isDark
+                        ? 'bg-white/[0.04] border-white/10 text-white placeholder:text-stone-500'
+                        : 'bg-stone-50 border-stone-200 text-stone-900'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">kcal</label>
                   <input
                     type="number"
                     min={0}
-                    value={customEntryFat}
-                    onChange={(e) => setCustomEntryFat(e.target.value)}
-                    placeholder="5"
+                    value={customEntryCalories}
+                    onChange={(e) => setCustomEntryCalories(e.target.value)}
+                    placeholder="250"
                     className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
                       isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
                     }`}
                   />
                 </div>
-                <button
-                  type="submit"
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
-                    isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
-                  }`}
-                >
-                  OK
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCustomEntryForm(false)}
-                  className="p-1.5 rounded-xl text-stone-400 hover:text-stone-600 dark:hover:text-white cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </form>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Prot (g)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={customEntryProtein}
+                    onChange={(e) => setCustomEntryProtein(e.target.value)}
+                    placeholder="25"
+                    className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
+                      isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Gluc (g)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={customEntryCarbs}
+                    onChange={(e) => setCustomEntryCarbs(e.target.value)}
+                    placeholder="15"
+                    className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
+                      isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                    }`}
+                  />
+                </div>
+                <div className="flex items-end gap-1.5">
+                  <div className="flex-1">
+                    <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Lip (g)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={customEntryFat}
+                      onChange={(e) => setCustomEntryFat(e.target.value)}
+                      placeholder="5"
+                      className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
+                        isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                      }`}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                      isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
+                    }`}
+                  >
+                    OK
+                  </button>
+                </div>
+              </form>
+            </div>
           )}
 
           {/* Éditeur rapide des objectifs nutritionnels */}

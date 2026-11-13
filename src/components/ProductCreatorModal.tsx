@@ -51,6 +51,7 @@ export const ProductCreatorModal: React.FC<ProductCreatorModalProps> = ({
   const [carbs, setCarbs] = useState('5');
   const [fat, setFat] = useState('2');
   const [barcode, setBarcode] = useState('');
+  const [unitWeightGrams, setUnitWeightGrams] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,6 +70,7 @@ export const ProductCreatorModal: React.FC<ProductCreatorModalProps> = ({
     const parsedProt = parseFloat(protein.replace(',', '.')) || 0;
     const parsedCarbs = parseFloat(carbs.replace(',', '.')) || 0;
     const parsedFat = parseFloat(fat.replace(',', '.')) || 0;
+    const parsedUnitGrams = parseFloat(unitWeightGrams.replace(',', '.'));
 
     const fullName = brand.trim() ? `${name.trim()} (${brand.trim()})` : name.trim();
     const cleanBarcode = barcode.replace(/\D/g, '').trim();
@@ -82,6 +84,7 @@ export const ProductCreatorModal: React.FC<ProductCreatorModalProps> = ({
       baseUnit: unit === 'ml' ? 'ml' : 'g',
       barcode: cleanBarcode || undefined,
       isCustom: true,
+      unitWeightGrams: parsedUnitGrams > 0 ? parsedUnitGrams : undefined,
       packaging: {
         amount: parsedAmount,
         unit,
@@ -283,6 +286,23 @@ export const ProductCreatorModal: React.FC<ProductCreatorModalProps> = ({
                 value={barcode}
                 onChange={(e) => setBarcode(e.target.value)}
                 placeholder="Facultatif"
+                className={`w-full px-3.5 py-2.5 rounded-xl text-sm font-mono border focus:outline-none focus:ring-1 focus:ring-stone-400 ${
+                  isDark ? 'bg-white/5 border-white/15 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
+                }`}
+              />
+            </div>
+
+            <div className="col-span-2 sm:col-span-3 space-y-1">
+              <label className="text-xs font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 font-semibold block">
+                Poids d&apos;1 unité / portion (g, optionnel)
+              </label>
+              <input
+                type="number"
+                step="any"
+                min="1"
+                value={unitWeightGrams}
+                onChange={(e) => setUnitWeightGrams(e.target.value)}
+                placeholder="Ex: 35 pour une barre granola, 125 pour un steak..."
                 className={`w-full px-3.5 py-2.5 rounded-xl text-sm font-mono border focus:outline-none focus:ring-1 focus:ring-stone-400 ${
                   isDark ? 'bg-white/5 border-white/15 text-white' : 'bg-stone-50 border-stone-300 text-stone-900'
                 }`}

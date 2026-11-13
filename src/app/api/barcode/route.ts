@@ -108,6 +108,38 @@ export async function GET(request: NextRequest) {
     const carbs = Math.round((Number(nutriments['carbohydrates_100g']) || 0) * 10) / 10;
     const fat = Math.round((Number(nutriments['fat_100g']) || 0) * 10) / 10;
 
+    // Poids d'une unité / portion (Open Food Facts serving_quantity, multi-pack NxMg ou format individuel <= 180g)
+    let unitWeightGrams: number | undefined;
+    const multiMatch = String(quantityStr).match(/(\d+)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(g|ml)/i);
+    if (multiMatch) {
+      const count = parseFloat(multiMatch[1]);
+      const unitVal = parseFloat(multiMatch[2].replace(',', '.'));
+      if (unitVal > 0 && unitVal <= 350) {
+        unitWeightGrams = Math.round(unitVal * 10) / 10;
+      }
+      if (count > 0 && unitVal > 0 && amount < count * unitVal) {
+        amount = Math.round(count * unitVal);
+        unit = multiMatch[3].toLowerCase() === 'ml' ? 'ml' : 'g';
+      }
+    }
+    if (!unitWeightGrams) {
+      const servingQty = Number(p.serving_quantity);
+      if (servingQty > 0 && servingQty <= 350) {
+        unitWeightGrams = Math.round(servingQty * 10) / 10;
+      } else if (p.serving_size) {
+        const sMatch = String(p.serving_size).match(/(\d+(?:[.,]\d+)?)\s*(g|ml)/i);
+        if (sMatch) {
+          const sVal = parseFloat(sMatch[1].replace(',', '.'));
+          if (sVal > 0 && sVal <= 350) {
+            unitWeightGrams = Math.round(sVal * 10) / 10;
+          }
+        }
+      }
+    }
+    if (!unitWeightGrams && amount > 0 && amount <= 180) {
+      unitWeightGrams = amount;
+    }
+
     // Image
     const imageUrl = p.image_front_url || p.image_url || p.image_small_url || null;
 
@@ -121,6 +153,7 @@ export async function GET(request: NextRequest) {
         name: fullName,
         brand,
         aisle,
+        unitWeightGrams,
         packaging: {
           amount: amount || 100,
           unit,
