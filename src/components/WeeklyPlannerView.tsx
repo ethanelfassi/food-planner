@@ -1,7 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { ProductPreferencesMap, Recipe, WeeklyPlan, UserCustomizationSettings, Ingredient } from '@/types';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  ProductPreferencesMap,
+  Recipe,
+  WeeklyPlan,
+  UserCustomizationSettings,
+  Ingredient,
+  DailyTrackerLog,
+  TrackerCustomEntry,
+  DEFAULT_USER_SETTINGS,
+} from '@/types';
 import { RECIPES } from '@/data/recipes';
 import { INGREDIENTS } from '@/data/ingredients';
 import { calculateRecipeScore, MIN_RECIPES_FOR_AUTO_GENERATION } from '@/lib/planner';
@@ -21,7 +30,10 @@ import {
   Wheat,
   Droplet,
   Heart,
-  Plus
+  Plus,
+  Trash2,
+  X,
+  Target
 } from 'lucide-react';
 
 interface WeeklyPlannerViewProps {
@@ -41,6 +53,11 @@ interface WeeklyPlannerViewProps {
   onSelectDayIndex?: (idx: number) => void;
   customProducts?: Ingredient[];
   onToggleMealEaten?: (dayIndex: number, date: string | undefined, mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack') => void;
+  trackerLogs?: DailyTrackerLog[];
+  activeAccountId?: string;
+  onAddCustomTrackerEntry?: (dayIndex: number, date: string | undefined, entry: Omit<TrackerCustomEntry, 'id'>) => void;
+  onDeleteCustomTrackerEntry?: (dayIndex: number, date: string | undefined, entryId: string) => void;
+  onUpdateSettings?: (newSettings: Partial<UserCustomizationSettings>) => void;
 }
 
 const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
@@ -60,8 +77,36 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
   onSelectDayIndex,
   customProducts = [],
   onToggleMealEaten,
+  trackerLogs = [],
+  activeAccountId = 'ethan',
+  onAddCustomTrackerEntry,
+  onDeleteCustomTrackerEntry,
+  onUpdateSettings,
 }) => {
   const [internalDayIndex, setInternalDayIndex] = useState<number>(0);
+  const [showCustomEntryForm, setShowCustomEntryForm] = useState(false);
+  const [customEntryName, setCustomEntryName] = useState('');
+  const [customEntryCalories, setCustomEntryCalories] = useState('');
+  const [customEntryProtein, setCustomEntryProtein] = useState('');
+  const [customEntryCarbs, setCustomEntryCarbs] = useState('');
+  const [customEntryFat, setCustomEntryFat] = useState('');
+
+  const [showTargetsEditor, setShowTargetsEditor] = useState(false);
+  const [draftTargets, setDraftTargets] = useState({
+    calories: userSettings?.targetCalories ?? DEFAULT_USER_SETTINGS.targetCalories,
+    protein: userSettings?.targetProtein ?? DEFAULT_USER_SETTINGS.targetProtein,
+    carbs: userSettings?.targetCarbs ?? DEFAULT_USER_SETTINGS.targetCarbs,
+    fat: userSettings?.targetFat ?? DEFAULT_USER_SETTINGS.targetFat,
+  });
+
+  useEffect(() => {
+    setDraftTargets({
+      calories: userSettings?.targetCalories ?? DEFAULT_USER_SETTINGS.targetCalories,
+      protein: userSettings?.targetProtein ?? DEFAULT_USER_SETTINGS.targetProtein,
+      carbs: userSettings?.targetCarbs ?? DEFAULT_USER_SETTINGS.targetCarbs,
+      fat: userSettings?.targetFat ?? DEFAULT_USER_SETTINGS.targetFat,
+    });
+  }, [userSettings]);
 
   useEffect(() => {
     const d = new Date().getDay();
@@ -78,6 +123,107 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
   } | null>(null);
 
   const currentDay = plan.days[selectedDayIndex] || plan.days[0];
+
+  const todayOrCurrentDay = useMemo(() => {
+    return plan.days.find((d) => d.isToday) || currentDay;
+  }, [plan.days, currentDay]);
+
+  const activeMacroDay = currentDay || todayOrCurrentDay;
+
+  const activeDayLog = useMemo(() => {
+    if (!activeMacroDay) return undefined;
+    return trackerLogs.find(
+      (l) =>
+        l.accountId === activeAccountId &&
+        (activeMacroDay.date ? l.date === activeMacroDay.date : l.dayIndex === activeMacroDay.dayIndex)
+    );
+  }, [trackerLogs, activeAccountId, activeMacroDay]);
+
+  const macroSummary = useMemo(() => {
+    const targetCalories = userSettings?.targetCalories ?? DEFAULT_USER_SETTINGS.targetCalories;
+    const targetProtein = userSettings?.targetProtein ?? DEFAULT_USER_SETTINGS.targetProtein;
+    const targetCarbs = userSettings?.targetCarbs ?? DEFAULT_USER_SETTINGS.targetCarbs;
+    const targetFat = userSettings?.targetFat ?? DEFAULT_USER_SETTINGS.targetFat;
+
+    const customEntries = activeDayLog?.customEntries || [];
+    const customTotals = customEntries.reduce(
+      (acc, entry) => ({
+        calories: acc.calories + (Number(entry.calories) || 0),
+        protein: acc.protein + (Number(entry.protein) || 0),
+        carbs: acc.carbs + (Number(entry.carbs) || 0),
+        fat: acc.fat + (Number(entry.fat) || 0),
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    );
+
+    const slots: Array<'breakfast' | 'lunch' | 'dinner' | 'snack'> = ['breakfast', 'lunch', 'dinner', 'snack'];
+    let eatenMealCalories = 0;
+    let eatenMealProtein = 0;
+    let eatenMealCarbs = 0;
+    let eatenMealFat = 0;
+
+    for (const slot of slots) {
+      if (activeMacroDay?.eatenMeals?.[slot]) {
+        const meal = activeMacroDay[slot];
+        eatenMealCalories += meal?.caloriesPerServing || 0;
+        eatenMealProtein += meal?.proteinPerServing || 0;
+        eatenMealCarbs += meal?.carbsPerServing || 0;
+        eatenMealFat += meal?.fatPerServing || 0;
+      }
+    }
+
+    return {
+      customEntries,
+      consumed: {
+        calories: Math.round(eatenMealCalories + customTotals.calories),
+        protein: Math.round(eatenMealProtein + customTotals.protein),
+        carbs: Math.round(eatenMealCarbs + customTotals.carbs),
+        fat: Math.round(eatenMealFat + customTotals.fat),
+      },
+      planned: {
+        calories: Math.round((activeMacroDay?.dailyCalories || 0) + customTotals.calories),
+        protein: Math.round((activeMacroDay?.dailyProtein || 0) + customTotals.protein),
+        carbs: Math.round((activeMacroDay?.dailyCarbs || 0) + customTotals.carbs),
+        fat: Math.round((activeMacroDay?.dailyFat || 0) + customTotals.fat),
+      },
+      targets: {
+        calories: targetCalories,
+        protein: targetProtein,
+        carbs: targetCarbs,
+        fat: targetFat,
+      },
+    };
+  }, [activeMacroDay, activeDayLog, userSettings]);
+
+  const handleCreateCustomEntry = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onAddCustomTrackerEntry || !activeMacroDay || !customEntryName.trim()) return;
+    onAddCustomTrackerEntry(activeMacroDay.dayIndex, activeMacroDay.date, {
+      name: customEntryName.trim(),
+      calories: Math.max(0, Math.round(Number(customEntryCalories) || 0)),
+      protein: Math.max(0, Math.round(Number(customEntryProtein) || 0)),
+      carbs: Math.max(0, Math.round(Number(customEntryCarbs) || 0)),
+      fat: Math.max(0, Math.round(Number(customEntryFat) || 0)),
+    });
+    setCustomEntryName('');
+    setCustomEntryCalories('');
+    setCustomEntryProtein('');
+    setCustomEntryCarbs('');
+    setCustomEntryFat('');
+    setShowCustomEntryForm(false);
+  };
+
+  const handleSaveTargets = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onUpdateSettings) return;
+    onUpdateSettings({
+      targetCalories: Math.max(500, Math.round(Number(draftTargets.calories) || DEFAULT_USER_SETTINGS.targetCalories)),
+      targetProtein: Math.max(20, Math.round(Number(draftTargets.protein) || DEFAULT_USER_SETTINGS.targetProtein)),
+      targetCarbs: Math.max(20, Math.round(Number(draftTargets.carbs) || DEFAULT_USER_SETTINGS.targetCarbs)),
+      targetFat: Math.max(10, Math.round(Number(draftTargets.fat) || DEFAULT_USER_SETTINGS.targetFat)),
+    });
+    setShowTargetsEditor(false);
+  };
 
   const customProductsMap = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -140,59 +286,384 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
           isDark ? 'liquid-glass' : 'liquid-glass-light'
         }`}
       >
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-          <div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight text-stone-900 dark:text-white">
-              Planning de la semaine
-            </h1>
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight text-stone-900 dark:text-white">
+                  Planning
+                </h1>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-stone-200/80 dark:bg-white/10 text-stone-800 dark:text-stone-200 font-semibold">
+                  {activeMacroDay?.isToday ? "Aujourd'hui • " : ''}
+                  {activeMacroDay?.formattedFullDate || activeMacroDay?.dayName}
+                </span>
+              </div>
+              <p className="text-xs font-mono text-stone-500 dark:text-stone-400 mt-1">
+                Consommé (repas cochés + hors-plan) et prévu du jour vs vos objectifs
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {onAddCustomTrackerEntry && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCustomEntryForm((v) => !v);
+                    setShowTargetsEditor(false);
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-semibold border transition-all cursor-pointer ${
+                    showCustomEntryForm
+                      ? isDark
+                        ? 'bg-white text-stone-950 border-white'
+                        : 'bg-stone-900 text-white border-stone-900'
+                      : isDark
+                      ? 'bg-white/[0.04] border-white/10 text-stone-200 hover:bg-white/10'
+                      : 'bg-white border-stone-200 text-stone-800 hover:bg-stone-50 shadow-xs'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Hors-plan</span>
+                </button>
+              )}
+              {onUpdateSettings && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTargetsEditor((v) => !v);
+                    setShowCustomEntryForm(false);
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-semibold border transition-all cursor-pointer ${
+                    showTargetsEditor
+                      ? isDark
+                        ? 'bg-white text-stone-950 border-white'
+                        : 'bg-stone-900 text-white border-stone-900'
+                      : isDark
+                      ? 'bg-white/[0.04] border-white/10 text-stone-200 hover:bg-white/10'
+                      : 'bg-white border-stone-200 text-stone-800 hover:bg-stone-50 shadow-xs'
+                  }`}
+                >
+                  <Target className="w-3.5 h-3.5" />
+                  <span>Objectifs</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Synthèse Métabolique Minimaliste 4 Piliers */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-            <div
-              className={`grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 p-3 sm:p-4 rounded-2xl border flex-1 ${
-                isDark
-                  ? 'bg-black/30 border-white/10'
-                  : 'bg-white border-stone-200 shadow-xs'
+          {/* 4 Piliers Macros du Jour vs Objectifs */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+            {[
+              {
+                key: 'calories' as const,
+                label: 'Énergie',
+                unit: 'kcal',
+                icon: Flame,
+                consumed: macroSummary.consumed.calories,
+                planned: macroSummary.planned.calories,
+                target: macroSummary.targets.calories,
+                barColor: 'bg-emerald-500',
+              },
+              {
+                key: 'protein' as const,
+                label: 'Protéines',
+                unit: 'g',
+                icon: Dumbbell,
+                consumed: macroSummary.consumed.protein,
+                planned: macroSummary.planned.protein,
+                target: macroSummary.targets.protein,
+                barColor: 'bg-sky-500',
+              },
+              {
+                key: 'carbs' as const,
+                label: 'Glucides',
+                unit: 'g',
+                icon: Wheat,
+                consumed: macroSummary.consumed.carbs,
+                planned: macroSummary.planned.carbs,
+                target: macroSummary.targets.carbs,
+                barColor: 'bg-amber-500',
+              },
+              {
+                key: 'fat' as const,
+                label: 'Lipides',
+                unit: 'g',
+                icon: Droplet,
+                consumed: macroSummary.consumed.fat,
+                planned: macroSummary.planned.fat,
+                target: macroSummary.targets.fat,
+                barColor: 'bg-rose-500',
+              },
+            ].map((item) => {
+              const Icon = item.icon;
+              const safeTarget = Math.max(1, item.target);
+              const consumedPct = Math.min(100, Math.round((item.consumed / safeTarget) * 100));
+              const plannedPct = Math.min(100, Math.round((item.planned / safeTarget) * 100));
+              const isOver = item.consumed > item.target * 1.05;
+              const remaining = item.target - item.consumed;
+              return (
+                <div
+                  key={item.key}
+                  className={`p-3 sm:p-4 rounded-2xl border ${
+                    isDark
+                      ? 'bg-black/30 border-white/10'
+                      : 'bg-white border-stone-200 shadow-xs'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
+                      <Icon className="w-3 h-3 text-stone-700 dark:text-stone-300" /> {item.label}
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono font-bold tabular-nums ${
+                        isOver
+                          ? 'text-amber-500'
+                          : consumedPct >= 85
+                          ? 'text-emerald-500'
+                          : 'text-stone-400'
+                      }`}
+                    >
+                      {consumedPct}%
+                    </span>
+                  </div>
+
+                  <div className="font-mono tabular-nums text-base sm:text-xl font-semibold mt-1 text-stone-950 dark:text-white">
+                    {item.consumed}
+                    <span className="text-xs text-stone-400 font-normal">
+                      {' '}/ {item.target} {item.unit}
+                    </span>
+                  </div>
+
+                  <div className="relative h-1.5 w-full rounded-full bg-stone-200 dark:bg-white/10 overflow-hidden mt-2">
+                    {plannedPct > consumedPct && (
+                      <div
+                        className="absolute inset-y-0 left-0 rounded-full bg-stone-400/40 dark:bg-white/25 transition-all"
+                        style={{ width: `${plannedPct}%` }}
+                      />
+                    )}
+                    <div
+                      className={`relative h-full rounded-full transition-all ${
+                        isOver ? 'bg-amber-500' : item.barColor
+                      }`}
+                      style={{ width: `${consumedPct}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] font-mono text-stone-500 dark:text-stone-400 mt-1.5 tabular-nums">
+                    <span>Prévu : {item.planned}{item.unit}</span>
+                    <span>
+                      {remaining >= 0 ? `Reste : ${remaining}${item.unit}` : `+${Math.abs(remaining)}${item.unit}`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pills des ajouts hors-plan du jour sélectionné */}
+          {macroSummary.customEntries.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-stone-500 font-semibold">
+                Hors-plan :
+              </span>
+              {macroSummary.customEntries.map((entry) => (
+                <span
+                  key={entry.id}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono border ${
+                    isDark
+                      ? 'bg-white/[0.04] border-white/10 text-stone-200'
+                      : 'bg-stone-100 border-stone-200 text-stone-800'
+                  }`}
+                >
+                  <span className="font-semibold">{entry.name}</span>
+                  <span className="text-stone-400">
+                    {entry.calories}kcal · {entry.protein}gP
+                  </span>
+                  {onDeleteCustomTrackerEntry && activeMacroDay && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteCustomTrackerEntry(activeMacroDay.dayIndex, activeMacroDay.date, entry.id)}
+                      className="text-stone-400 hover:text-rose-500 transition-colors cursor-pointer"
+                      title="Supprimer cet ajout"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Formulaire rapide d'ajout hors-plan */}
+          {showCustomEntryForm && (
+            <form
+              onSubmit={handleCreateCustomEntry}
+              className={`p-3.5 sm:p-4 rounded-2xl border grid grid-cols-2 sm:grid-cols-6 gap-2.5 items-end ${
+                isDark ? 'bg-black/40 border-white/10' : 'bg-white border-stone-200 shadow-xs'
+              }`}
+            >
+              <div className="col-span-2">
+                <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">
+                  Aliment / Repas hors-plan
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={customEntryName}
+                  onChange={(e) => setCustomEntryName(e.target.value)}
+                  placeholder="Ex: Shaker whey, Banane..."
+                  className={`w-full px-3 py-1.5 rounded-xl text-xs border outline-none ${
+                    isDark
+                      ? 'bg-white/[0.04] border-white/10 text-white placeholder:text-stone-500'
+                      : 'bg-stone-50 border-stone-200 text-stone-900'
+                  }`}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">kcal</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={customEntryCalories}
+                  onChange={(e) => setCustomEntryCalories(e.target.value)}
+                  placeholder="250"
+                  className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
+                    isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                  }`}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Prot (g)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={customEntryProtein}
+                  onChange={(e) => setCustomEntryProtein(e.target.value)}
+                  placeholder="25"
+                  className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
+                    isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                  }`}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Gluc (g)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={customEntryCarbs}
+                  onChange={(e) => setCustomEntryCarbs(e.target.value)}
+                  placeholder="15"
+                  className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
+                    isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                  }`}
+                />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="flex-1">
+                  <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Lip (g)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={customEntryFat}
+                    onChange={(e) => setCustomEntryFat(e.target.value)}
+                    placeholder="5"
+                    className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
+                      isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                    }`}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                    isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
+                  }`}
+                >
+                  OK
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCustomEntryForm(false)}
+                  className="p-1.5 rounded-xl text-stone-400 hover:text-stone-600 dark:hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Éditeur rapide des objectifs nutritionnels */}
+          {showTargetsEditor && (
+            <form
+              onSubmit={handleSaveTargets}
+              className={`p-3.5 sm:p-4 rounded-2xl border grid grid-cols-2 sm:grid-cols-5 gap-2.5 items-end ${
+                isDark ? 'bg-black/40 border-white/10' : 'bg-white border-stone-200 shadow-xs'
               }`}
             >
               <div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
-                  <Flame className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Énergie
-                </div>
-                <div className="font-mono tabular-nums text-base sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyCalories} <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">kcal/j</span>
-                </div>
+                <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Objectif kcal</label>
+                <input
+                  type="number"
+                  min={500}
+                  value={draftTargets.calories}
+                  onChange={(e) => setDraftTargets((prev) => ({ ...prev, calories: Number(e.target.value) }))}
+                  className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
+                    isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                  }`}
+                />
               </div>
-
               <div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
-                  <Dumbbell className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Protéines
-                </div>
-                <div className="font-mono tabular-nums text-base sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyProtein}g <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">/j</span>
-                </div>
+                <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Protéines (g)</label>
+                <input
+                  type="number"
+                  min={20}
+                  value={draftTargets.protein}
+                  onChange={(e) => setDraftTargets((prev) => ({ ...prev, protein: Number(e.target.value) }))}
+                  className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
+                    isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                  }`}
+                />
               </div>
-
               <div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
-                  <Wheat className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Glucides
-                </div>
-                <div className="font-mono tabular-nums text-base sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyCarbs}g <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">/j</span>
-                </div>
+                <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Glucides (g)</label>
+                <input
+                  type="number"
+                  min={20}
+                  value={draftTargets.carbs}
+                  onChange={(e) => setDraftTargets((prev) => ({ ...prev, carbs: Number(e.target.value) }))}
+                  className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
+                    isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                  }`}
+                />
               </div>
-
               <div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1 font-semibold">
-                  <Droplet className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Lipides
-                </div>
-                <div className="font-mono tabular-nums text-base sm:text-xl font-medium mt-0.5 text-stone-950 dark:text-white">
-                  {plan.avgDailyFat}g <span className="text-[10px] sm:text-[11px] text-stone-500 font-sans font-normal">/j</span>
-                </div>
+                <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Lipides (g)</label>
+                <input
+                  type="number"
+                  min={10}
+                  value={draftTargets.fat}
+                  onChange={(e) => setDraftTargets((prev) => ({ ...prev, fat: Number(e.target.value) }))}
+                  className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
+                    isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                  }`}
+                />
               </div>
-            </div>
-          </div>
+              <div className="flex items-center gap-1.5 col-span-2 sm:col-span-1">
+                <button
+                  type="submit"
+                  className={`flex-1 px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                    isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
+                  }`}
+                >
+                  Enregistrer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTargetsEditor(false)}
+                  className="p-1.5 rounded-xl text-stone-400 hover:text-stone-600 dark:hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </form>
+          )}
         </div>
 
         {/* Barre de Navigation Semaine & Actions (Dédiée et responsive, sans débordement) */}

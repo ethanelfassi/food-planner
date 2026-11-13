@@ -152,10 +152,13 @@ export function applyScheduledMealsToWeeklyPlan(
   const updatedDays = plan.days.map((day, idx) => {
     const matches = scheduledMeals.filter((m) => {
       if (m.accountId !== accountId) return false;
-      if (m.date && day.date) {
+      if (day.date && m.date) {
         return m.date === day.date;
       }
-      return m.dayIndex === idx;
+      if (!day.date && !m.date) {
+        return m.dayIndex === idx;
+      }
+      return false;
     });
     if (matches.length === 0) return recalculateDayMacros(day);
     const newDay: DayPlan = { ...day };

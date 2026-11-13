@@ -21,7 +21,7 @@ import {
   SharedGroceryTripExpense
 } from '@/types';
 import { calculateRecipeNutrients } from './nutrition';
-import { toDateKey } from './date-utils';
+import { addDays, getDayIndex, getMondayOfWeek, parseDateKey, toDateKey } from './date-utils';
 export { calculateRecipeNutrients };
 
 export function hashPassword(password: string): string {
@@ -182,10 +182,11 @@ export function getDatabase(): DatabaseSync {
       CREATE TABLE IF NOT EXISTS scheduled_meals (
         account_id TEXT NOT NULL,
         day_index INTEGER NOT NULL CHECK(day_index >= 0 AND day_index <= 6),
+        date TEXT NOT NULL,
         meal_slot TEXT NOT NULL CHECK(meal_slot IN ('breakfast', 'lunch', 'dinner', 'snack')),
         recipe_id TEXT NOT NULL,
         updated_at TEXT NOT NULL,
-        PRIMARY KEY (account_id, day_index, meal_slot)
+        PRIMARY KEY (account_id, date, meal_slot)
       );
 
       CREATE TABLE IF NOT EXISTS auth_sessions (
@@ -305,6 +306,82 @@ export function getDatabase(): DatabaseSync {
           PRIMARY KEY (account_id, date)
         );
       `);
+    } catch {
+      // Ignorer
+    }
+
+    // Migration scheduled_meals vers clé primaire par date exacte (account_id, date, meal_slot)
+    try {
+      const tableMeta = dbInstance
+        .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='scheduled_meals'")
+        .get() as { sql?: string } | undefined;
+
+      if (tableMeta?.sql && !tableMeta.sql.includes('PRIMARY KEY (account_id, date, meal_slot)')) {
+        const existingRows = dbInstance
+          .prepare('SELECT account_id, day_index, date, meal_slot, recipe_id, updated_at FROM scheduled_meals')
+          .all() as Array<{
+            account_id: string;
+            day_index: number;
+            date?: string | null;
+            meal_slot: string;
+            recipe_id: string;
+            updated_at: string;
+          }>;
+
+        const currentMonday = getMondayOfWeek(new Date());
+        dbInstance.exec('BEGIN IMMEDIATE;');
+        try {
+          dbInstance.exec(`
+            CREATE TABLE scheduled_meals_new (
+              account_id TEXT NOT NULL,
+              day_index INTEGER NOT NULL CHECK(day_index >= 0 AND day_index <= 6),
+              date TEXT NOT NULL,
+              meal_slot TEXT NOT NULL CHECK(meal_slot IN ('breakfast', 'lunch', 'dinner', 'snack')),
+              recipe_id TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              PRIMARY KEY (account_id, date, meal_slot)
+            );
+          `);
+
+          const insertStmt = dbInstance.prepare(`
+            INSERT OR REPLACE INTO scheduled_meals_new (account_id, day_index, date, meal_slot, recipe_id, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `);
+
+          for (const row of existingRows) {
+            const safeDayIdx = Math.max(0, Math.min(6, Number(row.day_index) || 0));
+            const resolvedDate =
+              row.date && /^\d{4}-\d{2}-\d{2}$/.test(row.date)
+                ? row.date
+                : toDateKey(addDays(currentMonday, safeDayIdx));
+            insertStmt.run(
+              row.account_id,
+              safeDayIdx,
+              resolvedDate,
+              row.meal_slot,
+              row.recipe_id,
+              row.updated_at || new Date().toISOString()
+            );
+          }
+
+          dbInstance.exec(`
+            DROP TABLE scheduled_meals;
+            ALTER TABLE scheduled_meals_new RENAME TO scheduled_meals;
+            COMMIT;
+          `);
+        } catch (migrationErr) {
+          try {
+            dbInstance.exec('ROLLBACK;');
+          } catch {
+            // Ignorer rollback
+          }
+          throw migrationErr;
+        }
+      }
+
+      dbInstance.exec(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_scheduled_meals_date_pk ON scheduled_meals(account_id, date, meal_slot);'
+      );
     } catch {
       // Ignorer
     }
@@ -1918,6 +1995,7 @@ export function clearCheckedCustomGroceryItems(): boolean {
 export interface ScheduledMealRecord {
   accountId: string;
   dayIndex: number;
+  date?: string;
   mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   recipeId: string;
   updatedAt: string;
@@ -1926,9 +2004,9 @@ export interface ScheduledMealRecord {
 export function getScheduledMeals(accountId?: string): ScheduledMealRecord[] {
   const db = getDatabase();
   if (accountId) {
-    return db.prepare('SELECT account_id as accountId, day_index as dayIndex, date, meal_slot as mealSlot, recipe_id as recipeId, updated_at as updatedAt FROM scheduled_meals WHERE account_id = ? ORDER BY day_index ASC').all(accountId) as unknown as ScheduledMealRecord[];
+    return db.prepare('SELECT account_id as accountId, day_index as dayIndex, date, meal_slot as mealSlot, recipe_id as recipeId, updated_at as updatedAt FROM scheduled_meals WHERE account_id = ? ORDER BY date ASC, day_index ASC').all(accountId) as unknown as ScheduledMealRecord[];
   }
-  return db.prepare('SELECT account_id as accountId, day_index as dayIndex, date, meal_slot as mealSlot, recipe_id as recipeId, updated_at as updatedAt FROM scheduled_meals ORDER BY account_id, day_index ASC').all() as unknown as ScheduledMealRecord[];
+  return db.prepare('SELECT account_id as accountId, day_index as dayIndex, date, meal_slot as mealSlot, recipe_id as recipeId, updated_at as updatedAt FROM scheduled_meals ORDER BY account_id, date ASC, day_index ASC').all() as unknown as ScheduledMealRecord[];
 }
 
 export function setScheduledMeal(
@@ -1940,30 +2018,49 @@ export function setScheduledMeal(
 ): boolean {
   const db = getDatabase();
   const now = new Date().toISOString();
+  const resolvedDate =
+    date && /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? date
+      : toDateKey(addDays(getMondayOfWeek(new Date()), dayIndex));
+  const resolvedDayIndex =
+    date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? getDayIndex(parseDateKey(date)) : dayIndex;
   db.prepare(`
     INSERT INTO scheduled_meals (account_id, day_index, date, meal_slot, recipe_id, updated_at)
     VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(account_id, day_index, meal_slot) DO UPDATE SET
-      date = excluded.date,
+    ON CONFLICT(account_id, date, meal_slot) DO UPDATE SET
+      day_index = excluded.day_index,
       recipe_id = excluded.recipe_id,
       updated_at = excluded.updated_at
-  `).run(accountId, dayIndex, date || null, mealSlot, recipeId, now);
+  `).run(accountId, resolvedDayIndex, resolvedDate, mealSlot, recipeId, now);
   return true;
 }
 
 export function deleteScheduledMeal(
   accountId: string,
   dayIndex: number,
-  mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack'
+  mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack',
+  date?: string
 ): boolean {
   const db = getDatabase();
-  const res = db.prepare('DELETE FROM scheduled_meals WHERE account_id = ? AND day_index = ? AND meal_slot = ?').run(accountId, dayIndex, mealSlot);
+  const resolvedDate =
+    date && /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? date
+      : toDateKey(addDays(getMondayOfWeek(new Date()), dayIndex));
+  const res = db
+    .prepare('DELETE FROM scheduled_meals WHERE account_id = ? AND date = ? AND meal_slot = ?')
+    .run(accountId, resolvedDate, mealSlot);
   return (res as unknown as { changes: number }).changes > 0;
 }
 
-export function clearDaySchedule(accountId: string, dayIndex: number): boolean {
+export function clearDaySchedule(accountId: string, dayIndex: number, date?: string): boolean {
   const db = getDatabase();
-  const res = db.prepare('DELETE FROM scheduled_meals WHERE account_id = ? AND day_index = ?').run(accountId, dayIndex);
+  const resolvedDate =
+    date && /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? date
+      : toDateKey(addDays(getMondayOfWeek(new Date()), dayIndex));
+  const res = db
+    .prepare('DELETE FROM scheduled_meals WHERE account_id = ? AND date = ?')
+    .run(accountId, resolvedDate);
   return (res as unknown as { changes: number }).changes > 0;
 }
 

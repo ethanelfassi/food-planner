@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo, useDeferredValue } from 'react';
+import React, { useState, useMemo, useDeferredValue, useEffect } from 'react';
 import { Recipe, MealType, ProductPreferencesMap } from '@/types';
 import { INGREDIENTS } from '@/data/ingredients';
 import { calculateRecipeScore } from '@/lib/planner';
+import { addWeeks, formatWeekRangeFrench, getDayIndex, getMondayOfWeek, getWeekDays } from '@/lib/date-utils';
 import { 
   ChefHat, 
   Plus, 
@@ -24,7 +25,9 @@ import {
   ScanBarcode,
   Share2,
   Upload,
-  Download
+  Download,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface RecipeBookViewProps {
@@ -37,7 +40,7 @@ interface RecipeBookViewProps {
   onOpenBarcodeModal?: () => void;
   onEditRecipe: (recipe: Recipe) => void;
   onDeleteRecipe: (recipeId: string) => void;
-  onPlanRecipeToDay: (dayIndex: number, mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack', recipeId: string) => void;
+  onPlanRecipeToDay: (dayIndex: number, mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack', recipeId: string, date?: string) => void;
   onImportRecipe?: (recipe: Recipe) => Promise<void> | void;
 }
 
@@ -69,10 +72,31 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
   const [mealTypeFilter, setMealTypeFilter] = useState<'all' | MealType>('all');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'custom' | 'curated'>('all');
   const [planningRecipe, setPlanningRecipe] = useState<Recipe | null>(null);
+  const [planningWeekOffset, setPlanningWeekOffset] = useState(0);
+  const [planningBaseMonday, setPlanningBaseMonday] = useState<Date | null>(null);
   const [targetDayIndex, setTargetDayIndex] = useState(0);
   const [targetMealSlot, setTargetMealSlot] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('dinner');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const now = new Date();
+    setPlanningBaseMonday(getMondayOfWeek(now));
+    setTargetDayIndex(getDayIndex(now));
+  }, []);
+
+  const planningWeekMonday = useMemo(
+    () => (planningBaseMonday ? addWeeks(planningBaseMonday, planningWeekOffset) : null),
+    [planningBaseMonday, planningWeekOffset]
+  );
+  const planningWeekDays = useMemo(
+    () => (planningWeekMonday ? getWeekDays(planningWeekMonday) : []),
+    [planningWeekMonday]
+  );
+  const planningWeekLabel = useMemo(
+    () => (planningWeekMonday ? formatWeekRangeFrench(planningWeekMonday) : 'Semaine courante'),
+    [planningWeekMonday]
+  );
 
   const handleShareRecipeLinkOrFile = async (recipe: Recipe) => {
     try {
@@ -192,7 +216,11 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
   };
 
   const handleOpenPlanning = (recipe: Recipe) => {
+    const now = new Date();
+    setPlanningBaseMonday(getMondayOfWeek(now));
     setPlanningRecipe(recipe);
+    setPlanningWeekOffset(0);
+    setTargetDayIndex(getDayIndex(now));
     if (recipe.mealType === 'dejeuner') {
       setTargetMealSlot('breakfast');
     } else if (recipe.mealType === 'collation') {
@@ -207,8 +235,9 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
   const handleConfirmPlanning = () => {
     if (!planningRecipe) return;
 
-    onPlanRecipeToDay(targetDayIndex, targetMealSlot, planningRecipe.id);
-    const dayName = DAYS[targetDayIndex];
+    const selectedDay = planningWeekDays[targetDayIndex];
+    onPlanRecipeToDay(targetDayIndex, targetMealSlot, planningRecipe.id, selectedDay?.dateStr);
+    const dayLabel = selectedDay ? `${selectedDay.dayName} ${selectedDay.formattedShort}` : DAYS[targetDayIndex];
     const slotLabel =
       targetMealSlot === 'breakfast'
         ? 'Petit-déjeuner'
@@ -218,7 +247,7 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
         ? 'Dîner'
         : 'Collation';
 
-    setToastMessage(`« ${planningRecipe.title} » planifié pour ${dayName} (${slotLabel})`);
+    setToastMessage(`« ${planningRecipe.title} » planifié pour ${dayLabel} (${slotLabel})`);
     setPlanningRecipe(null);
     setTimeout(() => setToastMessage(null), 3500);
   };
@@ -624,28 +653,77 @@ const RecipeBookViewComponent: React.FC<RecipeBookViewProps> = ({
               </div>
             </div>
 
-            {/* Choix du jour */}
+            {/* Choix de la semaine et du jour exact */}
             <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-stone-500 mb-2 font-semibold">
-                Choisir le jour :
-              </label>
-              <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
-                {DAYS.map((day, idx) => (
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <label className="block text-xs font-mono uppercase tracking-wider text-stone-500 font-semibold">
+                  Choisir la date :
+                </label>
+                <div className="flex items-center gap-1">
                   <button
-                    key={day}
+                    type="button"
+                    onClick={() => setPlanningWeekOffset((w) => w - 1)}
+                    className={`p-1.5 rounded-lg border transition-all ${
+                      isDark
+                        ? 'bg-white/[0.04] border-white/10 text-stone-300 hover:text-white'
+                        : 'bg-stone-100 border-stone-200 text-stone-700 hover:bg-stone-200'
+                    }`}
+                    title="Semaine précédente"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlanningWeekOffset(0)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-mono border transition-all ${
+                      planningWeekOffset === 0
+                        ? isDark
+                          ? 'bg-white/10 border-white/20 text-white font-semibold'
+                          : 'bg-stone-900 text-white border-stone-900 font-semibold'
+                        : isDark
+                        ? 'bg-white/[0.04] border-white/10 text-stone-300 hover:text-white'
+                        : 'bg-stone-100 border-stone-200 text-stone-700 hover:bg-stone-200'
+                    }`}
+                    title="Revenir à cette semaine"
+                  >
+                    {planningWeekLabel}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlanningWeekOffset((w) => w + 1)}
+                    className={`p-1.5 rounded-lg border transition-all ${
+                      isDark
+                        ? 'bg-white/[0.04] border-white/10 text-stone-300 hover:text-white'
+                        : 'bg-stone-100 border-stone-200 text-stone-700 hover:bg-stone-200'
+                    }`}
+                    title="Semaine suivante"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+                {planningWeekDays.map((day, idx) => (
+                  <button
+                    key={day.dateStr}
                     type="button"
                     onClick={() => setTargetDayIndex(idx)}
-                    className={`py-2 px-1 rounded-xl text-xs font-mono transition-all border ${
+                    className={`py-2 px-1 rounded-xl font-mono transition-all border flex flex-col items-center justify-center leading-tight ${
                       targetDayIndex === idx
                         ? isDark
                           ? 'bg-white text-stone-950 font-bold border-white'
                           : 'bg-stone-900 text-stone-50 font-bold border-stone-900 shadow-xs'
+                        : day.isToday
+                        ? isDark
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                          : 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'
                         : isDark
                         ? 'bg-white/[0.04] border-white/5 text-stone-400 hover:text-white'
                         : 'bg-stone-100 border-stone-200 text-stone-700 hover:bg-stone-200'
                     }`}
                   >
-                    {day.slice(0, 3)}
+                    <span className="text-[11px]">{day.dayName.slice(0, 3)}</span>
+                    <span className="text-[10px] opacity-80 mt-0.5">{day.formattedShort}</span>
                   </button>
                 ))}
               </div>

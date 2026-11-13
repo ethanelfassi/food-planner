@@ -135,9 +135,9 @@ export async function POST(request: Request) {
     }
 
     // 7. Programmation d'un repas précis
-    if (body.action === 'set_scheduled_meal' && body.dayIndex !== undefined && body.mealSlot && body.recipeId) {
+    if (body.action === 'set_scheduled_meal' && (body.dayIndex !== undefined || body.date) && body.mealSlot && body.recipeId) {
       const targetAccount = body.accountId || getActiveAccountId() || 'ethan';
-      setScheduledMeal(targetAccount, Number(body.dayIndex), body.mealSlot, body.recipeId);
+      setScheduledMeal(targetAccount, Number(body.dayIndex ?? 0), body.mealSlot, body.recipeId, body.date);
       return NextResponse.json({
         success: true,
         scheduledMeals: getScheduledMeals(),
@@ -145,9 +145,9 @@ export async function POST(request: Request) {
     }
 
     // 8. Suppression d'un repas programmé
-    if (body.action === 'delete_scheduled_meal' && body.dayIndex !== undefined && body.mealSlot) {
+    if (body.action === 'delete_scheduled_meal' && (body.dayIndex !== undefined || body.date) && body.mealSlot) {
       const targetAccount = body.accountId || getActiveAccountId() || 'ethan';
-      deleteScheduledMeal(targetAccount, Number(body.dayIndex), body.mealSlot);
+      deleteScheduledMeal(targetAccount, Number(body.dayIndex ?? 0), body.mealSlot, body.date);
       return NextResponse.json({
         success: true,
         scheduledMeals: getScheduledMeals(),

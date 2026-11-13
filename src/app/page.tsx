@@ -35,7 +35,7 @@ import {
   AccountSplitSummary
 } from '@/lib/grocery';
 import { DEFAULT_COUPLE_SETTINGS, calculateSplitCost } from '@/lib/couple-split';
-import { getMondayOfWeek, addWeeks, getDayIndex, toDateKey } from '@/lib/date-utils';
+import { getMondayOfWeek, addWeeks, addDays, getDayIndex, parseDateKey, toDateKey } from '@/lib/date-utils';
 import { Header } from '@/components/Header';
 import { AuthScreen } from '@/components/AuthScreen';
 import { FriendsAndProfileModal } from '@/components/FriendsAndProfileModal';
@@ -44,7 +44,6 @@ import { CalendarModal } from '@/components/CalendarModal';
 import { RecipeBookView } from '@/components/RecipeBookView';
 import { GroceryListView } from '@/components/GroceryListView';
 import { DealsAndPricesView } from '@/components/DealsAndPricesView';
-import { CalorieTrackerView } from '@/components/CalorieTrackerView';
 import { ProductPreferencesView } from '@/components/ProductPreferencesView';
 import { RecipeModal } from '@/components/RecipeModal';
 import { RecipeCreatorModal } from '@/components/RecipeCreatorModal';
@@ -152,7 +151,7 @@ export default function Home() {
           ...planWithScheduled,
           days: planWithScheduled.days.map((d) => {
             const found = trackerLogs.find(
-              (l) => l.accountId === acc.id && ((d.date && l.date === d.date) || l.dayIndex === d.dayIndex)
+              (l) => l.accountId === acc.id && (d.date ? l.date === d.date : l.dayIndex === d.dayIndex)
             );
             return {
               ...d,
@@ -319,7 +318,7 @@ export default function Home() {
           ...planWithSched,
           days: planWithSched.days.map((d) => {
             const found = loadedTrackerLogs.find(
-              (l: DailyTrackerLog) => l.accountId === acc.id && ((d.date && l.date === d.date) || l.dayIndex === d.dayIndex)
+              (l: DailyTrackerLog) => l.accountId === acc.id && (d.date ? l.date === d.date : l.dayIndex === d.dayIndex)
             );
             return {
               ...d,
@@ -786,15 +785,26 @@ export default function Home() {
   const handleReplaceRecipe = async (
     dayIndex: number,
     mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack',
-    newRecipeId: string
+    newRecipeId: string,
+    explicitDate?: string
   ) => {
     if (!activePlan) return;
     const isClearing = !newRecipeId || newRecipeId === 'empty' || newRecipeId.startsWith('empty_');
-    const updatedPlan = replaceRecipeInPlan(activePlan, dayIndex, mealType, newRecipeId, userCustomRecipes);
-    setPlansByAccount((prev) => ({
-      ...prev,
-      [activeAccountId]: updatedPlan,
-    }));
+    const resolvedDayIndex = explicitDate ? getDayIndex(parseDateKey(explicitDate)) : dayIndex;
+    const targetDay = activePlan.days.find((d) => d.dayIndex === resolvedDayIndex);
+    const resolvedDate =
+      explicitDate ||
+      targetDay?.date ||
+      toDateKey(addDays(referenceMonday || getMondayOfWeek(new Date()), resolvedDayIndex));
+
+    const isInDisplayedWeek = activePlan.days.some((d) => d.date === resolvedDate);
+    if (isInDisplayedWeek) {
+      const updatedPlan = replaceRecipeInPlan(activePlan, resolvedDayIndex, mealType, newRecipeId, userCustomRecipes);
+      setPlansByAccount((prev) => ({
+        ...prev,
+        [activeAccountId]: updatedPlan,
+      }));
+    }
 
     try {
       await fetch('/api/preferences', {
@@ -805,13 +815,15 @@ export default function Home() {
             ? {
                 action: 'delete_scheduled_meal',
                 accountId: activeAccountId,
-                dayIndex,
+                dayIndex: resolvedDayIndex,
+                date: resolvedDate,
                 mealSlot: mealType,
               }
             : {
                 action: 'set_scheduled_meal',
                 accountId: activeAccountId,
-                dayIndex,
+                dayIndex: resolvedDayIndex,
+                date: resolvedDate,
                 mealSlot: mealType,
                 recipeId: newRecipeId,
               }
@@ -819,14 +831,20 @@ export default function Home() {
       });
       setScheduledMeals((prev) => {
         const filtered = prev.filter(
-          (m) => !(m.accountId === activeAccountId && m.dayIndex === dayIndex && m.mealSlot === mealType)
+          (m) =>
+            !(
+              m.accountId === activeAccountId &&
+              (m.date ? m.date === resolvedDate : m.dayIndex === resolvedDayIndex) &&
+              m.mealSlot === mealType
+            )
         );
         if (isClearing) return filtered;
         return [
           ...filtered,
           {
             accountId: activeAccountId,
-            dayIndex,
+            dayIndex: resolvedDayIndex,
+            date: resolvedDate,
             mealSlot: mealType,
             recipeId: newRecipeId,
             updatedAt: new Date().toISOString(),
@@ -841,9 +859,10 @@ export default function Home() {
   const handlePlanRecipeToDay = (
     dayIndex: number,
     mealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snack',
-    recipeId: string
+    recipeId: string,
+    date?: string
   ) => {
-    handleReplaceRecipe(dayIndex, mealSlot, recipeId);
+    handleReplaceRecipe(dayIndex, mealSlot, recipeId, date);
   };
 
   const handleToggleMealEaten = async (
@@ -883,7 +902,7 @@ export default function Home() {
 
     const dateKey = date || targetDay?.date || toDateKey(new Date());
     const existingLog = trackerLogs.find(
-      (l) => l.accountId === activeAccountId && ((dateKey && l.date === dateKey) || l.dayIndex === dayIndex)
+      (l) => l.accountId === activeAccountId && (dateKey ? l.date === dateKey : l.dayIndex === dayIndex)
     );
     const updatedLog: DailyTrackerLog = {
       accountId: activeAccountId,
@@ -895,7 +914,7 @@ export default function Home() {
 
     setTrackerLogs((prev) => {
       const idx = prev.findIndex(
-        (l) => l.accountId === activeAccountId && ((dateKey && l.date === dateKey) || l.dayIndex === dayIndex)
+        (l) => l.accountId === activeAccountId && (dateKey ? l.date === dateKey : l.dayIndex === dayIndex)
       );
       if (idx >= 0) {
         const copy = [...prev];
@@ -913,6 +932,87 @@ export default function Home() {
       });
     } catch (err) {
       console.warn('Erreur sauvegarde repas coché tracker:', err);
+    }
+  };
+
+  const handleAddCustomTrackerEntry = async (
+    dayIndex: number,
+    date: string | undefined,
+    entry: Omit<DailyTrackerLog['customEntries'][number], 'id'>
+  ) => {
+    const targetDay = activePlan?.days.find((d) => d.dayIndex === dayIndex);
+    const dateKey = date || targetDay?.date || toDateKey(new Date());
+    const existingLog = trackerLogs.find(
+      (l) => l.accountId === activeAccountId && (dateKey ? l.date === dateKey : l.dayIndex === dayIndex)
+    );
+    const newEntry = {
+      ...entry,
+      id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    };
+    const updatedLog: DailyTrackerLog = {
+      accountId: activeAccountId,
+      dayIndex,
+      date: dateKey,
+      eatenMeals: existingLog?.eatenMeals ||
+        targetDay?.eatenMeals || { breakfast: false, lunch: false, dinner: false, snack: false },
+      customEntries: [...(existingLog?.customEntries || []), newEntry],
+    };
+
+    setTrackerLogs((prev) => {
+      const idx = prev.findIndex(
+        (l) => l.accountId === activeAccountId && (dateKey ? l.date === dateKey : l.dayIndex === dayIndex)
+      );
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = updatedLog;
+        return copy;
+      }
+      return [...prev, updatedLog];
+    });
+
+    try {
+      await fetch('/api/tracker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedLog),
+      });
+    } catch (err) {
+      console.warn('Erreur sauvegarde ajout hors-plan:', err);
+    }
+  };
+
+  const handleDeleteCustomTrackerEntry = async (
+    dayIndex: number,
+    date: string | undefined,
+    entryId: string
+  ) => {
+    const targetDay = activePlan?.days.find((d) => d.dayIndex === dayIndex);
+    const dateKey = date || targetDay?.date || toDateKey(new Date());
+    const existingLog = trackerLogs.find(
+      (l) => l.accountId === activeAccountId && (dateKey ? l.date === dateKey : l.dayIndex === dayIndex)
+    );
+    if (!existingLog) return;
+    const updatedLog: DailyTrackerLog = {
+      ...existingLog,
+      customEntries: existingLog.customEntries.filter((e) => e.id !== entryId),
+    };
+
+    setTrackerLogs((prev) =>
+      prev.map((l) =>
+        l.accountId === activeAccountId && (dateKey ? l.date === dateKey : l.dayIndex === dayIndex)
+          ? updatedLog
+          : l
+      )
+    );
+
+    try {
+      await fetch('/api/tracker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedLog),
+      });
+    } catch (err) {
+      console.warn('Erreur suppression ajout hors-plan:', err);
     }
   };
 
@@ -1495,6 +1595,11 @@ export default function Home() {
             onSelectDayIndex={setSelectedPlannerDayIndex}
             customProducts={customProducts}
             onToggleMealEaten={handleToggleMealEaten}
+            trackerLogs={trackerLogs}
+            activeAccountId={activeAccountId}
+            onAddCustomTrackerEntry={handleAddCustomTrackerEntry}
+            onDeleteCustomTrackerEntry={handleDeleteCustomTrackerEntry}
+            onUpdateSettings={handleUpdateSettings}
             onOpenCalendar={() => setIsCalendarOpen(true)}
             onNavigateWeek={(dir) => {
               if (dir === 0) setWeekOffset(0);
@@ -1510,23 +1615,95 @@ export default function Home() {
           />
         )}
 
-        {activeTab === 'recipes' && (
-          <RecipeBookView
-            allRecipes={allRecipes}
-            customRecipes={userCustomRecipes}
-            preferences={activePreferences}
-            isDark={isDark}
-            onSelectRecipe={(recipe) => setSelectedRecipe(recipe)}
-            onOpenRecipeCreator={() => {
-              setRecipeToEdit(null);
-              setIsRecipeCreatorOpen(true);
-            }}
-            onOpenBarcodeModal={() => setIsBarcodeModalOpen(true)}
-            onEditRecipe={handleEditRecipe}
-            onDeleteRecipe={handleDeleteRecipe}
-            onPlanRecipeToDay={handlePlanRecipeToDay}
-            onImportRecipe={handleImportRecipeJson}
-          />
+        {(activeTab === 'recipes' || activeTab === 'preferences') && (
+          <div className="space-y-6">
+            {/* Switcher interne de l'onglet Cuisine : Mes Recettes / Produits & Catalogue */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div
+                className={`inline-flex items-center p-1 rounded-2xl border ${
+                  isDark ? 'bg-white/[0.04] border-white/10' : 'bg-stone-200/70 border-stone-300/70'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('recipes')}
+                  className={`px-4 py-2 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer ${
+                    activeTab === 'recipes'
+                      ? isDark
+                        ? 'bg-white text-stone-950 shadow-sm'
+                        : 'bg-stone-900 text-stone-50 shadow-xs'
+                      : isDark
+                      ? 'text-stone-400 hover:text-white'
+                      : 'text-stone-700 hover:text-stone-950'
+                  }`}
+                >
+                  Mes Recettes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('preferences')}
+                  className={`px-4 py-2 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer ${
+                    activeTab === 'preferences'
+                      ? isDark
+                        ? 'bg-white text-stone-950 shadow-sm'
+                        : 'bg-stone-900 text-stone-50 shadow-xs'
+                      : isDark
+                      ? 'text-stone-400 hover:text-white'
+                      : 'text-stone-700 hover:text-stone-950'
+                  }`}
+                >
+                  Produits & Catalogue
+                </button>
+              </div>
+            </div>
+
+            {activeTab === 'recipes' && (
+              <RecipeBookView
+                allRecipes={allRecipes}
+                customRecipes={userCustomRecipes}
+                preferences={activePreferences}
+                isDark={isDark}
+                onSelectRecipe={(recipe) => setSelectedRecipe(recipe)}
+                onOpenRecipeCreator={() => {
+                  setRecipeToEdit(null);
+                  setIsRecipeCreatorOpen(true);
+                }}
+                onOpenBarcodeModal={() => setIsBarcodeModalOpen(true)}
+                onEditRecipe={handleEditRecipe}
+                onDeleteRecipe={handleDeleteRecipe}
+                onPlanRecipeToDay={handlePlanRecipeToDay}
+                onImportRecipe={handleImportRecipeJson}
+              />
+            )}
+
+            {activeTab === 'preferences' && (
+              <ProductPreferencesView
+                preferences={activePreferences}
+                customPrices={customPrices}
+                userSettings={activeSettings}
+                accounts={accounts}
+                activeAccountId={activeAccountId}
+                isDark={isDark}
+                customProducts={customProducts}
+                pantryMap={pantryMap}
+                onOpenBarcodeModal={() => setIsBarcodeModalOpen(true)}
+                onOpenProductCreator={() => setIsProductCreatorOpen(true)}
+                onDeleteCustomProduct={handleDeleteCustomProduct}
+                onTogglePantry={handleTogglePantry}
+                onAddToGroceryList={handleAddToGroceryFromCatalog}
+                onBackupRestored={initAppData}
+                onUpdatePreference={handleUpdatePreference}
+                onUpdateCustomPrice={handleUpdateCustomPrice}
+                onRecordSharedExpense={handleRecordSharedExpense}
+                onDeleteSharedExpense={handleDeleteSharedExpense}
+                onSettleSharedBalances={handleSettleSharedBalances}
+                onUpdateSettings={handleUpdateSettings}
+                onSwitchAccount={handleSwitchAccount}
+                onResetAllPreferences={handleResetAllPreferences}
+                onApplyPreferencesToPlan={handleApplyPreferencesToPlan}
+              />
+            )}
+          </div>
         )}
 
         {activeTab === 'grocery' && (
@@ -1558,45 +1735,6 @@ export default function Home() {
             onRecordSharedExpense={handleRecordSharedExpense}
             onDeleteSharedExpense={handleDeleteSharedExpense}
             onSettleSharedBalances={handleSettleSharedBalances}
-          />
-        )}
-
-        {activeTab === 'preferences' && (
-          <ProductPreferencesView
-            preferences={activePreferences}
-            customPrices={customPrices}
-            userSettings={activeSettings}
-            accounts={accounts}
-            activeAccountId={activeAccountId}
-            isDark={isDark}
-            customProducts={customProducts}
-            pantryMap={pantryMap}
-            onOpenBarcodeModal={() => setIsBarcodeModalOpen(true)}
-            onOpenProductCreator={() => setIsProductCreatorOpen(true)}
-            onDeleteCustomProduct={handleDeleteCustomProduct}
-            onTogglePantry={handleTogglePantry}
-            onAddToGroceryList={handleAddToGroceryFromCatalog}
-            onBackupRestored={initAppData}
-            onUpdatePreference={handleUpdatePreference}
-            onUpdateCustomPrice={handleUpdateCustomPrice}
-            onRecordSharedExpense={handleRecordSharedExpense}
-            onDeleteSharedExpense={handleDeleteSharedExpense}
-            onSettleSharedBalances={handleSettleSharedBalances}
-            onUpdateSettings={handleUpdateSettings}
-            onSwitchAccount={handleSwitchAccount}
-            onResetAllPreferences={handleResetAllPreferences}
-            onApplyPreferencesToPlan={handleApplyPreferencesToPlan}
-          />
-        )}
-
-        {activeTab === 'tracker' && (
-          <CalorieTrackerView
-            currentDayPlan={activePlan.days[todayDayIndex] || activePlan.days[0]}
-            weeklyPlan={activePlan}
-            activeAccountId={activeAccountId}
-            userSettings={activeSettings}
-            isDark={isDark}
-            onOpenCalendar={() => setIsCalendarOpen(true)}
           />
         )}
 

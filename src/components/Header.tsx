@@ -234,7 +234,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             </div>
           </div>
 
-          {/* Centre : Navigation Principale Desktop Épurée */}
+          {/* Centre : Navigation Principale Desktop Épurée (3 Onglets Option B) */}
           <nav
             aria-label="Navigation principale"
             className={`hidden md:flex items-center p-1 rounded-2xl border transition-all shrink-0 ${isDark
@@ -244,7 +244,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           >
             <button
               onClick={() => setActiveTab('planner')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'planner'
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'planner'
                 ? isDark
                   ? 'bg-white text-stone-950 font-semibold shadow-md'
                   : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
@@ -252,15 +252,19 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                   ? 'text-stone-400 hover:text-white'
                   : 'text-stone-700 hover:text-stone-950 font-medium'
                 }`}
-              title="Planning de la semaine"
+              title="Planning de la semaine et macros du jour"
             >
               <Calendar className="w-3.5 h-3.5 shrink-0" />
-              <span>Semaine</span>
+              <span>Planning</span>
             </button>
 
             <button
-              onClick={() => setActiveTab('recipes')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'recipes'
+              onClick={() => {
+                if (activeTab !== 'recipes' && activeTab !== 'preferences') {
+                  setActiveTab('recipes');
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'recipes' || activeTab === 'preferences'
                 ? isDark
                   ? 'bg-white text-stone-950 font-semibold shadow-md'
                   : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
@@ -268,15 +272,15 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                   ? 'text-stone-400 hover:text-white'
                   : 'text-stone-700 hover:text-stone-950 font-medium'
                 }`}
-              title="Livre de recettes"
+              title="Mes Recettes et Produits & Catalogue"
             >
               <ChefHat className="w-3.5 h-3.5 shrink-0" />
-              <span>Recettes</span>
+              <span>Cuisine</span>
             </button>
 
             <button
               onClick={() => setActiveTab('grocery')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'grocery'
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'grocery'
                 ? isDark
                   ? 'bg-white text-stone-950 font-semibold shadow-md'
                   : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
@@ -284,10 +288,10 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                   ? 'text-stone-400 hover:text-white'
                   : 'text-stone-700 hover:text-stone-950 font-medium'
                 }`}
-              title="Liste d'épicerie"
+              title="Liste de courses"
             >
               <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
-              <span>Épicerie</span>
+              <span>Courses</span>
               {groceryCount > 0 && (
                 <span
                   className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold shrink-0 ${activeTab === 'grocery'
@@ -302,38 +306,6 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                   {groceryCount}
                 </span>
               )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('tracker')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'tracker'
-                ? isDark
-                  ? 'bg-white text-stone-950 font-semibold shadow-md'
-                  : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
-                : isDark
-                  ? 'text-stone-400 hover:text-white'
-                  : 'text-stone-700 hover:text-stone-950 font-medium'
-                }`}
-              title="Suivi des calories et macros"
-            >
-              <Activity className="w-3.5 h-3.5 shrink-0" />
-              <span>Tracker</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('preferences')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === 'preferences'
-                ? isDark
-                  ? 'bg-white text-stone-950 font-semibold shadow-md'
-                  : 'bg-stone-900 text-stone-50 font-semibold shadow-sm'
-                : isDark
-                  ? 'text-stone-400 hover:text-white'
-                  : 'text-stone-700 hover:text-stone-950 font-medium'
-                }`}
-              title="Catalogue des aliments, cibles nutritionnelles et préférences"
-            >
-              <BookOpen className="w-3.5 h-3.5 shrink-0" />
-              <span>Catalogue</span>
             </button>
           </nav>
 
@@ -730,8 +702,8 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           : 'bg-white/98 border-stone-200/90 text-stone-500 shadow-[0_-8px_20px_rgba(0,0,0,0.06)]'
       }`}
     >
-      <div className="grid grid-cols-5 items-center h-15 px-1 max-w-lg mx-auto">
-        {/* 1. Semaine */}
+      <div className="grid grid-cols-3 items-center h-15 px-2 max-w-md mx-auto">
+        {/* 1. Planning */}
         <button
           onClick={() => setActiveTab('planner')}
           className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all active:scale-90 touch-manipulation ${
@@ -743,31 +715,35 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           }`}
         >
           <Calendar className={`w-4 h-4 mb-0.5 shrink-0 ${activeTab === 'planner' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
-          <span className="text-[10px] tracking-tight">Semaine</span>
+          <span className="text-[10px] tracking-tight">Planning</span>
           {activeTab === 'planner' && (
             <div className="w-1 h-1 rounded-full bg-stone-950 dark:bg-white mt-0.5" />
           )}
         </button>
 
-        {/* 2. Recettes */}
+        {/* 2. Cuisine (Recettes & Catalogue) */}
         <button
-          onClick={() => setActiveTab('recipes')}
+          onClick={() => {
+            if (activeTab !== 'recipes' && activeTab !== 'preferences') {
+              setActiveTab('recipes');
+            }
+          }}
           className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all active:scale-90 touch-manipulation ${
-            activeTab === 'recipes'
+            activeTab === 'recipes' || activeTab === 'preferences'
               ? isDark
                 ? 'text-white font-bold'
                 : 'text-stone-950 font-bold'
               : 'hover:text-stone-900 dark:hover:text-white'
           }`}
         >
-          <ChefHat className={`w-4 h-4 mb-0.5 shrink-0 ${activeTab === 'recipes' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
-          <span className="text-[10px] tracking-tight">Recettes</span>
-          {activeTab === 'recipes' && (
+          <ChefHat className={`w-4 h-4 mb-0.5 shrink-0 ${activeTab === 'recipes' || activeTab === 'preferences' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+          <span className="text-[10px] tracking-tight">Cuisine</span>
+          {(activeTab === 'recipes' || activeTab === 'preferences') && (
             <div className="w-1 h-1 rounded-full bg-stone-950 dark:bg-white mt-0.5" />
           )}
         </button>
 
-        {/* 3. Épicerie (avec Badge) */}
+        {/* 3. Courses (avec Badge) */}
         <button
           onClick={() => setActiveTab('grocery')}
           className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all relative active:scale-90 touch-manipulation ${
@@ -786,63 +762,8 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               </span>
             )}
           </div>
-          <span className="text-[10px] tracking-tight">Épicerie</span>
+          <span className="text-[10px] tracking-tight">Courses</span>
           {activeTab === 'grocery' && (
-            <div className="w-1 h-1 rounded-full bg-stone-950 dark:bg-white mt-0.5" />
-          )}
-        </button>
-
-        {/* 4. Tracker */}
-        <button
-          onClick={() => setActiveTab('tracker')}
-          className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all active:scale-90 touch-manipulation ${
-            activeTab === 'tracker'
-              ? isDark
-                ? 'text-white font-bold'
-                : 'text-stone-950 font-bold'
-              : 'hover:text-stone-900 dark:hover:text-white'
-          }`}
-        >
-          <Activity className={`w-4 h-4 mb-0.5 shrink-0 ${activeTab === 'tracker' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
-          <span className="text-[10px] tracking-tight">Tracker</span>
-          {activeTab === 'tracker' && (
-            <div className="w-1 h-1 rounded-full bg-stone-950 dark:bg-white mt-0.5" />
-          )}
-        </button>
-
-        {/* Onglet Prix & Prot conservé dans le code mais masqué de l'affichage
-        <button
-          onClick={() => setActiveTab('prices')}
-          className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all active:scale-90 touch-manipulation ${
-            activeTab === 'prices'
-              ? isDark
-                ? 'text-white font-bold'
-                : 'text-stone-950 font-bold'
-              : 'hover:text-stone-900 dark:hover:text-white'
-          }`}
-        >
-          <Store className={`w-4 h-4 mb-0.5 shrink-0 ${activeTab === 'prices' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
-          <span className="text-[10px] tracking-tight">Prix & Prot</span>
-          {activeTab === 'prices' && (
-            <div className="w-1 h-1 rounded-full bg-stone-950 dark:bg-white mt-0.5" />
-          )}
-        </button>
-        */}
-
-        {/* 5. Catalogue */}
-        <button
-          onClick={() => setActiveTab('preferences')}
-          className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all active:scale-90 touch-manipulation ${
-            activeTab === 'preferences'
-              ? isDark
-                ? 'text-white font-bold'
-                : 'text-stone-950 font-bold'
-              : 'hover:text-stone-900 dark:hover:text-white'
-          }`}
-        >
-          <BookOpen className={`w-4 h-4 mb-0.5 shrink-0 ${activeTab === 'preferences' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
-          <span className="text-[10px] tracking-tight">Catalogue</span>
-          {activeTab === 'preferences' && (
             <div className="w-1 h-1 rounded-full bg-stone-950 dark:bg-white mt-0.5" />
           )}
         </button>
