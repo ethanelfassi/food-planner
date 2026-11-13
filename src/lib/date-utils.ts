@@ -3,6 +3,36 @@
  * Conçu pour préserver les fuseaux horaires locaux et le cycle de la semaine québécoise (Lundi à Dimanche)
  */
 
+export const DEFAULT_TIMEZONE = 'America/Toronto';
+
+/**
+ * Retourne la date et l'heure actuelles calées sur le fuseau horaire du Québec (America/Toronto)
+ */
+export function getQuebecNow(): Date {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: DEFAULT_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date());
+
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((p) => p.type === type)?.value || 0);
+
+  return new Date(
+    get('year'),
+    Math.max(0, get('month') - 1),
+    get('day') || 1,
+    get('hour') % 24,
+    get('minute'),
+    get('second')
+  );
+}
+
 export const DAY_NAMES = [
   'Lundi',
   'Mardi',
@@ -48,7 +78,7 @@ export const MONTH_NAMES_SHORT = [
 /**
  * Convertit une Date en clé de date standardisée 'YYYY-MM-DD' en heure locale
  */
-export function toDateKey(date: Date = new Date()): string {
+export function toDateKey(date: Date = getQuebecNow()): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -70,7 +100,7 @@ export function parseDateKey(dateKey: string): Date {
 /**
  * Récupère le lundi de la semaine d'une date donnée (à midi)
  */
-export function getMondayOfWeek(date: Date = new Date()): Date {
+export function getMondayOfWeek(date: Date = getQuebecNow()): Date {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
   const day = d.getDay(); // 0 = Dimanche, 1 = Lundi, ..., 6 = Samedi
   const diffToMonday = day === 0 ? -6 : 1 - day;
@@ -97,7 +127,7 @@ export function addWeeks(date: Date, weeks: number): Date {
 /**
  * Calcule l'indice 0..6 (0 = Lundi, 6 = Dimanche)
  */
-export function getDayIndex(date: Date = new Date()): number {
+export function getDayIndex(date: Date = getQuebecNow()): number {
   const day = date.getDay();
   return day === 0 ? 6 : day - 1;
 }
@@ -119,7 +149,7 @@ export interface WeekDayInfo {
  * Génère les 7 jours de la semaine commençant par le lundi spécifié
  */
 export function getWeekDays(mondayDate: Date = getMondayOfWeek()): WeekDayInfo[] {
-  const todayKey = toDateKey(new Date());
+  const todayKey = toDateKey(getQuebecNow());
   const monday = getMondayOfWeek(mondayDate);
 
   const days: WeekDayInfo[] = [];
@@ -177,7 +207,7 @@ export function formatWeekRangeFrench(mondayDate: Date = getMondayOfWeek()): str
  * Formate une date en format court français pour un badge
  * Ex: "Aujourd'hui, 5 nov." ou "Jeu 5 nov."
  */
-export function formatHeaderDateFrench(date: Date = new Date()): string {
+export function formatHeaderDateFrench(date: Date = getQuebecNow()): string {
   const dayName = DAY_NAMES[getDayIndex(date)];
   const dayNum = date.getDate();
   const monthName = MONTH_NAMES_SHORT[date.getMonth()];

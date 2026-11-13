@@ -6,6 +6,7 @@ import {
   MONTH_NAMES_SHORT,
   getDayIndex,
   getMondayOfWeek,
+  getQuebecNow,
   toDateKey,
 } from '@/lib/date-utils';
 import {
@@ -82,7 +83,7 @@ function resolveBaseUrl(req: NextRequest): string {
 }
 
 function getTodayContext(accountId: string) {
-  const now = new Date();
+  const now = getQuebecNow();
   const dateKey = toDateKey(now);
   const dayIndex = getDayIndex(now);
   const monday = getMondayOfWeek(now);
