@@ -21,13 +21,16 @@ import {
   ScheduledMealRecord,
   Friendship,
   SharedGroceryGroup,
-  DailyTrackerLog
+  DailyTrackerLog,
+  TrackerCustomEntry,
+  TrackerMealSlot
 } from '@/types';
 import {
   generateWeeklyPlan,
   replaceRecipeInPlan,
   applyScheduledMealsToWeeklyPlan,
 } from '@/lib/planner';
+import { estimateTotalWeightGrams, resolveUnitWeightGrams } from '@/lib/nutrition';
 import {
   generateGroceryList,
   generateCommonGroceryList,
@@ -102,6 +105,7 @@ export default function Home() {
   const [pantryMap, setPantryMap] = useState<Record<string, boolean>>({});
   const [isProductCreatorOpen, setIsProductCreatorOpen] = useState(false);
   const [scheduledMeals, setScheduledMeals] = useState<ScheduledMealRecord[]>([]);
+  const [pendingTrackerScanSlot, setPendingTrackerScanSlot] = useState<TrackerMealSlot | null>(null);
 
   const isDark = theme === 'dark';
 
@@ -736,6 +740,11 @@ export default function Home() {
 
   // --- GESTION DES PRODUITS PERSONNALISÉS (CODE-BARRES SQLITE) ---
 
+  const handleOpenBarcodeForTracker = (slot: TrackerMealSlot) => {
+    setPendingTrackerScanSlot(slot);
+    setIsBarcodeModalOpen(true);
+  };
+
   const handleProductAddedFromBarcode = (product: Ingredient) => {
     setCustomProducts((prev) => {
       const exists = prev.some((p) => p.id === product.id);
@@ -744,6 +753,33 @@ export default function Home() {
       }
       return [product, ...prev];
     });
+
+    if (pendingTrackerScanSlot) {
+      const targetSlot = pendingTrackerScanSlot;
+      setPendingTrackerScanSlot(null);
+      const dayObj = activePlan?.days[selectedPlannerDayIndex] || activePlan?.days[0];
+      const dayIdx = dayObj?.dayIndex ?? selectedPlannerDayIndex;
+      const dateStr = dayObj?.date;
+      const grams = estimateTotalWeightGrams(1, 'unite', product.id, product);
+      const factor = grams / 100;
+      const cals = Math.max(0, Math.round(product.macrosPer100g.calories * factor));
+      const prot = Math.max(0, Math.round(product.macrosPer100g.protein * factor));
+      const carbs = Math.max(0, Math.round(product.macrosPer100g.carbs * factor));
+      const fat = Math.max(0, Math.round(product.macrosPer100g.fat * factor));
+      void handleAddCustomTrackerEntry(dayIdx, dateStr, {
+        name: `${product.name} · 1 unité (${Math.round(grams)}g)`,
+        calories: cals,
+        protein: prot,
+        carbs,
+        fat,
+        mealSlot: targetSlot,
+        quantity: 1,
+        unit: 'unite',
+        ingredientId: product.id,
+        unitWeightGrams: Math.round(grams) || resolveUnitWeightGrams(product.id, product),
+        perUnitMacros: { calories: cals, protein: prot, carbs, fat },
+      });
+    }
   };
 
   const handleDeleteCustomProduct = async (productId: string) => {
@@ -978,6 +1014,44 @@ export default function Home() {
       });
     } catch (err) {
       console.warn('Erreur sauvegarde ajout hors-plan:', err);
+    }
+  };
+
+  const handleUpdateCustomTrackerEntry = async (
+    dayIndex: number,
+    date: string | undefined,
+    entryId: string,
+    updates: Partial<TrackerCustomEntry>
+  ) => {
+    const targetDay = activePlan?.days.find((d) => d.dayIndex === dayIndex);
+    const dateKey = date || targetDay?.date || toDateKey();
+    const existingLog = trackerLogs.find(
+      (l) => l.accountId === activeAccountId && (dateKey ? l.date === dateKey : l.dayIndex === dayIndex)
+    );
+    if (!existingLog) return;
+    const updatedLog: DailyTrackerLog = {
+      ...existingLog,
+      customEntries: existingLog.customEntries.map((e) =>
+        e.id === entryId ? { ...e, ...updates } : e
+      ),
+    };
+
+    setTrackerLogs((prev) =>
+      prev.map((l) =>
+        l.accountId === activeAccountId && (dateKey ? l.date === dateKey : l.dayIndex === dayIndex)
+          ? updatedLog
+          : l
+      )
+    );
+
+    try {
+      await fetch('/api/tracker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedLog),
+      });
+    } catch (err) {
+      console.warn('Erreur mise à jour ajout hors-plan:', err);
     }
   };
 
@@ -1598,7 +1672,9 @@ export default function Home() {
             trackerLogs={trackerLogs}
             activeAccountId={activeAccountId}
             onAddCustomTrackerEntry={handleAddCustomTrackerEntry}
+            onUpdateCustomTrackerEntry={handleUpdateCustomTrackerEntry}
             onDeleteCustomTrackerEntry={handleDeleteCustomTrackerEntry}
+            onOpenBarcodeForTracker={handleOpenBarcodeForTracker}
             onUpdateSettings={handleUpdateSettings}
             onOpenCalendar={() => setIsCalendarOpen(true)}
             onNavigateWeek={(dir) => {
@@ -1795,7 +1871,10 @@ export default function Home() {
 
       <BarcodeScannerModal
         isOpen={isBarcodeModalOpen}
-        onClose={() => setIsBarcodeModalOpen(false)}
+        onClose={() => {
+          setIsBarcodeModalOpen(false);
+          setPendingTrackerScanSlot(null);
+        }}
         onProductAdded={handleProductAddedFromBarcode}
         isDark={isDark}
       />

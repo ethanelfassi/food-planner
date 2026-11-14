@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   ProductPreferencesMap,
   Recipe,
@@ -9,6 +9,7 @@ import {
   Ingredient,
   DailyTrackerLog,
   TrackerCustomEntry,
+  TrackerMealSlot,
   DEFAULT_USER_SETTINGS,
 } from '@/types';
 import { RECIPES } from '@/data/recipes';
@@ -23,6 +24,8 @@ import {
   Zap, 
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   Calendar, 
   Check, 
   Sparkles,
@@ -32,11 +35,25 @@ import {
   Droplet,
   Heart,
   Plus,
+  Minus,
   Search,
+  ScanBarcode,
   Trash2,
   X,
   Target
 } from 'lucide-react';
+
+const TRACKER_MEAL_SLOTS: {
+  key: TrackerMealSlot;
+  label: string;
+  shortLabel: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { key: 'breakfast', label: 'Petit-déjeuner', shortLabel: 'Petit-déj', icon: Coffee },
+  { key: 'lunch', label: 'Déjeuner (Midi)', shortLabel: 'Déjeuner', icon: Sun },
+  { key: 'dinner', label: 'Dîner (Soir)', shortLabel: 'Dîner', icon: Moon },
+  { key: 'snack', label: 'Collations', shortLabel: 'Collation', icon: Zap },
+];
 
 interface WeeklyPlannerViewProps {
   plan: WeeklyPlan;
@@ -58,7 +75,9 @@ interface WeeklyPlannerViewProps {
   trackerLogs?: DailyTrackerLog[];
   activeAccountId?: string;
   onAddCustomTrackerEntry?: (dayIndex: number, date: string | undefined, entry: Omit<TrackerCustomEntry, 'id'>) => void;
+  onUpdateCustomTrackerEntry?: (dayIndex: number, date: string | undefined, entryId: string, updates: Partial<TrackerCustomEntry>) => void;
   onDeleteCustomTrackerEntry?: (dayIndex: number, date: string | undefined, entryId: string) => void;
+  onOpenBarcodeForTracker?: (slot: TrackerMealSlot) => void;
   onUpdateSettings?: (newSettings: Partial<UserCustomizationSettings>) => void;
 }
 
@@ -82,11 +101,19 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
   trackerLogs = [],
   activeAccountId = 'ethan',
   onAddCustomTrackerEntry,
+  onUpdateCustomTrackerEntry,
   onDeleteCustomTrackerEntry,
+  onOpenBarcodeForTracker,
   onUpdateSettings,
 }) => {
   const [internalDayIndex, setInternalDayIndex] = useState<number>(0);
-  const [showCustomEntryForm, setShowCustomEntryForm] = useState(false);
+  const [showCustomEntryForm, setShowCustomEntryForm] = useState(true);
+  const [targetMealSlot, setTargetMealSlot] = useState<TrackerMealSlot>('snack');
+  const [quickEntryMode, setQuickEntryMode] = useState<'search' | 'manual'>('search');
+  const [justAddedLabel, setJustAddedLabel] = useState<string | null>(null);
+  const justAddedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const quickSearchInputRef = useRef<HTMLInputElement | null>(null);
+
   const [customEntryName, setCustomEntryName] = useState('');
   const [customEntryCalories, setCustomEntryCalories] = useState('');
   const [customEntryProtein, setCustomEntryProtein] = useState('');
@@ -95,6 +122,30 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
   const [quickFoodQuery, setQuickFoodQuery] = useState('');
   const [quickFoodQty, setQuickFoodQty] = useState('1');
   const [quickFoodUnit, setQuickFoodUnit] = useState('unite');
+
+  const triggerJustAdded = useCallback((label: string) => {
+    setJustAddedLabel(label);
+    if (justAddedTimerRef.current) clearTimeout(justAddedTimerRef.current);
+    justAddedTimerRef.current = setTimeout(() => {
+      setJustAddedLabel(null);
+    }, 2200);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (justAddedTimerRef.current) clearTimeout(justAddedTimerRef.current);
+    };
+  }, []);
+
+  const focusHubForSlot = useCallback((slot: TrackerMealSlot) => {
+    setTargetMealSlot(slot);
+    setShowCustomEntryForm(true);
+    setShowTargetsEditor(false);
+    setQuickEntryMode('search');
+    requestAnimationFrame(() => {
+      quickSearchInputRef.current?.focus();
+    });
+  }, []);
 
   const [showTargetsEditor, setShowTargetsEditor] = useState(false);
   const [draftTargets, setDraftTargets] = useState({
@@ -200,22 +251,97 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
     };
   }, [activeMacroDay, activeDayLog, userSettings]);
 
+  const formatEntryLabel = useCallback(
+    (baseName: string, qty: number, unit?: string, unitWeightGrams?: number) => {
+      if (!unit) {
+        return qty === 1 ? baseName : `${baseName} · ×${qty}`;
+      }
+      if (unit === 'g' || unit === 'ml') {
+        return `${baseName} · ${qty}${unit}`;
+      }
+      if (unit === 'portion') {
+        return `${baseName} · ${qty} portion${qty > 1 ? 's' : ''}`;
+      }
+      if (unit === 'c_a_soupe') {
+        return `${baseName} · ${qty} c.à.s.`;
+      }
+      if (unit === 'unite') {
+        const uLabel = qty > 1 ? 'unités' : 'unité';
+        const gramsPart = unitWeightGrams ? ` (${Math.round(unitWeightGrams * qty)}g)` : '';
+        return `${baseName} · ${qty} ${uLabel}${gramsPart}`;
+      }
+      return `${baseName} · ${qty} ${unit}`;
+    },
+    []
+  );
+
+  const customEntriesBySlot = useMemo(() => {
+    const grouped: Record<TrackerMealSlot, TrackerCustomEntry[]> = {
+      breakfast: [],
+      lunch: [],
+      dinner: [],
+      snack: [],
+    };
+    for (const entry of macroSummary.customEntries) {
+      const slot: TrackerMealSlot = entry.mealSlot || 'snack';
+      grouped[slot].push(entry);
+    }
+    return grouped;
+  }, [macroSummary.customEntries]);
+
+  const handleAdjustEntryQuantity = useCallback(
+    (entry: TrackerCustomEntry, rawNewQty: number) => {
+      if (!onUpdateCustomTrackerEntry || !activeMacroDay) return;
+      const isWeightUnit = entry.unit === 'g' || entry.unit === 'ml';
+      const minQty = isWeightUnit ? 5 : 0.5;
+      const newQty = Math.max(minQty, Math.round(rawNewQty * 10) / 10);
+      const oldQty = entry.quantity && entry.quantity > 0 ? entry.quantity : 1;
+      const perUnit = entry.perUnitMacros || {
+        calories: entry.calories / oldQty,
+        protein: entry.protein / oldQty,
+        carbs: (entry.carbs || 0) / oldQty,
+        fat: (entry.fat || 0) / oldQty,
+      };
+      const baseName = entry.name.split(' · ')[0].trim() || entry.name;
+      onUpdateCustomTrackerEntry(activeMacroDay.dayIndex, activeMacroDay.date, entry.id, {
+        name: formatEntryLabel(baseName, newQty, entry.unit, entry.unitWeightGrams),
+        quantity: newQty,
+        calories: Math.max(0, Math.round(perUnit.calories * newQty)),
+        protein: Math.max(0, Math.round(perUnit.protein * newQty)),
+        carbs: Math.max(0, Math.round(perUnit.carbs * newQty)),
+        fat: Math.max(0, Math.round(perUnit.fat * newQty)),
+        perUnitMacros: perUnit,
+      });
+    },
+    [onUpdateCustomTrackerEntry, activeMacroDay, formatEntryLabel]
+  );
+
   const handleCreateCustomEntry = (e: React.FormEvent) => {
     e.preventDefault();
     if (!onAddCustomTrackerEntry || !activeMacroDay || !customEntryName.trim()) return;
+    const cals = Math.max(0, Math.round(Number(customEntryCalories) || 0));
+    const prot = Math.max(0, Math.round(Number(customEntryProtein) || 0));
+    const carbs = Math.max(0, Math.round(Number(customEntryCarbs) || 0));
+    const fat = Math.max(0, Math.round(Number(customEntryFat) || 0));
+    const title = customEntryName.trim();
+
     onAddCustomTrackerEntry(activeMacroDay.dayIndex, activeMacroDay.date, {
-      name: customEntryName.trim(),
-      calories: Math.max(0, Math.round(Number(customEntryCalories) || 0)),
-      protein: Math.max(0, Math.round(Number(customEntryProtein) || 0)),
-      carbs: Math.max(0, Math.round(Number(customEntryCarbs) || 0)),
-      fat: Math.max(0, Math.round(Number(customEntryFat) || 0)),
+      name: title,
+      calories: cals,
+      protein: prot,
+      carbs,
+      fat,
+      mealSlot: targetMealSlot,
+      quantity: 1,
+      unit: 'portion',
+      perUnitMacros: { calories: cals, protein: prot, carbs, fat },
     });
     setCustomEntryName('');
     setCustomEntryCalories('');
     setCustomEntryProtein('');
     setCustomEntryCarbs('');
     setCustomEntryFat('');
-    setShowCustomEntryForm(false);
+    triggerJustAdded(title);
   };
 
   const allQuickFoods = React.useMemo(() => {
@@ -235,6 +361,10 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
     }
     return merged;
   }, [customProducts]);
+
+  const allRecipesPool = React.useMemo(() => {
+    return [...RECIPES, ...(customRecipes || [])];
+  }, [customRecipes]);
 
   const quickFoodMatches = React.useMemo(() => {
     const q = quickFoodQuery
@@ -268,34 +398,213 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
       .slice(0, 10);
   }, [allQuickFoods, customProducts, quickFoodQuery]);
 
+  const quickRecipeMatches = React.useMemo(() => {
+    const q = quickFoodQuery
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (!q) {
+      return (customRecipes || []).slice(0, 3);
+    }
+
+    const terms = q.split(/\s+/).filter(Boolean);
+    return allRecipesPool
+      .filter((rec) => {
+        const hay = `${rec.title} ${(rec.tags || []).join(' ')} ${rec.mealType}`
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+        return terms.every((t) => hay.includes(t));
+      })
+      .slice(0, 5);
+  }, [allRecipesPool, customRecipes, quickFoodQuery]);
+
+  const recentHabitualChips = React.useMemo(() => {
+    type ShortcutItem = {
+      key: string;
+      baseName: string;
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+      quantity: number;
+      unit: string;
+      ingredientId?: string;
+      recipeId?: string;
+      unitWeightGrams?: number;
+      perUnitMacros: { calories: number; protein: number; carbs: number; fat: number };
+      count: number;
+    };
+
+    const byKey = new Map<string, ShortcutItem>();
+    const logsForAccount = (trackerLogs || []).filter((l) => l.accountId === activeAccountId);
+
+    for (const log of logsForAccount) {
+      for (const entry of log.customEntries || []) {
+        const baseName = entry.name.split(' · ')[0].trim() || entry.name;
+        const key = entry.ingredientId || entry.recipeId || baseName.toLowerCase();
+        const existing = byKey.get(key);
+        if (existing) {
+          existing.count += 1;
+          continue;
+        }
+        const entryQty = entry.quantity && entry.quantity > 0 ? entry.quantity : 1;
+        const perUnit = entry.perUnitMacros || {
+          calories: entry.calories / entryQty,
+          protein: entry.protein / entryQty,
+          carbs: (entry.carbs || 0) / entryQty,
+          fat: (entry.fat || 0) / entryQty,
+        };
+        const unit = entry.unit || 'portion';
+        const defaultQty = unit === 'g' || unit === 'ml' ? 100 : 1;
+        byKey.set(key, {
+          key,
+          baseName,
+          calories: Math.max(0, Math.round(perUnit.calories * defaultQty)),
+          protein: Math.max(0, Math.round(perUnit.protein * defaultQty)),
+          carbs: Math.max(0, Math.round(perUnit.carbs * defaultQty)),
+          fat: Math.max(0, Math.round(perUnit.fat * defaultQty)),
+          quantity: defaultQty,
+          unit,
+          ingredientId: entry.ingredientId,
+          recipeId: entry.recipeId,
+          unitWeightGrams: entry.unitWeightGrams,
+          perUnitMacros: perUnit,
+          count: 1,
+        });
+      }
+    }
+
+    for (const prod of customProducts || []) {
+      if (byKey.has(prod.id)) continue;
+      const unitG = resolveUnitWeightGrams(prod.id, prod);
+      const factor = unitG / 100;
+      const cals = Math.max(0, Math.round(prod.macrosPer100g.calories * factor));
+      const prot = Math.max(0, Math.round(prod.macrosPer100g.protein * factor));
+      const carbs = Math.max(0, Math.round(prod.macrosPer100g.carbs * factor));
+      const fat = Math.max(0, Math.round(prod.macrosPer100g.fat * factor));
+      byKey.set(prod.id, {
+        key: prod.id,
+        baseName: prod.name,
+        calories: cals,
+        protein: prot,
+        carbs,
+        fat,
+        quantity: 1,
+        unit: 'unite',
+        ingredientId: prod.id,
+        unitWeightGrams: unitG,
+        perUnitMacros: {
+          calories: prod.macrosPer100g.calories * factor,
+          protein: prod.macrosPer100g.protein * factor,
+          carbs: prod.macrosPer100g.carbs * factor,
+          fat: prod.macrosPer100g.fat * factor,
+        },
+        count: 0,
+      });
+    }
+
+    return Array.from(byKey.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+  }, [trackerLogs, activeAccountId, customProducts]);
+
+  const handleTapRecentShortcut = (shortcut: (typeof recentHabitualChips)[number]) => {
+    if (!onAddCustomTrackerEntry || !activeMacroDay) return;
+    const sameSlotMatch = customEntriesBySlot[targetMealSlot].find(
+      (e) =>
+        (shortcut.ingredientId && e.ingredientId === shortcut.ingredientId) ||
+        (shortcut.recipeId && e.recipeId === shortcut.recipeId) ||
+        e.name.split(' · ')[0].trim().toLowerCase() === shortcut.baseName.toLowerCase()
+    );
+
+    if (sameSlotMatch && onUpdateCustomTrackerEntry) {
+      const step = shortcut.unit === 'g' || shortcut.unit === 'ml' ? 50 : 1;
+      handleAdjustEntryQuantity(sameSlotMatch, (sameSlotMatch.quantity || 1) + step);
+      triggerJustAdded(`+1 ${shortcut.baseName}`);
+      return;
+    }
+
+    onAddCustomTrackerEntry(activeMacroDay.dayIndex, activeMacroDay.date, {
+      name: formatEntryLabel(
+        shortcut.baseName,
+        shortcut.quantity,
+        shortcut.unit,
+        shortcut.unitWeightGrams
+      ),
+      calories: shortcut.calories,
+      protein: shortcut.protein,
+      carbs: shortcut.carbs,
+      fat: shortcut.fat,
+      mealSlot: targetMealSlot,
+      quantity: shortcut.quantity,
+      unit: shortcut.unit,
+      ingredientId: shortcut.ingredientId,
+      recipeId: shortcut.recipeId,
+      unitWeightGrams: shortcut.unitWeightGrams,
+      perUnitMacros: shortcut.perUnitMacros,
+    });
+    triggerJustAdded(shortcut.baseName);
+  };
+
   const handleAddQuickCatalogFood = (food: Ingredient) => {
     if (!onAddCustomTrackerEntry || !activeMacroDay) return;
     const qty = Math.max(0.1, Number(quickFoodQty) || 1);
     const grams = estimateTotalWeightGrams(qty, quickFoodUnit, food.id, food);
+    const oneUnitGrams = estimateTotalWeightGrams(1, quickFoodUnit, food.id, food);
     const factor = grams / 100;
-    const unitLabel =
-      quickFoodUnit === 'unite'
-        ? qty > 1
-          ? 'unités'
-          : 'unité'
-        : quickFoodUnit === 'c_a_soupe'
-        ? 'c.à.s.'
-        : quickFoodUnit;
-    const qtyDisplay =
-      quickFoodUnit === 'g' || quickFoodUnit === 'ml'
-        ? `${qty}${unitLabel}`
-        : `${qty} ${unitLabel} (${Math.round(grams)}g)`;
+    const unitFactor = oneUnitGrams / 100;
+    const unitG = resolveUnitWeightGrams(food.id, food);
 
     onAddCustomTrackerEntry(activeMacroDay.dayIndex, activeMacroDay.date, {
-      name: `${food.name} · ${qtyDisplay}`,
+      name: formatEntryLabel(food.name, qty, quickFoodUnit, quickFoodUnit === 'unite' ? unitG : undefined),
       calories: Math.max(0, Math.round(food.macrosPer100g.calories * factor)),
       protein: Math.max(0, Math.round(food.macrosPer100g.protein * factor)),
       carbs: Math.max(0, Math.round(food.macrosPer100g.carbs * factor)),
       fat: Math.max(0, Math.round(food.macrosPer100g.fat * factor)),
+      mealSlot: targetMealSlot,
+      quantity: qty,
+      unit: quickFoodUnit,
+      ingredientId: food.id,
+      unitWeightGrams: quickFoodUnit === 'unite' ? unitG : undefined,
+      perUnitMacros: {
+        calories: food.macrosPer100g.calories * unitFactor,
+        protein: food.macrosPer100g.protein * unitFactor,
+        carbs: food.macrosPer100g.carbs * unitFactor,
+        fat: food.macrosPer100g.fat * unitFactor,
+      },
     });
-    setQuickFoodQuery('');
     setQuickFoodQty('1');
-    setShowCustomEntryForm(false);
+    triggerJustAdded(food.name);
+  };
+
+  const handleAddQuickRecipe = (recipe: Recipe) => {
+    if (!onAddCustomTrackerEntry || !activeMacroDay) return;
+    const rawQty = Number(quickFoodQty) || 1;
+    const qty = quickFoodUnit === 'g' || quickFoodUnit === 'ml' || rawQty <= 0 || rawQty > 20 ? 1 : rawQty;
+    const perUnit = {
+      calories: recipe.caloriesPerServing,
+      protein: recipe.proteinPerServing,
+      carbs: recipe.carbsPerServing,
+      fat: recipe.fatPerServing,
+    };
+
+    onAddCustomTrackerEntry(activeMacroDay.dayIndex, activeMacroDay.date, {
+      name: formatEntryLabel(recipe.title, qty, 'portion'),
+      calories: Math.max(0, Math.round(perUnit.calories * qty)),
+      protein: Math.max(0, Math.round(perUnit.protein * qty)),
+      carbs: Math.max(0, Math.round(perUnit.carbs * qty)),
+      fat: Math.max(0, Math.round(perUnit.fat * qty)),
+      mealSlot: targetMealSlot,
+      quantity: qty,
+      unit: 'portion',
+      recipeId: recipe.id,
+      perUnitMacros: perUnit,
+    });
+    setQuickFoodQty('1');
+    triggerJustAdded(recipe.title);
   };
 
   const handleSaveTargets = (e: React.FormEvent) => {
@@ -333,10 +642,6 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
     },
     [customProductsMap]
   );
-
-  const allRecipesPool = React.useMemo(() => {
-    return [...RECIPES, ...(customRecipes || [])];
-  }, [customRecipes]);
 
   const canAutoGenerate = allRecipesPool.length >= MIN_RECIPES_FOR_AUTO_GENERATION;
 
@@ -376,7 +681,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight text-stone-900 dark:text-white">
-                  Planning
+                  Journal &amp; Planning
                 </h1>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-stone-200/80 dark:bg-white/10 text-stone-800 dark:text-stone-200 font-semibold">
                   {activeMacroDay?.isToday ? "Aujourd'hui • " : ''}
@@ -384,7 +689,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                 </span>
               </div>
               <p className="text-xs font-mono text-stone-500 dark:text-stone-400 mt-1">
-                Consommé (repas cochés + hors-plan) et prévu du jour vs vos objectifs
+                Ajoutez vos repas, collations et aliments mangés en direct ou planifiez votre semaine
               </p>
             </div>
 
@@ -399,15 +704,15 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-semibold border transition-all cursor-pointer ${
                     showCustomEntryForm
                       ? isDark
-                        ? 'bg-white text-stone-950 border-white'
+                        ? 'bg-emerald-500 text-stone-950 border-emerald-400'
                         : 'bg-stone-900 text-white border-stone-900'
                       : isDark
                       ? 'bg-white/[0.04] border-white/10 text-stone-200 hover:bg-white/10'
                       : 'bg-white border-stone-200 text-stone-800 hover:bg-stone-50 shadow-xs'
                   }`}
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Hors-plan</span>
+                  {showCustomEntryForm ? <ChevronUp className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                  <span>{showCustomEntryForm ? 'Masquer ajout' : '+ Ajout express'}</span>
                 </button>
               )}
               {onUpdateSettings && (
@@ -543,11 +848,11 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
             })}
           </div>
 
-          {/* Pills des ajouts hors-plan du jour sélectionné */}
-          {macroSummary.customEntries.length > 0 && (
+          {/* Résumé compact si le Hub d'ajout express est replié */}
+          {!showCustomEntryForm && macroSummary.customEntries.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-mono uppercase tracking-wider text-stone-500 font-semibold">
-                Hors-plan :
+                Journal du jour ({macroSummary.customEntries.length}) :
               </span>
               {macroSummary.customEntries.map((entry) => (
                 <span
@@ -562,94 +867,257 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                   <span className="text-stone-400">
                     {entry.calories}kcal · {entry.protein}gP
                   </span>
-                  {onDeleteCustomTrackerEntry && activeMacroDay && (
-                    <button
-                      type="button"
-                      onClick={() => onDeleteCustomTrackerEntry(activeMacroDay.dayIndex, activeMacroDay.date, entry.id)}
-                      className="text-stone-400 hover:text-rose-500 transition-colors cursor-pointer"
-                      title="Supprimer cet ajout"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  )}
                 </span>
               ))}
             </div>
           )}
 
-          {/* Panneau d'ajout rapide hors-plan (Catalogue / Scanné + Saisie libre) */}
-          {showCustomEntryForm && (
+          {/* HUB « AJOUT EXPRESS AU JOURNAL » AU 1ER PLAN */}
+          {showCustomEntryForm && onAddCustomTrackerEntry && (
             <div
-              className={`p-3.5 sm:p-4 rounded-2xl border space-y-3.5 ${
-                isDark ? 'bg-black/40 border-white/10' : 'bg-white border-stone-200 shadow-xs'
+              className={`p-4 sm:p-5 rounded-2xl sm:rounded-3xl border space-y-4 ${
+                isDark
+                  ? 'bg-white/[0.03] border-white/15 shadow-lg shadow-black/20'
+                  : 'bg-white border-stone-200 shadow-sm'
               }`}
             >
-              {/* 1. Ajout rapide depuis le catalogue ou produits scannés */}
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 font-semibold">
-                    Ajout rapide (catalogue / produit scanné)
+              {/* En-tête du Hub + feedback fugace + rétractation */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider font-bold text-emerald-500">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Ajout express au journal
                   </span>
+                  {justAddedLabel && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-emerald-500/15 text-emerald-500 border border-emerald-500/25 animate-in fade-in duration-150">
+                      <Check className="w-3 h-3 stroke-[3]" />
+                      Ajouté : {justAddedLabel}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* Switch Recherche vs Saisie libre */}
+                  <div
+                    className={`inline-flex items-center p-0.5 rounded-xl border text-[11px] font-mono ${
+                      isDark ? 'bg-black/40 border-white/10' : 'bg-stone-100 border-stone-200'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setQuickEntryMode('search')}
+                      className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
+                        quickEntryMode === 'search'
+                          ? isDark
+                            ? 'bg-white text-stone-950'
+                            : 'bg-stone-900 text-white'
+                          : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Catalogue &amp; Recettes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuickEntryMode('manual')}
+                      className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
+                        quickEntryMode === 'manual'
+                          ? isDark
+                            ? 'bg-white text-stone-950'
+                            : 'bg-stone-900 text-white'
+                          : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Repas libre
+                    </button>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => setShowCustomEntryForm(false)}
-                    className="p-1 rounded-xl text-stone-400 hover:text-stone-600 dark:hover:text-white cursor-pointer"
-                    title="Fermer"
+                    className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-white cursor-pointer"
+                    title="Réduire l'ajout express"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
+              </div>
 
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="relative flex-1">
-                    <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={quickFoodQuery}
-                      onChange={(e) => setQuickFoodQuery(e.target.value)}
-                      placeholder="Rechercher (banane, barre granola, oeuf, whey...)"
-                      className={`w-full pl-8 pr-3 py-1.5 rounded-xl text-xs border outline-none ${
-                        isDark
-                          ? 'bg-white/[0.04] border-white/10 text-white placeholder:text-stone-500'
-                          : 'bg-stone-50 border-stone-200 text-stone-900'
-                      }`}
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min="0.1"
-                      step="any"
-                      value={quickFoodQty}
-                      onChange={(e) => setQuickFoodQty(e.target.value)}
-                      className={`w-20 px-2.5 py-1.5 rounded-xl text-xs font-mono text-right border outline-none ${
-                        isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
-                      }`}
-                    />
-                    <select
-                      value={quickFoodUnit}
-                      onChange={(e) => setQuickFoodUnit(e.target.value)}
-                      className={`flex-1 sm:flex-initial px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
-                        isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+              {/* Sélecteur du créneau cible */}
+              <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+                {TRACKER_MEAL_SLOTS.map(({ key, shortLabel, icon: SlotIcon }) => {
+                  const active = targetMealSlot === key;
+                  const count = customEntriesBySlot[key].length;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setTargetMealSlot(key)}
+                      className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border text-[11px] sm:text-xs font-mono font-semibold transition-all cursor-pointer ${
+                        active
+                          ? isDark
+                            ? 'bg-emerald-500 text-stone-950 border-emerald-400 shadow-xs'
+                            : 'bg-stone-900 text-white border-stone-900 shadow-xs'
+                          : isDark
+                          ? 'bg-white/[0.03] border-white/10 text-stone-300 hover:bg-white/[0.08]'
+                          : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
                       }`}
                     >
-                      <option value="unite">Unité</option>
-                      <option value="g">g</option>
-                      <option value="ml">ml</option>
-                      <option value="c_a_soupe">c. à soupe</option>
-                      <option value="tranche">Tranche</option>
-                      <option value="canne">Canne</option>
-                    </select>
+                      <SlotIcon className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{shortLabel}</span>
+                      {count > 0 && (
+                        <span
+                          className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                            active
+                              ? isDark
+                                ? 'bg-stone-950/20 text-stone-950'
+                                : 'bg-white/20 text-white'
+                              : isDark
+                              ? 'bg-white/10 text-stone-300'
+                              : 'bg-stone-200 text-stone-700'
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Raccourcis « Récents & Habituels » en 1 tap */}
+              {recentHabitualChips.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="block text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 font-semibold">
+                    Récents &amp; Habituels (1 tap → {TRACKER_MEAL_SLOTS.find((s) => s.key === targetMealSlot)?.shortLabel})
+                  </span>
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                    {recentHabitualChips.map((chip) => (
+                      <button
+                        key={chip.key}
+                        type="button"
+                        onClick={() => handleTapRecentShortcut(chip)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono shrink-0 transition-all active:scale-95 cursor-pointer ${
+                          isDark
+                            ? 'bg-white/[0.04] hover:bg-emerald-500/20 border-white/10 hover:border-emerald-500/40 text-stone-100'
+                            : 'bg-stone-50 hover:bg-stone-100 border-stone-200 text-stone-800'
+                        }`}
+                        title={`Ajouter ${chip.baseName} (${chip.calories} kcal, ${chip.protein}g P)`}
+                      >
+                        <Plus className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span className="font-semibold max-w-[160px] truncate">{chip.baseName}</span>
+                        <span className="text-[10px] text-stone-400 tabular-nums">{chip.calories}kcal</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
+              )}
 
-                <div className="max-h-52 overflow-y-auto space-y-1.5 pr-0.5">
-                  {quickFoodMatches.length === 0 ? (
-                    <div className="text-[11px] font-mono text-stone-400 py-2 text-center">
-                      Aucun aliment trouvé — utilisez la saisie manuelle ci-dessous.
+              {/* Mode 1 : Recherche Unifiée (Aliments + Scannés + Recettes) + Bouton Scanner */}
+              {quickEntryMode === 'search' ? (
+                <div className="space-y-2.5">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-1">
+                      <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        ref={quickSearchInputRef}
+                        type="text"
+                        value={quickFoodQuery}
+                        onChange={(e) => setQuickFoodQuery(e.target.value)}
+                        placeholder="Rechercher un aliment, produit scanné ou recette..."
+                        className={`w-full pl-9 pr-3 py-2 rounded-xl text-xs sm:text-sm border outline-none ${
+                          isDark
+                            ? 'bg-black/40 border-white/15 text-white placeholder:text-stone-500 focus:border-emerald-500/50'
+                            : 'bg-stone-50 border-stone-200 text-stone-900 focus:border-stone-400'
+                        }`}
+                      />
                     </div>
-                  ) : (
-                    quickFoodMatches.map((food) => {
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="any"
+                        value={quickFoodQty}
+                        onChange={(e) => setQuickFoodQty(e.target.value)}
+                        className={`w-16 sm:w-20 px-2.5 py-2 rounded-xl text-xs font-mono text-right border outline-none ${
+                          isDark ? 'bg-black/40 border-white/15 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                        }`}
+                      />
+                      <select
+                        value={quickFoodUnit}
+                        onChange={(e) => setQuickFoodUnit(e.target.value)}
+                        className={`flex-1 sm:flex-initial px-2.5 py-2 rounded-xl text-xs font-mono border outline-none ${
+                          isDark ? 'bg-black/40 border-white/15 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                        }`}
+                      >
+                        <option value="unite">Unité</option>
+                        <option value="g">g</option>
+                        <option value="ml">ml</option>
+                        <option value="c_a_soupe">c. à soupe</option>
+                        <option value="tranche">Tranche</option>
+                        <option value="canne">Canne</option>
+                      </select>
+                      {onOpenBarcodeForTracker && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenBarcodeForTracker(targetMealSlot)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-semibold border transition-all shrink-0 cursor-pointer active:scale-95 ${
+                            isDark
+                              ? 'bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-500/35 text-emerald-300'
+                              : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+                          }`}
+                          title="Scanner un code-barres et l'ajouter directement au journal"
+                        >
+                          <ScanBarcode className="w-4 h-4" />
+                          <span>Scanner</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Résultats unifiés (Recettes + Produits scannés & Catalogue) */}
+                  <div className="max-h-64 overflow-y-auto space-y-1.5 pr-0.5">
+                    {quickRecipeMatches.map((rec) => {
+                      const rawQty = Number(quickFoodQty) || 1;
+                      const qty =
+                        quickFoodUnit === 'g' || quickFoodUnit === 'ml' || rawQty <= 0 || rawQty > 20 ? 1 : rawQty;
+                      const cals = Math.round(rec.caloriesPerServing * qty);
+                      const prot = Math.round(rec.proteinPerServing * qty);
+                      const carbs = Math.round(rec.carbsPerServing * qty);
+                      const fat = Math.round(rec.fatPerServing * qty);
+                      return (
+                        <div
+                          key={`rec_${rec.id}`}
+                          className={`flex items-center justify-between gap-2.5 p-2.5 rounded-xl border text-xs ${
+                            isDark ? 'bg-white/[0.03] border-white/10' : 'bg-stone-50 border-stone-200'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-medium text-stone-900 dark:text-stone-100 leading-snug break-words">
+                                {rec.title}
+                              </span>
+                              <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-400 font-semibold">
+                                Recette
+                              </span>
+                            </div>
+                            <div className="text-[11px] font-mono text-stone-500 dark:text-stone-400 mt-0.5">
+                              {qty} portion{qty > 1 ? 's' : ''} · {cals} kcal · {prot}g P · {carbs}g G · {fat}g L
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAddQuickRecipe(rec)}
+                            className={`px-3 py-1.5 rounded-xl text-[11px] font-mono font-semibold shrink-0 transition-all cursor-pointer active:scale-95 ${
+                              isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
+                            }`}
+                          >
+                            + Ajouter
+                          </button>
+                        </div>
+                      );
+                    })}
+
+                    {quickFoodMatches.map((food) => {
                       const qty = Math.max(0.1, Number(quickFoodQty) || 1);
                       const grams = estimateTotalWeightGrams(qty, quickFoodUnit, food.id, food);
                       const unitG = resolveUnitWeightGrams(food.id, food);
@@ -684,7 +1152,7 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleAddQuickCatalogFood(food)}
-                            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-mono font-semibold shrink-0 transition-all cursor-pointer ${
+                            className={`px-3 py-1.5 rounded-xl text-[11px] font-mono font-semibold shrink-0 transition-all cursor-pointer active:scale-95 ${
                               isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
                             }`}
                           >
@@ -692,96 +1160,102 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
                           </button>
                         </div>
                       );
-                    })
-                  )}
-                </div>
-              </div>
+                    })}
 
-              {/* 2. Saisie manuelle libre */}
-              <form
-                onSubmit={handleCreateCustomEntry}
-                className="pt-3 border-t border-stone-200 dark:border-white/10 grid grid-cols-2 sm:grid-cols-6 gap-2.5 items-end"
-              >
-                <div className="col-span-2">
-                  <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">
-                    Ou saisie manuelle libre
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={customEntryName}
-                    onChange={(e) => setCustomEntryName(e.target.value)}
-                    placeholder="Ex: Shaker whey, Banane..."
-                    className={`w-full px-3 py-1.5 rounded-xl text-xs border outline-none ${
-                      isDark
-                        ? 'bg-white/[0.04] border-white/10 text-white placeholder:text-stone-500'
-                        : 'bg-stone-50 border-stone-200 text-stone-900'
-                    }`}
-                  />
+                    {quickFoodMatches.length === 0 && quickRecipeMatches.length === 0 && (
+                      <div className="text-[11px] font-mono text-stone-400 py-3 text-center">
+                        Aucun résultat — passez en mode &laquo;&nbsp;Repas libre&nbsp;&raquo; ou scannez le code-barres.
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">kcal</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={customEntryCalories}
-                    onChange={(e) => setCustomEntryCalories(e.target.value)}
-                    placeholder="250"
-                    className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
-                      isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
-                    }`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Prot (g)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={customEntryProtein}
-                    onChange={(e) => setCustomEntryProtein(e.target.value)}
-                    placeholder="25"
-                    className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
-                      isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
-                    }`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Gluc (g)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={customEntryCarbs}
-                    onChange={(e) => setCustomEntryCarbs(e.target.value)}
-                    placeholder="15"
-                    className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
-                      isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
-                    }`}
-                  />
-                </div>
-                <div className="flex items-end gap-1.5">
-                  <div className="flex-1">
-                    <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Lip (g)</label>
+              ) : (
+                /* Mode 2 : Saisie directe d'un repas complet / aliment libre sans créer de recette */
+                <form
+                  onSubmit={handleCreateCustomEntry}
+                  className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 items-end"
+                >
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">
+                      Repas / Aliment libre ({TRACKER_MEAL_SLOTS.find((s) => s.key === targetMealSlot)?.shortLabel})
+                    </label>
                     <input
-                      type="number"
-                      min={0}
-                      value={customEntryFat}
-                      onChange={(e) => setCustomEntryFat(e.target.value)}
-                      placeholder="5"
-                      className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-mono border outline-none ${
-                        isDark ? 'bg-white/[0.04] border-white/10 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                      type="text"
+                      required
+                      value={customEntryName}
+                      onChange={(e) => setCustomEntryName(e.target.value)}
+                      placeholder="Ex: Poulet riz midi, Shaker whey, Resto..."
+                      className={`w-full px-3 py-2 rounded-xl text-xs border outline-none ${
+                        isDark
+                          ? 'bg-black/40 border-white/15 text-white placeholder:text-stone-500'
+                          : 'bg-stone-50 border-stone-200 text-stone-900'
                       }`}
                     />
                   </div>
-                  <button
-                    type="submit"
-                    className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
-                      isDark ? 'bg-white text-stone-950 hover:bg-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'
-                    }`}
-                  >
-                    OK
-                  </button>
-                </div>
-              </form>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">kcal</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={customEntryCalories}
+                      onChange={(e) => setCustomEntryCalories(e.target.value)}
+                      placeholder="550"
+                      className={`w-full px-2.5 py-2 rounded-xl text-xs font-mono border outline-none ${
+                        isDark ? 'bg-black/40 border-white/15 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Prot (g)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={customEntryProtein}
+                      onChange={(e) => setCustomEntryProtein(e.target.value)}
+                      placeholder="40"
+                      className={`w-full px-2.5 py-2 rounded-xl text-xs font-mono border outline-none ${
+                        isDark ? 'bg-black/40 border-white/15 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Gluc (g)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={customEntryCarbs}
+                      onChange={(e) => setCustomEntryCarbs(e.target.value)}
+                      placeholder="55"
+                      className={`w-full px-2.5 py-2 rounded-xl text-xs font-mono border outline-none ${
+                        isDark ? 'bg-black/40 border-white/15 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                      }`}
+                    />
+                  </div>
+                  <div className="flex items-end gap-1.5">
+                    <div className="flex-1">
+                      <label className="block text-[10px] font-mono uppercase text-stone-400 mb-1">Lip (g)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={customEntryFat}
+                        onChange={(e) => setCustomEntryFat(e.target.value)}
+                        placeholder="15"
+                        className={`w-full px-2.5 py-2 rounded-xl text-xs font-mono border outline-none ${
+                          isDark ? 'bg-black/40 border-white/15 text-white' : 'bg-stone-50 border-stone-200 text-stone-900'
+                        }`}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className={`px-3.5 py-2 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${
+                        isDark ? 'bg-emerald-500 text-stone-950 hover:bg-emerald-400' : 'bg-stone-900 text-white hover:bg-stone-800'
+                      }`}
+                    >
+                      Ajouter
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           )}
 
@@ -1013,13 +1487,13 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
         </div>
       </div>
 
-      {/* Détails du Jour Sélectionné */}
+      {/* Journal & Repas du Jour Sélectionné */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1.5 sm:gap-3">
           <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="font-serif text-xl sm:text-2xl font-normal text-stone-900 dark:text-white">
-                Repas du <span className="italic">{currentDay.formattedFullDate || currentDay.dayName}</span>
+                Journal &amp; repas du <span className="italic">{currentDay.formattedFullDate || currentDay.dayName}</span>
               </h2>
               {currentDay.isToday && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-bold">
@@ -1028,315 +1502,273 @@ const WeeklyPlannerViewComponent: React.FC<WeeklyPlannerViewProps> = ({
               )}
             </div>
             <span className="font-mono text-xs text-stone-500 dark:text-stone-400 tabular-nums">
-              {currentDay.dailyCalories} kcal • {currentDay.dailyProtein}g prot • {currentDay.dailyCarbs}g gluc • {currentDay.dailyFat}g lip
+              Consommé : {macroSummary.consumed.calories} kcal • {macroSummary.consumed.protein}g P • {macroSummary.consumed.carbs}g G • {macroSummary.consumed.fat}g L
             </span>
           </div>
           <span className="text-xs text-stone-400 hidden md:block font-sans">
-            Sélectionnez une carte pour consulter les instructions
+            Ajoutez vos aliments directement ou ajustez les quantités en direct
           </span>
         </div>
 
-        {/* Grille des 4 Repas Indépendants */}
+        {/* Grille Hybride des 4 Créneaux du Jour */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* 1. PETIT-DÉJEUNER */}
-          <div
-            onClick={() => onSelectRecipe(currentDay.breakfast)}
-            className={`p-5 rounded-3xl border transition-colors cursor-pointer flex flex-col justify-between group ${cardGlassClass}`}
-          >
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
-                    <Coffee className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Petit-déjeuner
-                  </span>
-                  {currentDay.eatenMeals?.breakfast && (
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
-                      Mangé
-                    </span>
+          {TRACKER_MEAL_SLOTS.map((slotInfo) => {
+            const SlotIcon = slotInfo.icon;
+            const plannedRecipe = currentDay[slotInfo.key];
+            const hasPlannedRecipe = Boolean(plannedRecipe && !plannedRecipe.id.startsWith('empty_'));
+            const isPlannedEaten = Boolean(currentDay.eatenMeals?.[slotInfo.key]);
+            const slotEntries = customEntriesBySlot[slotInfo.key];
+
+            const entriesCals = slotEntries.reduce((sum, e) => sum + (Number(e.calories) || 0), 0);
+            const entriesProt = slotEntries.reduce((sum, e) => sum + (Number(e.protein) || 0), 0);
+            const entriesCarbs = slotEntries.reduce((sum, e) => sum + (Number(e.carbs) || 0), 0);
+            const entriesFat = slotEntries.reduce((sum, e) => sum + (Number(e.fat) || 0), 0);
+
+            const plannedCals = hasPlannedRecipe && isPlannedEaten ? plannedRecipe.caloriesPerServing : 0;
+            const plannedProt = hasPlannedRecipe && isPlannedEaten ? plannedRecipe.proteinPerServing : 0;
+            const slotTotalCals = Math.round(entriesCals + plannedCals);
+            const slotTotalProt = Math.round(entriesProt + plannedProt);
+
+            return (
+              <div
+                key={slotInfo.key}
+                className={`p-4 sm:p-5 rounded-3xl border transition-colors flex flex-col justify-between gap-3 ${
+                  slotInfo.key === 'dinner' && isDark
+                    ? 'liquid-glass border-white/15'
+                    : cardGlassClass
+                }`}
+              >
+                <div className="space-y-3">
+                  {/* En-tête du créneau */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
+                        <SlotIcon className="w-3 h-3 text-stone-700 dark:text-stone-300" />
+                        {slotInfo.label}
+                      </span>
+                      {(slotTotalCals > 0 || slotEntries.length > 0) && (
+                        <div className="font-mono tabular-nums text-[11px] text-stone-500 dark:text-stone-400 mt-1.5 pl-0.5">
+                          <span className="font-semibold text-stone-900 dark:text-stone-200">{slotTotalCals} kcal</span>
+                          {' · '}
+                          {slotTotalProt}g P
+                          {entriesCarbs > 0 ? ` · ${Math.round(entriesCarbs)}g G` : ''}
+                          {entriesFat > 0 ? ` · ${Math.round(entriesFat)}g L` : ''}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {onAddCustomTrackerEntry && (
+                        <button
+                          type="button"
+                          onClick={() => focusHubForSlot(slotInfo.key)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-mono font-semibold transition-all cursor-pointer ${
+                            targetMealSlot === slotInfo.key && showCustomEntryForm
+                              ? 'bg-emerald-500 text-stone-950'
+                              : isDark
+                              ? 'bg-white/10 hover:bg-white/15 text-white'
+                              : 'bg-stone-900 hover:bg-stone-800 text-white'
+                          }`}
+                          title={`Ajouter un aliment ou repas dans ${slotInfo.label}`}
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Ajouter</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setSwapMealState({ dayIndex: selectedDayIndex, mealType: slotInfo.key })}
+                        className="text-[11px] text-stone-500 hover:text-stone-950 dark:hover:text-stone-200 transition-colors px-1.5 py-1 rounded-lg font-mono cursor-pointer"
+                        title="Planifier ou remplacer une recette"
+                      >
+                        ▾
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Liste des éléments loggués dans ce créneau (avec édition de quantité live) */}
+                  {slotEntries.length > 0 && (
+                    <div className="space-y-2">
+                      {slotEntries.map((entry) => {
+                        const curQty = entry.quantity && entry.quantity > 0 ? entry.quantity : 1;
+                        const isWeightUnit = entry.unit === 'g' || entry.unit === 'ml';
+                        const decStep = isWeightUnit ? 25 : curQty <= 1 ? 0.5 : 1;
+                        const incStep = isWeightUnit ? 25 : curQty < 1 ? 0.5 : 1;
+                        return (
+                          <div
+                            key={entry.id}
+                            className={`p-2.5 rounded-2xl border space-y-2 ${
+                              isDark ? 'bg-black/35 border-white/10' : 'bg-stone-50 border-stone-200'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-medium text-stone-900 dark:text-stone-100 leading-snug break-words">
+                                  {entry.name}
+                                </div>
+                                <div className="text-[11px] font-mono text-stone-500 dark:text-stone-400 tabular-nums mt-0.5">
+                                  {entry.calories} kcal · {entry.protein}g P · {entry.carbs ?? 0}g G · {entry.fat ?? 0}g L
+                                </div>
+                              </div>
+                              {onDeleteCustomTrackerEntry && activeMacroDay && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    onDeleteCustomTrackerEntry(activeMacroDay.dayIndex, activeMacroDay.date, entry.id)
+                                  }
+                                  className="p-1 rounded-lg text-stone-400 hover:text-rose-500 transition-colors shrink-0 cursor-pointer"
+                                  title="Supprimer cet élément"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+
+                            {onUpdateCustomTrackerEntry && activeMacroDay && (
+                              <div className="flex items-center justify-between gap-2 pt-1 border-t border-stone-200/60 dark:border-white/5">
+                                <span className="text-[10px] font-mono uppercase text-stone-400">
+                                  Qté ({entry.unit === 'unite' ? 'unité' : entry.unit || 'portion'})
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAdjustEntryQuantity(entry, curQty - decStep)}
+                                    className={`w-6 h-6 rounded-lg flex items-center justify-center border text-xs transition-colors cursor-pointer ${
+                                      isDark
+                                        ? 'bg-white/5 hover:bg-white/15 border-white/10 text-stone-200'
+                                        : 'bg-white hover:bg-stone-100 border-stone-300 text-stone-800'
+                                    }`}
+                                    title="Diminuer la quantité"
+                                  >
+                                    <Minus className="w-3 h-3" />
+                                  </button>
+                                  <input
+                                    type="number"
+                                    min={isWeightUnit ? 5 : 0.5}
+                                    step="any"
+                                    value={curQty}
+                                    onChange={(e) => {
+                                      const v = Number(e.target.value);
+                                      if (v > 0) handleAdjustEntryQuantity(entry, v);
+                                    }}
+                                    className={`w-14 px-1.5 py-0.5 rounded-lg text-xs font-mono text-center border outline-none ${
+                                      isDark
+                                        ? 'bg-black/50 border-white/15 text-white'
+                                        : 'bg-white border-stone-300 text-stone-900'
+                                    }`}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAdjustEntryQuantity(entry, curQty + incStep)}
+                                    className={`w-6 h-6 rounded-lg flex items-center justify-center border text-xs transition-colors cursor-pointer ${
+                                      isDark
+                                        ? 'bg-white/5 hover:bg-white/15 border-white/10 text-stone-200'
+                                        : 'bg-white hover:bg-stone-100 border-stone-300 text-stone-800'
+                                    }`}
+                                    title="Augmenter la quantité"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Recette planifiée (uniquement si une vraie recette est assignée à ce créneau) */}
+                  {hasPlannedRecipe && (
+                    <div
+                      onClick={() => onSelectRecipe(plannedRecipe)}
+                      className={`p-3 rounded-2xl border cursor-pointer transition-colors group ${
+                        isDark
+                          ? 'bg-white/[0.02] hover:bg-white/[0.05] border-white/10'
+                          : 'bg-white/70 hover:bg-white border-stone-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400">
+                          Recette prévue
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleMealEaten?.(selectedDayIndex, currentDay.date, slotInfo.key);
+                          }}
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-mono font-semibold transition-all cursor-pointer ${
+                            isPlannedEaten
+                              ? 'bg-emerald-500 text-white shadow-xs'
+                              : isDark
+                              ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
+                              : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
+                          }`}
+                        >
+                          <Check className={`w-3 h-3 ${isPlannedEaten ? 'stroke-[3]' : 'opacity-40'}`} />
+                          <span>{isPlannedEaten ? 'Mangé' : 'Manger'}</span>
+                        </button>
+                      </div>
+                      <h3 className="font-serif text-base font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
+                        {plannedRecipe.title}
+                      </h3>
+                      <p className="text-[11px] text-stone-600 dark:text-stone-400 mt-0.5 line-clamp-2 font-sans">
+                        {plannedRecipe.ingredients.length > 0
+                          ? plannedRecipe.ingredients
+                              .slice(0, 4)
+                              .map((i) => getIngredientDisplayName(i.ingredientId))
+                              .join(', ')
+                          : 'Aucun ingrédient défini'}
+                      </p>
+                      <div className="mt-2 pt-2 border-t border-stone-200/60 dark:border-white/10 flex items-center justify-between text-[11px] font-mono tabular-nums">
+                        <span className="text-stone-700 dark:text-stone-300">
+                          {plannedRecipe.caloriesPerServing} kcal · {plannedRecipe.proteinPerServing}g P
+                        </span>
+                        <span className="text-stone-500 flex items-center gap-0.5">
+                          Voir <ChevronRight className="w-3 h-3" />
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* État vide épuré quand rien n'est encore loggué ni planifié */}
+                  {!hasPlannedRecipe && slotEntries.length === 0 && (
+                    <div
+                      className={`p-4 rounded-2xl border border-dashed text-center space-y-2.5 ${
+                        isDark ? 'border-white/10 bg-black/20' : 'border-stone-300 bg-stone-50/70'
+                      }`}
+                    >
+                      <p className="text-xs font-mono text-stone-400">
+                        Rien de noté pour {slotInfo.shortLabel.toLowerCase()}
+                      </p>
+                      {onAddCustomTrackerEntry && (
+                        <button
+                          type="button"
+                          onClick={() => focusHubForSlot(slotInfo.key)}
+                          className={`w-full py-2 px-3 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                            isDark
+                              ? 'bg-white/10 hover:bg-emerald-500 hover:text-stone-950 text-stone-100'
+                              : 'bg-stone-900 hover:bg-stone-800 text-white'
+                          }`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Ajouter au {slotInfo.shortLabel.toLowerCase()}</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setSwapMealState({ dayIndex: selectedDayIndex, mealType: slotInfo.key })}
+                        className="text-[11px] font-mono text-stone-500 hover:text-stone-900 dark:hover:text-white underline cursor-pointer"
+                      >
+                        Planifier une recette ▾
+                      </button>
+                    </div>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleMealEaten?.(selectedDayIndex, currentDay.date, 'breakfast');
-                    }}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer ${
-                      currentDay.eatenMeals?.breakfast
-                        ? 'bg-emerald-500 text-white shadow-xs'
-                        : isDark
-                        ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
-                        : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
-                    }`}
-                    title={currentDay.eatenMeals?.breakfast ? 'Repas mangé ! Cliquez pour décocher' : 'Cocher ce repas comme mangé'}
-                    type="button"
-                  >
-                    <Check className={`w-3.5 h-3.5 ${currentDay.eatenMeals?.breakfast ? 'stroke-[3]' : 'opacity-40'}`} />
-                    <span>{currentDay.eatenMeals?.breakfast ? 'Mangé' : 'Manger'}</span>
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'breakfast' });
-                    }}
-                    className="text-xs text-stone-500 hover:text-stone-950 dark:hover:text-stone-200 transition-colors px-2 py-0.5 rounded-lg"
-                  >
-                    Changer ▾
-                  </button>
-                </div>
               </div>
-
-              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
-                {currentDay.breakfast.title}
-              </h3>
-              <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 line-clamp-2 font-sans">
-                {currentDay.breakfast.ingredients.length > 0
-                  ? `${currentDay.breakfast.ingredients.slice(0, 4).map((i) => getIngredientDisplayName(i.ingredientId)).join(', ')}...`
-                  : 'Aucun ingrédient défini'}
-              </p>
-            </div>
-
-            <div className="mt-5 pt-3 border-t border-stone-200 dark:border-white/10 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-3 font-mono tabular-nums">
-                <span className="font-medium text-stone-700 dark:text-stone-300">
-                  {currentDay.breakfast.caloriesPerServing} kcal
-                </span>
-                <span className="font-semibold text-stone-950 dark:text-white">
-                  {currentDay.breakfast.proteinPerServing}g prot
-                </span>
-              </div>
-              <span className="text-stone-600 dark:text-stone-400 group-hover:text-stone-950 dark:group-hover:text-stone-200 flex items-center gap-0.5 transition-colors font-medium">
-                Voir recette <ChevronRight className="w-3.5 h-3.5" />
-              </span>
-            </div>
-          </div>
-
-          {/* 2. DÉJEUNER (MIDI) */}
-          <div
-            onClick={() => onSelectRecipe(currentDay.lunch)}
-            className={`p-5 rounded-3xl border transition-colors cursor-pointer flex flex-col justify-between group ${cardGlassClass}`}
-          >
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
-                    <Sun className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Déjeuner (Midi)
-                  </span>
-                  {currentDay.eatenMeals?.lunch && (
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
-                      Mangé
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleMealEaten?.(selectedDayIndex, currentDay.date, 'lunch');
-                    }}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer ${
-                      currentDay.eatenMeals?.lunch
-                        ? 'bg-emerald-500 text-white shadow-xs'
-                        : isDark
-                        ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
-                        : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
-                    }`}
-                    title={currentDay.eatenMeals?.lunch ? 'Repas mangé ! Cliquez pour décocher' : 'Cocher ce repas comme mangé'}
-                    type="button"
-                  >
-                    <Check className={`w-3.5 h-3.5 ${currentDay.eatenMeals?.lunch ? 'stroke-[3]' : 'opacity-40'}`} />
-                    <span>{currentDay.eatenMeals?.lunch ? 'Mangé' : 'Manger'}</span>
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'lunch' });
-                    }}
-                    className="text-xs text-stone-500 hover:text-stone-950 dark:hover:text-stone-200 transition-colors px-2 py-0.5 rounded-lg"
-                  >
-                    Changer ▾
-                  </button>
-                </div>
-              </div>
-
-              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
-                {currentDay.lunch.title}
-              </h3>
-              <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 line-clamp-2 font-sans">
-                {currentDay.lunch.ingredients.length > 0
-                  ? `${currentDay.lunch.ingredients.slice(0, 4).map((i) => getIngredientDisplayName(i.ingredientId)).join(', ')}...`
-                  : 'Aucun ingrédient défini'}
-              </p>
-            </div>
-
-            <div className="mt-5 pt-3 border-t border-stone-200 dark:border-white/10 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-3 font-mono tabular-nums">
-                <span className="font-medium text-stone-700 dark:text-stone-300">
-                  {currentDay.lunch.caloriesPerServing} kcal
-                </span>
-                <span className="font-semibold text-stone-950 dark:text-white">
-                  {currentDay.lunch.proteinPerServing}g prot
-                </span>
-              </div>
-              <span className="text-stone-600 dark:text-stone-400 group-hover:text-stone-950 dark:group-hover:text-stone-200 flex items-center gap-0.5 transition-colors font-medium">
-                Voir fiche <ChevronRight className="w-3.5 h-3.5" />
-              </span>
-            </div>
-          </div>
-
-          {/* 3. DÎNER (SOIR) */}
-          <div
-            onClick={() => onSelectRecipe(currentDay.dinner)}
-            className={`p-5 rounded-3xl border-2 transition-colors cursor-pointer flex flex-col justify-between group ${
-              isDark
-                ? 'liquid-glass border-white/20 hover:border-white/40'
-                : 'liquid-glass-light border-stone-400 hover:border-stone-800 shadow-xs'
-            }`}
-          >
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-white/10 font-semibold">
-                    <Moon className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Dîner (Soir)
-                  </span>
-                  {currentDay.eatenMeals?.dinner && (
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
-                      Mangé
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleMealEaten?.(selectedDayIndex, currentDay.date, 'dinner');
-                    }}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer ${
-                      currentDay.eatenMeals?.dinner
-                        ? 'bg-emerald-500 text-white shadow-xs'
-                        : isDark
-                        ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
-                        : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
-                    }`}
-                    title={currentDay.eatenMeals?.dinner ? 'Repas mangé ! Cliquez pour décocher' : 'Cocher ce repas comme mangé'}
-                    type="button"
-                  >
-                    <Check className={`w-3.5 h-3.5 ${currentDay.eatenMeals?.dinner ? 'stroke-[3]' : 'opacity-40'}`} />
-                    <span>{currentDay.eatenMeals?.dinner ? 'Mangé' : 'Manger'}</span>
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'dinner' });
-                    }}
-                    className="text-xs text-stone-600 dark:text-stone-400 hover:text-stone-950 dark:hover:text-white transition-colors px-2 py-0.5 rounded-lg font-medium"
-                  >
-                    Changer ▾
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-xs text-stone-600 dark:text-stone-400 font-mono">
-                  ~{currentDay.dinner.prepTimeMinutes + currentDay.dinner.cookTimeMinutes} min
-                </span>
-              </div>
-
-              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
-                {currentDay.dinner.title}
-              </h3>
-              <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 line-clamp-2 font-sans">
-                {currentDay.dinner.ingredients.length > 0
-                  ? `${currentDay.dinner.ingredients.slice(0, 4).map((i) => getIngredientDisplayName(i.ingredientId)).join(', ')}...`
-                  : 'Aucun ingrédient défini'}
-              </p>
-            </div>
-
-            <div className="mt-5 pt-3 border-t border-stone-200 dark:border-white/10 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-3 font-mono tabular-nums">
-                <span className="font-medium text-stone-700 dark:text-stone-300">
-                  {currentDay.dinner.caloriesPerServing} kcal
-                </span>
-                <span className="font-semibold text-stone-950 dark:text-white">
-                  {currentDay.dinner.proteinPerServing}g prot
-                </span>
-              </div>
-              <span className="text-stone-600 dark:text-stone-400 group-hover:text-stone-950 dark:group-hover:text-stone-200 flex items-center gap-0.5 transition-colors font-medium">
-                Voir recette <ChevronRight className="w-3.5 h-3.5" />
-              </span>
-            </div>
-          </div>
-
-          {/* 4. COLLATION */}
-          <div
-            onClick={() => onSelectRecipe(currentDay.snack)}
-            className={`p-5 rounded-3xl border transition-colors cursor-pointer flex flex-col justify-between group ${cardGlassClass}`}
-          >
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-semibold">
-                    <Zap className="w-3 h-3 text-stone-700 dark:text-stone-300" /> Collation
-                  </span>
-                  {currentDay.eatenMeals?.snack && (
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
-                      Mangé
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleMealEaten?.(selectedDayIndex, currentDay.date, 'snack');
-                    }}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer ${
-                      currentDay.eatenMeals?.snack
-                        ? 'bg-emerald-500 text-white shadow-xs'
-                        : isDark
-                        ? 'bg-white/5 hover:bg-white/10 text-stone-300 border border-white/10'
-                        : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
-                    }`}
-                    title={currentDay.eatenMeals?.snack ? 'Collation mangée ! Cliquez pour décocher' : 'Cocher cette collation comme mangée'}
-                    type="button"
-                  >
-                    <Check className={`w-3.5 h-3.5 ${currentDay.eatenMeals?.snack ? 'stroke-[3]' : 'opacity-40'}`} />
-                    <span>{currentDay.eatenMeals?.snack ? 'Mangé' : 'Manger'}</span>
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSwapMealState({ dayIndex: selectedDayIndex, mealType: 'snack' });
-                    }}
-                    className="text-xs text-stone-600 dark:text-stone-400 hover:text-stone-950 dark:hover:text-white transition-colors px-2 py-0.5 rounded-lg font-medium"
-                  >
-                    Changer ▾
-                  </button>
-                </div>
-              </div>
-
-              <h3 className="font-serif text-lg font-medium tracking-tight text-stone-900 dark:text-white group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
-                {currentDay.snack.title}
-              </h3>
-              <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 font-sans">
-                Aliments entiers denses : yogourt grec, cottage, fruits, noix, beurre d'arachide.
-              </p>
-            </div>
-
-            <div className="mt-5 pt-3 border-t border-stone-200 dark:border-white/10 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-3 font-mono tabular-nums">
-                <span className="font-medium text-stone-700 dark:text-stone-300">
-                  {currentDay.snack.caloriesPerServing} kcal
-                </span>
-                <span className="font-semibold text-stone-950 dark:text-white">
-                  {currentDay.snack.proteinPerServing}g prot
-                </span>
-              </div>
-              <span className="text-stone-600 dark:text-stone-400 group-hover:text-stone-950 dark:group-hover:text-stone-200 flex items-center gap-0.5 transition-colors font-medium">
-                Voir détails <ChevronRight className="w-3.5 h-3.5" />
-              </span>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
 

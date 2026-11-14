@@ -337,6 +337,8 @@ export interface SharedGroceryTripExpense {
   createdAt: string;
 }
 
+export type TrackerMealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
 export interface TrackerCustomEntry {
   id: string;
   name: string;
@@ -344,6 +346,18 @@ export interface TrackerCustomEntry {
   protein: number;
   carbs?: number;
   fat?: number;
+  mealSlot?: TrackerMealSlot;
+  quantity?: number;
+  unit?: string;
+  ingredientId?: string;
+  recipeId?: string;
+  unitWeightGrams?: number;
+  perUnitMacros?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
 }
 
 export interface DailyTrackerLog {

@@ -76,6 +76,56 @@ function extractBarcode(raw: string): string {
   return clean;
 }
 
+function checkGs1Mod10(digits: string): boolean {
+  const n = digits.length;
+  let sum = 0;
+  for (let i = 0; i < n - 1; i++) {
+    const d = Number(digits[n - 2 - i]);
+    sum += d * (i % 2 === 0 ? 3 : 1);
+  }
+  const expected = (10 - (sum % 10)) % 10;
+  return Number(digits[n - 1]) === expected;
+}
+
+function expandUpcEToUpcA(upce: string): string | null {
+  if (!/^[01]\d{7}$/.test(upce)) return null;
+  const ns = upce[0];
+  const d1 = upce[1];
+  const d2 = upce[2];
+  const d3 = upce[3];
+  const d4 = upce[4];
+  const d5 = upce[5];
+  const d6 = upce[6];
+  const check = upce[7];
+  if (d6 === '0' || d6 === '1' || d6 === '2') {
+    return `${ns}${d1}${d2}${d6}0000${d3}${d4}${d5}${check}`;
+  }
+  if (d6 === '3') {
+    return `${ns}${d1}${d2}${d3}00000${d4}${d5}${check}`;
+  }
+  if (d6 === '4') {
+    return `${ns}${d1}${d2}${d3}${d4}00000${d5}${check}`;
+  }
+  return `${ns}${d1}${d2}${d3}${d4}${d5}0000${d6}${check}`;
+}
+
+/**
+ * Vérifie la clé de contrôle modulo-10 des codes-barres 8, 12 et 13 chiffres
+ * pour rejeter immédiatement les lectures partielles/floues en flux vidéo.
+ */
+function isValidBarcodeChecksum(code: string): boolean {
+  if (!/^\d+$/.test(code)) return false;
+  if (code.length === 12 || code.length === 13) {
+    return checkGs1Mod10(code);
+  }
+  if (code.length === 8) {
+    if (checkGs1Mod10(code)) return true;
+    const expanded = expandUpcEToUpcA(code);
+    return expanded ? checkGs1Mod10(expanded) : false;
+  }
+  return true;
+}
+
 const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
   isOpen,
   onClose,
@@ -98,6 +148,8 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const [isTorchOn, setIsTorchOn] = useState(false);
   const [hasTorchSupport, setHasTorchSupport] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [zoomRange, setZoomRange] = useState<{ min: number; max: number; step: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -124,10 +176,7 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
     Html5QrcodeSupportedFormats.UPC_A,
     Html5QrcodeSupportedFormats.UPC_E,
     Html5QrcodeSupportedFormats.CODE_128,
-    Html5QrcodeSupportedFormats.CODE_39,
-    Html5QrcodeSupportedFormats.ITF,
     Html5QrcodeSupportedFormats.QR_CODE,
-    Html5QrcodeSupportedFormats.DATA_MATRIX,
   ]).current;
 
   const stopAllMediaTracks = useCallback(() => {
@@ -165,6 +214,8 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
     setIsCameraStarting(false);
     setIsTorchOn(false);
     setHasTorchSupport(false);
+    setZoomRange(null);
+    setZoomLevel(1);
   }, [stopAllMediaTracks]);
 
   const lookupBarcode = useCallback(async (codeToLookup: string) => {
@@ -225,6 +276,10 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
         if (!fromLiveStream) {
           setError("Code non reconnu. Veillez à ce que le code-barres ou QR code soit bien net et centré.");
         }
+        return;
+      }
+
+      if (fromLiveStream && !isValidBarcodeChecksum(cleanCode)) {
         return;
       }
 
@@ -311,48 +366,118 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
         });
         scannerRef.current = scanner;
 
+        let pickedRearCameraId = '';
         try {
           const devices = await Html5Qrcode.getCameras();
           if (devices && devices.length > 0) {
             setCamerasList(devices);
             if (!cameraIdToUse && !selectedCameraId) {
-              const rearCamera = devices.find(
-                (d) =>
-                  d.label.toLowerCase().includes('back') ||
-                  d.label.toLowerCase().includes('arrière') ||
-                  d.label.toLowerCase().includes('environment')
-              );
-              if (rearCamera) {
-                setSelectedCameraId(rearCamera.id);
+              const rearCandidates = devices.filter((d) => {
+                const l = d.label.toLowerCase();
+                return (
+                  l.includes('back') ||
+                  l.includes('arrière') ||
+                  l.includes('environment') ||
+                  l.includes('rear')
+                );
+              });
+              const isExcludedLens = (label: string) => {
+                const l = label.toLowerCase();
+                return (
+                  l.includes('ultra wide') ||
+                  l.includes('ultra-wide') ||
+                  l.includes('ultra grand') ||
+                  l.includes('macro') ||
+                  l.includes('telephoto') ||
+                  l.includes('téléobjectif') ||
+                  l.includes('depth')
+                );
+              };
+              const preferredRear =
+                rearCandidates.find((d) => {
+                  const l = d.label.toLowerCase();
+                  return (
+                    !isExcludedLens(l) &&
+                    (l.includes('triple') ||
+                      l.includes('dual wide') ||
+                      l.includes('main') ||
+                      l.includes('back camera') ||
+                      l.includes('caméra arrière') ||
+                      l.includes('camera 0'))
+                  );
+                }) ||
+                rearCandidates.find((d) => !isExcludedLens(d.label)) ||
+                rearCandidates[0];
+              if (preferredRear) {
+                pickedRearCameraId = preferredRear.id;
+                setSelectedCameraId(preferredRear.id);
               }
             }
           }
         } catch (_) {}
 
-        const cameraConfig = cameraIdToUse
-          ? { deviceId: { exact: cameraIdToUse } }
-          : selectedCameraId
-          ? { deviceId: { exact: selectedCameraId } }
+        const effectiveCameraId = cameraIdToUse || selectedCameraId || pickedRearCameraId;
+        const cameraConfig: MediaTrackConstraints = effectiveCameraId
+          ? { deviceId: { exact: effectiveCameraId } }
           : { facingMode: 'environment' };
+        const videoConstraints: MediaTrackConstraints = effectiveCameraId
+          ? {
+              deviceId: { exact: effectiveCameraId },
+              width: { ideal: 1920, min: 1280 },
+              height: { ideal: 1080, min: 720 },
+            }
+          : {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1920, min: 1280 },
+              height: { ideal: 1080, min: 720 },
+            };
 
-        await scanner.start(
-          cameraConfig,
-          {
-            fps: 20,
-            qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-              const width = Math.min(viewfinderWidth - 24, Math.max(240, Math.floor(viewfinderWidth * 0.85)));
-              const height = Math.min(viewfinderHeight - 24, Math.max(130, Math.floor(width * 0.5)));
-              return { width, height };
-            },
-            aspectRatio: 1.333333,
+        const scanConfig = {
+          fps: 25,
+          disableFlip: false,
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            const width = Math.min(
+              viewfinderWidth - 16,
+              Math.max(260, Math.floor(viewfinderWidth * 0.9))
+            );
+            const height = Math.min(
+              viewfinderHeight - 16,
+              Math.max(150, Math.floor(width * 0.58))
+            );
+            return { width, height };
           },
-          (decodedText) => {
-            handleCodeDetected(decodedText, true);
-          },
-          () => {
-            // Ignorer les frames sans code détecté
+          aspectRatio: 1.333333,
+        };
+
+        const onFrameDecoded = (decodedText: string) => {
+          handleCodeDetected(decodedText, true);
+        };
+        const onFrameError = () => {
+          // Ignorer les frames sans code détecté
+        };
+
+        try {
+          await scanner.start(
+            cameraConfig,
+            { ...scanConfig, videoConstraints },
+            onFrameDecoded,
+            onFrameError
+          );
+        } catch (startErr: any) {
+          if (
+            startErr?.name === 'OverconstrainedError' ||
+            String(startErr?.message || '').includes('Overconstrained')
+          ) {
+            await scanner.start(
+              { facingMode: 'environment' },
+              scanConfig,
+              onFrameDecoded,
+              onFrameError
+            );
+          } else {
+            throw startErr;
           }
-        );
+        }
 
         setIsCameraActive(true);
         setIsCameraStarting(false);
@@ -362,6 +487,36 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
           const torchFeature = (capabilities as any)?.torchFeature?.();
           if (torchFeature && torchFeature.isSupported && torchFeature.isSupported()) {
             setHasTorchSupport(true);
+          }
+        } catch (_) {}
+
+        try {
+          const viewport = document.getElementById('barcode-camera-viewport');
+          const track = (
+            viewport?.querySelector('video')?.srcObject as MediaStream | null
+          )?.getVideoTracks?.()[0];
+          if (track && typeof track.getCapabilities === 'function') {
+            const caps = track.getCapabilities() as any;
+            const advanced: any[] = [];
+            if (Array.isArray(caps.focusMode) && caps.focusMode.includes('continuous')) {
+              advanced.push({ focusMode: 'continuous' });
+            }
+            if (
+              caps.zoom &&
+              typeof caps.zoom.min === 'number' &&
+              typeof caps.zoom.max === 'number'
+            ) {
+              const min = caps.zoom.min;
+              const max = caps.zoom.max;
+              const step = caps.zoom.step || 0.1;
+              setZoomRange({ min, max, step });
+              const initialZoom = Math.min(max, Math.max(min, 1.5));
+              setZoomLevel(Math.round(initialZoom * 10) / 10);
+              advanced.push({ zoom: initialZoom });
+            }
+            if (advanced.length > 0) {
+              await track.applyConstraints({ advanced });
+            }
           }
         } catch (_) {}
       } catch (err: any) {
@@ -384,6 +539,29 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
     },
     [formatsToSupport, handleCodeDetected, selectedCameraId, stopAllMediaTracks]
   );
+
+  const handleSetZoom = async (targetZoom: number) => {
+    if (!zoomRange) return;
+    const clamped = Math.min(zoomRange.max, Math.max(zoomRange.min, targetZoom));
+    setZoomLevel(Math.round(clamped * 10) / 10);
+    try {
+      const viewport = document.getElementById('barcode-camera-viewport');
+      const track = (
+        viewport?.querySelector('video')?.srcObject as MediaStream | null
+      )?.getVideoTracks?.()[0];
+      if (track) {
+        await track.applyConstraints({
+          advanced: [{ zoom: clamped } as any],
+        });
+      } else if (scannerRef.current) {
+        await scannerRef.current.applyVideoConstraints({
+          advanced: [{ zoom: clamped } as any],
+        });
+      }
+    } catch (e) {
+      console.warn('Zoom constraint error:', e);
+    }
+  };
 
   const handleSwitchCamera = async () => {
     if (camerasList.length <= 1) return;
@@ -626,13 +804,39 @@ const BarcodeScannerModalComponent: React.FC<BarcodeScannerModalProps> = ({
 
                   {/* Cadre de visée visuel quand la caméra tourne */}
                   {isCameraActive && (
-                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center p-6">
-                      <div className="w-[82%] max-w-[320px] h-[120px] rounded-2xl border-2 border-emerald-400/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)] relative">
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center p-4">
+                      <div className="w-[88%] max-w-[360px] h-[140px] rounded-2xl border-2 border-emerald-400/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)] relative">
                         <div className="absolute inset-x-3 top-1/2 -translate-y-1/2 h-[2px] bg-emerald-400/80 animate-pulse" />
                       </div>
                       <span className="mt-3 px-2.5 py-0.5 rounded-full bg-black/70 text-[10px] font-mono text-emerald-300 uppercase tracking-wider">
-                        Caméra active • Visez le code-barres
+                        Caméra HD active • Visez le code-barres
                       </span>
+                    </div>
+                  )}
+
+                  {/* Boutons de zoom rapides en bas (1x / 1.5x / 2x) */}
+                  {isCameraActive && zoomRange && zoomRange.max >= 1.2 && (
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 p-1 rounded-full bg-black/65 backdrop-blur-md border border-white/15 z-10">
+                      {[1, 1.5, 2]
+                        .filter((z) => z >= zoomRange.min - 0.05 && z <= zoomRange.max + 0.05)
+                        .map((z) => {
+                          const clamped = Math.min(zoomRange.max, Math.max(zoomRange.min, z));
+                          const isActive = Math.abs(zoomLevel - clamped) < 0.2;
+                          return (
+                            <button
+                              key={z}
+                              type="button"
+                              onClick={() => handleSetZoom(clamped)}
+                              className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-bold transition-colors cursor-pointer ${
+                                isActive
+                                  ? 'bg-emerald-400 text-stone-950'
+                                  : 'text-white/85 hover:bg-white/15'
+                              }`}
+                            >
+                              {z}x
+                            </button>
+                          );
+                        })}
                     </div>
                   )}
 

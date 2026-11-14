@@ -2186,6 +2186,10 @@ export const toolSchemas = {
         .string()
         .optional()
         .describe('Unité (unite, g, ml, c_a_soupe, tranche, canne)'),
+      mealSlot: z
+        .enum(['breakfast', 'lunch', 'dinner', 'snack'])
+        .optional()
+        .describe("Créneau du journal cible (breakfast, lunch, dinner, snack — défaut: snack)"),
       calories: z
         .number()
         .optional()
@@ -2211,15 +2215,22 @@ export const toolSchemas = {
             : parseFloat(String(args.quantity)) || 1
           : 1;
 
+      const targetMealSlot =
+        args.mealSlot && ['breakfast', 'lunch', 'dinner', 'snack'].includes(args.mealSlot)
+          ? (args.mealSlot as 'breakfast' | 'lunch' | 'dinner' | 'snack')
+          : 'snack';
+
       let entryName = (args.name || matchedIng?.name || rawQuery).trim();
       let calories = args.calories;
       let protein = args.protein;
       let carbs = args.carbs;
       let fat = args.fat;
       let computedGrams: number | undefined;
+      let resolvedUnit = args.unit ? String(args.unit).trim() : 'portion';
+      let perUnitMacros: { calories: number; protein: number; carbs: number; fat: number } | undefined;
 
       if (matchedIng && calories === undefined) {
-        let resolvedUnit = args.unit ? String(args.unit).trim() : '';
+        resolvedUnit = args.unit ? String(args.unit).trim() : '';
         if (!resolvedUnit) {
           if (qty >= 20 && (matchedIng.baseUnit === 'g' || matchedIng.baseUnit === 'ml')) {
             resolvedUnit = matchedIng.baseUnit;
@@ -2235,11 +2246,20 @@ export const toolSchemas = {
         }
 
         computedGrams = estimateTotalWeightGrams(qty, resolvedUnit, matchedIng.id, matchedIng);
+        const oneUnitGrams = estimateTotalWeightGrams(1, resolvedUnit, matchedIng.id, matchedIng);
         const factor = computedGrams / 100;
+        const unitFactor = oneUnitGrams / 100;
         calories = Math.round(matchedIng.macrosPer100g.calories * factor);
         protein = protein ?? Math.round(matchedIng.macrosPer100g.protein * factor);
         carbs = carbs ?? Math.round(matchedIng.macrosPer100g.carbs * factor);
         fat = fat ?? Math.round(matchedIng.macrosPer100g.fat * factor);
+
+        perUnitMacros = {
+          calories: Math.round(matchedIng.macrosPer100g.calories * unitFactor * 100) / 100,
+          protein: Math.round(matchedIng.macrosPer100g.protein * unitFactor * 100) / 100,
+          carbs: Math.round(matchedIng.macrosPer100g.carbs * unitFactor * 100) / 100,
+          fat: Math.round(matchedIng.macrosPer100g.fat * unitFactor * 100) / 100,
+        };
 
         const unitDisplay =
           resolvedUnit === 'unite'
@@ -2271,13 +2291,34 @@ export const toolSchemas = {
         entryName = 'Aliment hors-plan';
       }
 
+      const finalCalories = Math.max(0, Math.round(Number(calories) || 0));
+      const finalProtein = Math.max(0, Math.round(Number(protein) || 0));
+      const finalCarbs = Math.max(0, Math.round(Number(carbs) || 0));
+      const finalFat = Math.max(0, Math.round(Number(fat) || 0));
+      const safeQty = Math.max(0.1, qty);
+
+      if (!perUnitMacros) {
+        perUnitMacros = {
+          calories: Math.round((finalCalories / safeQty) * 100) / 100,
+          protein: Math.round((finalProtein / safeQty) * 100) / 100,
+          carbs: Math.round((finalCarbs / safeQty) * 100) / 100,
+          fat: Math.round((finalFat / safeQty) * 100) / 100,
+        };
+      }
+
       const finalEntry = {
         id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         name: entryName,
-        calories: Math.max(0, Math.round(Number(calories) || 0)),
-        protein: Math.max(0, Math.round(Number(protein) || 0)),
-        carbs: Math.max(0, Math.round(Number(carbs) || 0)),
-        fat: Math.max(0, Math.round(Number(fat) || 0)),
+        calories: finalCalories,
+        protein: finalProtein,
+        carbs: finalCarbs,
+        fat: finalFat,
+        mealSlot: targetMealSlot,
+        quantity: safeQty,
+        unit: resolvedUnit,
+        ingredientId: matchedId || undefined,
+        unitWeightGrams: matchedIng ? resolveUnitWeightGrams(matchedIng.id, matchedIng) : undefined,
+        perUnitMacros,
       };
 
       const logs = getDailyTrackerLogs(accId);

@@ -1,6 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
+import fs from "fs";
+import path from "path";
 import "./globals.css";
+
+const appleTouchIconBase64 = fs
+  .readFileSync(path.join(process.cwd(), "public", "apple-touch-icon.png"))
+  .toString("base64");
+const APPLE_TOUCH_ICON_DATA_URI = `data:image/png;base64,${appleTouchIconBase64}`;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,9 +50,6 @@ export const metadata: Metadata = {
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
     ],
-    apple: [
-      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
-    ],
   },
   manifest: "/manifest.json",
 };
@@ -59,8 +63,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <head>
         <meta charSet="utf-8" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon-precomposed.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href={APPLE_TOUCH_ICON_DATA_URI} />
+        <link rel="apple-touch-icon-precomposed" sizes="180x180" href={APPLE_TOUCH_ICON_DATA_URI} />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
